@@ -4027,7 +4027,7 @@ await open('#gods-paused');
 await open('#procession-paused');
 {
   const p53 = await zeus(() => window.__zeus.gods());
-  if (!(p53.festivals.some((f) => f.god === 'demeter' && f.walking) && p53.processions >= 8)) fail(`#procession: Demeter's procession: ${JSON.stringify(p53)}`);
+  if (!(p53.festivals.some((f) => f.god === 'demeter' && f.walking) && p53.processions === 1)) fail(`#procession: Demeter's procession: ${JSON.stringify(p53)}`);
   const s53 = await zeus(() => window.__zeus.building());
   if (!(s53.open && /Demeter[\s\S]*festival/i.test(s53.text))) fail(`#procession: the shrine's panel: ${JSON.stringify(s53).slice(0, 900)}`);
   await zeus(() => window.__zeus.skip(100));

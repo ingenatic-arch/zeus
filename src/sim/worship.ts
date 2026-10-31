@@ -42,7 +42,7 @@
 import type { CoastMap } from '../map/bake';
 import { datan2 } from '../map/dmath';
 import { DISTRICTS, districtAt } from '../map/districts';
-import { capacity, centreOf, findBuilding, HUT, livedIn } from './buildings';
+import { BUILDING_NAMES, capacity, centreOf, findBuilding, HUT, livedIn } from './buildings';
 import { dateOfTick, MONTH_NAMES, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { ARMOUR, COPPER, FLEECE, held, HORSES, OIL, setHeld, tableUntil, WARE_NAMES, WHEAT, WINE, type Ware } from './foods';
 import { quarantined } from './health';
@@ -269,11 +269,28 @@ export const festivalOf = (s: SimState, god: GodId): Festival | undefined => s.g
 /** Is the god's procession walking now (their festival under way)? */
 export const festivalUnderWay = (s: SimState, god: GodId): boolean => (festivalOf(s, god)?.walker ?? 0) > 0;
 
-/** "the shrine by the bay". */
-export function shrineWords(map: CoastMap, b: Building): string {
+/** What a shrine is told apart by: the nearest of these within a few tiles. */
+const LANDMARKS = new Set<Building['kind']>(['agora', 'theatre', 'farm', 'granary', 'trading', 'vineyard', 'winery', 'storehouse', 'grove', 'press', 'court', 'infirmary', 'barracks', 'shipyard', 'quarry', 'mine', 'dairy', 'lodge', 'pasture', 'yard']);
+const LANDMARK_REACH = 7;
+
+/** "the shrine by the bay", and with the city (`s`) the nearest landmark too: "the shrine by the bay, by the trading post". */
+export function shrineWords(map: CoastMap, b: Building, s?: SimState): string {
   const [x, z] = centreOf(b);
   const w = DISTRICTS[districtAt(map, x, z)]?.where;
-  return w ? `the shrine ${w}` : 'the shrine';
+  let near = '';
+  if (s) {
+    let best = LANDMARK_REACH;
+    for (const o of s.buildings) {
+      if (!LANDMARKS.has(o.kind)) continue;
+      const [ox, oz] = centreOf(o);
+      const d = dhypot(ox - x, oz - z);
+      if (d < best) {
+        best = d;
+        near = (BUILDING_NAMES as Record<string, string>)[o.kind].replace(/^(an?|the) /i, 'the ').toLowerCase();
+      }
+    }
+  }
+  return `${w ? `the shrine ${w}` : 'the shrine'}${near ? `${w ? ',' : ''} by ${near}` : ''}`;
 }
 
 const dayWords = (tick: number): string => {
@@ -298,7 +315,7 @@ export function festivalRefusal(s: SimState, map: CoastMap, id: number): string 
   const f = festivalOf(s, god);
   if (f) return f.walker ? `${G.name}’s festival is under way` : `A festival to ${G.name} is announced for ${dayWords(f.day)}`;
   const next = nextFestival(s, god);
-  if (next) return `${G.name} had a festival on ${dayWords(festivalHeld(s, god))}: one a year (the next from ${dayWords(next)})`;
+  if (next) return `${G.name} had a festival on ${dayWords(festivalHeld(s, god))}: one a year (the next from ${dayWords(next)}${dateOfTick(next).yearBC !== dateOfTick(s.tick).yearBC ? ' next year' : ''})`;
   if (roadsBeside(s, map.size, b).length === 0) return 'No road leads from the shrine for the procession';
   const can = spendable(s);
   if (can < FESTIVAL_COST) return `A festival costs ${FESTIVAL_COST} dr, and the treasury can spare ${Math.max(0, Math.floor(can))}`;
@@ -325,7 +342,7 @@ export function holdFestival(s: SimState, map: CoastMap, id: number): void {
     kind: 'gods',
     u: NEWS,
     title: `A festival to ${G.name} is announced`,
-    words: `A festival to ${G.name}, ${G.epithet}, is announced at ${shrineWords(map, b)}, for ${dayWords(f.day)}: ${herOf(god)} procession will walk round the agora, and the homes it passes will be glad for a season. It cost ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, n)}.`,
+    words: `A festival to ${G.name}, ${G.epithet}, is announced at ${shrineWords(map, b, s)}, for ${dayWords(f.day)}: ${herOf(god)} procession will walk round the agora, and the homes it passes will be glad for a season. It cost ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, n)}.`,
     at: { building: b.id },
   });
 }
@@ -409,7 +426,7 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
   const way = b ? processionWay(s, map.size, b) : null;
   if (!b || !way || way.length < 2) {
     s.gods.festivals.splice(s.gods.festivals.indexOf(f), 1);
-    say(s, { kind: 'gods', u: NEWS, title: `${G.name}’s festival`, words: `${G.name}’s festival was held${b ? ` at ${shrineWords(map, b)}` : ''}, but no road led out for a procession. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`, at: b ? { building: b.id } : undefined });
+    say(s, { kind: 'gods', u: NEWS, title: `${G.name}’s festival`, words: `${G.name}’s festival was held${b ? ` at ${shrineWords(map, b, s)}` : ''}, but no road led out for a procession. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`, at: b ? { building: b.id } : undefined });
     return;
   }
   const w = newWalker(s, 'procession', PROCESSION_PEOPLE);
@@ -429,7 +446,7 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
     kind: 'gods',
     u: NEWS,
     title: `${G.name}’s festival begins`,
-    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${shrineWords(map, b)}${s.buildings.some((a) => a.kind === 'agora') ? ' for the agora' : ' through the streets'}. Homes it passes will be glad for a season.`,
+    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${shrineWords(map, b, s)}${s.buildings.some((a) => a.kind === 'agora') ? ' for the agora' : ' through the streets'}. Homes it passes will be glad for a season.`,
     at: { building: b.id },
   });
 }
@@ -571,7 +588,7 @@ export function moveOffering(s: SimState, map: CoastMap, w: Walker): boolean {
     kind: 'gods',
     u: NEWS,
     title: `An offering to ${G.name}`,
-    words: `An offering of ${goodsWords(w.food, w.load)} reached ${b ? `${G.name}’s ${shrineWords(map, b).replace(/^the /, '')}` : `${G.name}`}. ${G.name} is ${moodWord(moodOfGod(s, god))}.`,
+    words: `An offering of ${goodsWords(w.food, w.load)} reached ${b ? `${G.name}’s ${shrineWords(map, b, s).replace(/^the /, '')}` : `${G.name}`}. ${G.name} is ${moodWord(moodOfGod(s, god))}.`,
     at: b ? { building: b.id } : undefined,
   });
   w.load = 0;

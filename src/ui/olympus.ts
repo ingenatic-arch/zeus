@@ -55,7 +55,10 @@ const moodChip = (n: number): string => `<span class="ol-word r${moodRank(n)}">$
 /** A reason as a line: "+5 your shrine to Demeter". */
 const reasonLine = (r: GodReason): string => `<li class="${r.worth > 0 ? 'up' : 'down'}"><b>${signed(r.worth)}</b> ${esc(r.why)}${r.fading ? '<small> · fading</small>' : ''}</li>`;
 
-/** Two years of a god's moods, a bar a month (gold above watchful's middle, red below), and now. */
+/** How far from watchful's middle a month's bar reaches full height (warm is 30, angry -60: most moods sit nearer). */
+const MONTHS_SCALE = 40;
+
+/** Two years of a god's moods, a bar a month (gold above watchful's middle, red below), and now, with watchful's edges dotted. */
 export function moodMonths(s: SimState, god: GodId, w = 240, h = 36): string {
   const list = [...(s.gods.months[god] ?? []), moodOfGod(s, god)];
   const n = MOOD_MONTHS + 1;
@@ -65,11 +68,11 @@ export function moodMonths(s: SimState, god: GodId, w = 240, h = 36): string {
     .slice(-n)
     .map((v, i, all) => {
       const x = (n - all.length + i) * bw;
-      const hh = Math.max(1, (Math.abs(v) / 100) * mid);
+      const hh = Math.max(1.5, Math.min(1, Math.abs(v) / MONTHS_SCALE) * mid);
       return `<rect x="${(x + bw * 0.15).toFixed(1)}" y="${(v >= 0 ? mid - hh : mid).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${hh.toFixed(1)}" class="${v >= 10 ? 'up' : v < -10 ? 'down' : 'even'}${i === all.length - 1 ? ' now' : ''}"><title>${esc(i === all.length - 1 ? `Now: ${moodWord(v)} (${signed(v)})` : `${monthAgo(s, all.length - 1 - i)}: ${moodWord(v)} (${signed(v)})`)}</title></rect>`;
     })
     .join('');
-  return `<svg class="ol-months" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px" role="img" aria-label="${esc(`${GODS[god].name}’s mood, month by month`)}"><path d="M0 ${mid}H${w}" class="axis"/>${bars}</svg>`;
+  return `<svg class="ol-months" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px" role="img" aria-label="${esc(`${GODS[god].name}’s mood, month by month`)}"><path d="M0 ${mid}H${w}" class="axis"/><path d="M0 ${(mid - (10 / MONTHS_SCALE) * mid).toFixed(1)}H${w}M0 ${(mid + (10 / MONTHS_SCALE) * mid).toFixed(1)}H${w}" class="band"/>${bars}</svg>`;
 }
 
 const monthAgo = (s: SimState, k: number): string => {
@@ -174,7 +177,7 @@ function card(s: SimState, god: GodId): string {
   const why = rs.length ? rs.map((r) => `<span class="${r.worth > 0 ? 'up' : 'down'}">${signed(r.worth)} ${esc(r.why)}</span>`).join('') : `<span class="none">${esc(`Nothing of yours noticed yet`)}</span>`;
   const shrines = n ? plural(n, 'shrine', 'shrines') : 'no shrine';
   const fest = f ? (f.walker ? ' · festival under way' : ` · festival on ${dayWords(f.day)}`) : '';
-  return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · no sanctuary yet${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span></button>`;
+  return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · no sanctuary yet${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
 }
 
 /** A god's page. */
@@ -195,10 +198,10 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
     ksec('What they can do', `<p class="ol-lh"><b>In blessing</b> ${esc(G.blessWords)}</p><p class="ol-lh"><b>In wrath</b> ${esc(G.curseWords)}</p><p class="ol-note">The gods don’t act on these yet: their blessings and their wrath are still to come.</p>`, { icon: 'gods' }),
   ].join('');
   const why = rs.length ? `<ul class="ol-why">${rs.map(reasonLine).join('')}</ul>` : `<p class="ol-note">${esc(`${G.name} has noticed nothing of yours yet${noticed(s) ? '' : ': a town of under 300 is beneath the gods’ notice'}.`)}</p>`;
-  const list = shrines.length ? `<ul class="ol-shrines">${shrines.map((b) => `<li><button class="ol-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b)))}</button>${offeringTo(s, b.id) ? '<small> · an offering on its way</small>' : ''}</li>`).join('')}</ul>` : `<p class="ol-note">${esc(`No shrine is dedicated to ${G.name}. Click a shrine to choose its god, or build one (the culture tab, Z).`)}</p>`;
+  const list = shrines.length ? `<ul class="ol-shrines">${shrines.map((b) => `<li><button class="ol-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>${offeringTo(s, b.id) ? '<small> · an offering on its way</small>' : ''}</li>`).join('')}</ul>` : `<p class="ol-note">${esc(`No shrine is dedicated to ${G.name}. Click a shrine to choose its god, or build one (V).`)}</p>`;
   const right = [
     ksec(`Why ${they} is ${moodWord(m)}`, why, { icon: 'reach', aside: `<b class="ol-sum">${signed(m)}</b>` }),
-    ksec('Two years', `${moodMonths(s, god, 420, 46)}<p class="ol-note">${esc(`Month by month: gold for pleased and better, red for displeased and worse.`)}</p>`, { icon: 'overview' }),
+    ksec('Two years', `${moodMonths(s, god, 420, 64)}<p class="ol-note">${esc(`Month by month, at the start of each, and now: gold for pleased and better, red for displeased and worse; the dotted lines are watchful’s edges.`)}</p>`, { icon: 'overview' }),
     ksec('Worship', `${list}<p class="ol-note">${esc(`${festivalWords(s, god)} No sanctuary yet.`)}</p>${worshipButtons(s, map, shrineFor(s, god), god)}`, { icon: 'gods' }),
   ].join('');
   return `<div class="ol-page"><div class="ol-back">${kbtn({ act: 'all', icon: 'go', html: '‹ The twelve', small: true, tone: 'stone' })}</div><div class="ol-cols"><div>${left}</div><div>${right}</div></div></div>`;
@@ -319,8 +322,8 @@ export function godsPage(s: SimState, map: CoastMap): string {
     const m = moodOfGod(s, god);
     const rs = reasonsOf(s, god).slice(0, 2);
     const shrines = shrinesTo(s, god);
-    const links = shrines.length ? shrines.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b)))}</button>`).join('') : '<span class="ov-note">no shrine</span>';
-    return `<li class="ol-ovrow" style="--gc:${godColour(god)}"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-ovnm"><b>${esc(G.name)}</b>${moodChip(m)}<small>${esc(rs.map((r) => `${signed(r.worth)} ${r.why}`).join('; ') || 'nothing noticed yet')}</small></span>${moodMonths(s, god, 300, 40)}<span class="ol-ovsh">${links}</span></li>`;
+    const links = shrines.length ? shrines.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>`).join('') : '<span class="ov-note">no shrine</span>';
+    return `<li class="ol-ovrow" style="--gc:${godColour(god)}"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-ovnm"><b>${esc(G.name)}</b>${moodChip(m)}<small>${esc(rs.map((r) => `${signed(r.worth)} ${r.why}`).join('; ') || 'nothing noticed yet')}</small></span>${moodMonths(s, god, 300, 44)}<span class="ol-ovsh">${links}</span></li>`;
   }).join('');
   const kept = Math.min(MOOD_MONTHS, s.gods.months.zeus?.length ?? 0);
   const lead = `The twelve’s moods towards your city, and how they have moved${kept ? ` over the last ${kept === 1 ? 'month' : `${kept} months`}` : ' (kept from the first month the gods watch)'}: gold bars for pleased and better, red for displeased and worse. The Olympus panel (G) has every reason.`;

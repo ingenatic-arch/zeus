@@ -302,6 +302,27 @@ function priestess(): THREE.BufferGeometry {
 }
 
 /**
+ * Slice 53: one of a festival's procession: the priestess's figure robed,
+ * mantled and veiled all in one colour (the tinted part), the god's or white
+ * by turns, her bowl and its flame before her.
+ */
+function marcher(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.05, 0.1, 0.32, 7).translate(0, 0.16, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.066, 0.09, 0.2, 7, 1, true, Math.PI * 0.55, Math.PI * 0.9).translate(0, 0.22, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.064, 0.058, 0.05, 7).translate(0, 0.31, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, 0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.14, 4).rotateZ(-1.2).translate(0.06, 0.27, -0.05), color: PAL.skin },
+    { geo: new THREE.CylinderGeometry(0.065, 0.03, 0.03, 7).translate(0.13, 0.3, 0), color: PAL.offeringBowl },
+    { geo: new THREE.ConeGeometry(0.026, 0.07, 4).translate(0.13, 0.35, 0), color: PAL.flame },
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.36, 0), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.064, 0).scale(1, 0.85, 1).translate(-0.016, 0.38, 0), color: '', tint: true },
+    { geo: new THREE.CylinderGeometry(0.05, 0.068, 0.08, 6).translate(-0.022, 0.32, 0), color: '', tint: true },
+  ];
+  return mergeTinted(parts);
+}
+
+/**
  * The actor: a man in a rose tunic (the tinted part) and a short saffron
  * cloak, wearing a big pale comic mask with a wide grin, one arm flung up as
  * if mid-speech and a scroll of the plays in the other hand.
@@ -1001,6 +1022,8 @@ export class Walkers {
   private readonly carriers: Look;
   private readonly vendors: Look;
   private readonly priestesses: Look;
+  // Slice 53: a festival's procession.
+  private readonly marchers: Look;
   private readonly actors: Look;
   /** Tax collectors: [a light satchel, a full one]. */
   private readonly collectors: [Look, Look];
@@ -1088,6 +1111,9 @@ export class Walkers {
     // every walker's cost to theirs; see MergedLooks' tiers in looks.ts.)
     this.bearers = [big(bearers(false)), big(bearers(true))];
     this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
+    // Slice 53
+    this.marchers = small(marcher());
+    this.all.push(this.marchers);
   }
 
   get count(): number {
@@ -1308,7 +1334,7 @@ export class Walkers {
           if (god && k % 2 === 0) this.c.setHex(GODS[god].colour);
           else this.c.copy(robe);
           if (!moving) this.c.multiplyScalar(-1);
-          this.priestesses.push(this.m, this.c);
+          this.marchers.push(this.m, this.c);
           if (k === 0) {
             const v = this.serviceAt.get(w.id);
             if (v) v.pos.copy(this.p);
