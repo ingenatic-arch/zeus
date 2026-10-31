@@ -42,9 +42,11 @@ import { blockaded } from '../sim/lanes';
 import { sitePageHtml } from './colonies';
 import { siteLaneId, siteOf } from '../map/greece';
 import { cityOf, COLD, HOSTILE, MOOD_WORDS, moodOf, moodReasons, moodWord, NAME_MAX, nameRefusal, priceAfter, termsOf, TRAIT_WORDS, tyreShip, WARM, whoseName, yourPrice, type MoodWord } from '../sim/world';
+// Slice 58: the gods of Greece (patrons' marks, a city's god on its page, Olympus).
+import { olympusCardHtml, olympusPageHtml, patronHoverLine, patronKicker, patronMark, patronSection } from './greecegods';
 
 /** (Slice 37) What a page on the map is of: a city, or a site ('site:thasos'). */
-export type PageId = CityId | `site:${string}`;
+export type PageId = CityId | `site:${string}` | 'olympus';
 
 /** The tabs of a ruled city's page. */
 export type CityTab = 'ruler' | 'prices' | 'trade' | 'loans' | 'rivals' | 'empire';
@@ -151,7 +153,7 @@ export function labelHtml(s: SimState, id: CityId): string {
   const d = open.find((x) => x.kind === 'threat') ?? open[0];
   // (Slice 31: its people to the hundred, with an arrow while it grows or shrinks; a vassal's lord's colour beside its name.)
   const lord = c.lord ? `<i class="lord" style="background:${PLACES[c.lord]?.colour ?? '#888'}" title="${esc(cap(lordWords(c)))}"></i>` : allyOf(s, id) ? `<i class="lord ally" style="--c:${PLACES.home.colour}" title="Your ally"></i>` : '';
-  return `${lord}<b>${esc(name)}</b><span class="sz">${peopleShort(c)}${trendHtml(trendOf(c, 'pop'))}</span>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
+  return `${lord}<b>${esc(name)}</b>${patronMark(id) /* Slice 58 */}<span class="sz">${peopleShort(c)}${trendHtml(trendOf(c, 'pop'))}</span>${moodFace(moodWord(moodOf(c, s.tick)), 15)}${labelIcons(s, id)}${d ? dealIcon(d) : ''}`;
 }
 
 /** The little scroll on a city's label while a request or offer waits on you; a red seal for tribute. */
@@ -198,6 +200,8 @@ function tradesWords(r: TradeRoute): string {
 
 /** The card over a route's trader on the map ('corinth-sea', 'corinth-land-0'): who, coming or going, when, and what for. */
 function travellerHtml(s: SimState, key: string): string {
+  // (Slice 58: Mount Olympus.)
+  if (key === 'olympus') return olympusCardHtml(s);
   if (key.startsWith('gift-')) return giftCard(s, Number(key.slice(5)));
   if (key.startsWith('raid-')) return bandCard(s, Number(key.slice(5).replace('-camp', '')));
   // An army or fleet ('war-3-sparta'), the crossed swords where they meet ('war-3'), a city's fields ('fields-sparta').
@@ -354,6 +358,8 @@ function aidCard(s: SimState, id: number): string {
 /** Which city a thing on the map belongs to (a trader's or a gift's), for the page a click opens. */
 export function cityOfTraveller(s: SimState, key: string): PageId | null {
   if (key.startsWith('exp-')) return s.world.expeditions.find((x) => x.id === Number(key.split('-')[1]))?.city ?? null;
+  // (Slice 58: Mount Olympus.)
+  if (key === 'olympus') return 'olympus';
   // (Slice 47.)
   const colonial = colonyTravellerPage(s, key);
   if (colonial) return colonial as PageId;
@@ -405,7 +411,7 @@ export function hoverHtml(s: SimState, hit: CityId | 'ship' | `trav:${string}`):
   const deals = liveDeals(s.world, id)
     .map((d) => `<span class="deal">${dealIcon(d)} ${esc(dealShort(s, d))}</span>`)
     .join('');
-  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span><span>${fmt(c.pop)} people${trendHtml(trendOf(c, 'pop'))} · ${esc(wealthWord(c))} · ${menWords(c.army)}${c.lord ? ` · ${esc(lordWords(c))}` : ''}</span>${deals}<span class="sub">Click to meet them</span></div>`;
+  return `${portrait(c.ruler, PLACES[id].colour, w, 64)}<div><b>${esc(PLACES[id].name)}</b><span>${esc(c.ruler.title.replace(/ of .*/, ''))} ${esc(c.ruler.name)} · ${c.ruler.traits.join(', ')}</span><span class="mood">${moodFace(w, 16)} ${cap(w)} towards you (${signed(m)})</span><span>${fmt(c.pop)} people${trendHtml(trendOf(c, 'pop'))} · ${esc(wealthWord(c))} · ${menWords(c.army)}${c.lord ? ` · ${esc(lordWords(c))}` : ''}</span>${patronHoverLine(s, id) /* Slice 58 */}${deals}<span class="sub">Click to meet them</span></div>`;
 }
 
 const goodRow = (k: number, price: string, title: string): string =>
@@ -740,6 +746,8 @@ export const giftKey = (g: Gift): string => `gift-${g.id}`;
 /** A city's panel. `renaming` shows your city's name as a text box; a ruled city's page opens on `tab`. */
 export function panelHtml(s: SimState, page: PageId, renaming: boolean, nameDraft: string, tab: CityTab = 'ruler', map?: CoastMap): string {
   if (page.startsWith('site:')) return sitePageHtml(s, page.slice(5), map, renaming, nameDraft);
+  // (Slice 58: Olympus's page.)
+  if (page === 'olympus') return olympusPageHtml(s);
   const id = page as CityId;
   const c = cityOf(s.world, id);
   const place = PLACES[id];
@@ -778,9 +786,10 @@ ${empireOverviewHtml(s) /* Slice 47 */}<section><h3>In your stores</h3><ul class
   const pane = (k: CityTab, html: string): string => `<div class="pane" data-pane="${k}"${k === tab ? '' : ' hidden'}>${html}</div>`;
   return `<header class="ruler"><div class="kicker">${esc(place.name)} · ${esc(place.blurb)}</div>
 <div class="who">${portrait(r, place.colour, w, 104)}<div><h2>${esc(r.name)}</h2><div class="from">${esc(r.title)}</div><ul class="traits">${traits}</ul></div></div>
-<div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div>${statusHtml(s, id)}</header>
+${patronKicker(id) /* Slice 58 */}<div class="moodline">${moodFace(w, 30)}<div><div class="word">${cap(w)} <span class="num">${signed(m)}</span></div><p class="terms" title="${esc(termsMeaning(s, id))}">${esc(termsLine(s, id))}</p></div></div>${statusHtml(s, id)}</header>
 <nav class="citytabs">${tabs}</nav>
 ${pane('ruler', `${dealsHtml(s, id, map)}${laneHtml(s, id)}<section class="feel"><h3>How ${r.female ? 'she' : 'he'} feels about you</h3><ul class="whys">${reasons || '<li>Nothing either way yet</li>'}</ul></section>
+${patronSection(s, id) /* Slice 58 */}
 ${meansHtml(s, id)}
 ${giftsHtml(s, id, map)}${s.army.companies.length && !s.world.loans.some((l) => l.city === id && l.side === 'out' && l.state === 'overdue') ? `<details class="nocause"><summary>Send your soldiers against ${esc(place.name)}</summary>${soldiersHtml(s, id, false)}</details>` : ''}`)}
 ${pane('prices', pricesBlock(s, id, false))}

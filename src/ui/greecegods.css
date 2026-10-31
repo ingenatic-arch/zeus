@@ -1,0 +1,67 @@
+/* Slice 58: the gods of Greece on the map of Greece. */
+
+/* A patron's mark beside a city's name on its label. */
+.glabel .patron { display: inline-flex; flex: none; margin-left: 1px; }
+.glabel .patron svg { width: 15px; height: 15px; filter: drop-shadow(0 0 1px rgba(255, 250, 235, 0.9)); }
+
+/* Olympus's label: gold-edged, a little peak before its name. */
+.glabel.olympus { font-size: 13px; padding: 1px 8px 1px 5px; background: linear-gradient(180deg, rgba(255, 250, 236, 0.95), rgba(244, 230, 196, 0.92)); border-width: 1.5px; letter-spacing: 0.05em; }
+.glabel.olympus .gg-peak { width: 19px; height: 13px; flex: none; }
+.glabel.olympus .gg-n { font-variant: normal; font-size: 11.5px; letter-spacing: 0; padding: 0 4px; border-radius: 6px; }
+.glabel.olympus .gg-n.up { color: #4f6a1e; background: rgba(156, 176, 90, 0.22); }
+.glabel.olympus .gg-n.down { color: #8c2f26; background: rgba(198, 61, 36, 0.14); }
+
+/* A city's patron in its hover card. */
+.greece-card .gg-hl { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-soft); }
+.greece-card .gg-hl svg { width: 15px; height: 15px; flex: none; }
+
+/* The line under a ruled city's name on its page. */
+.greece-panel .gg-watch { display: flex; align-items: center; gap: 5px; margin: 2px 0 4px; font-size: 12.5px; font-style: italic; color: var(--ink-soft); }
+.greece-panel .gg-watch svg { width: 17px; height: 17px; flex: none; }
+
+/* A festival's god on its chip. */
+.gg-feast { display: inline-flex; vertical-align: -3px; margin-right: 3px; }
+.gg-feast svg { width: 15px; height: 15px; }
+
+/* A mood's word and number. */
+.gg-word { font-variant: small-caps; letter-spacing: 0.04em; font-size: 14px; white-space: nowrap; }
+.gg-word em { font-style: normal; font-variant: normal; font-size: 12px; letter-spacing: 0; color: var(--ink-soft); margin-left: 2px; }
+.gg-word.r0, .gg-word.r1 { color: #8c2f26; }
+.gg-word.r2 { color: #a0522d; }
+.gg-word.r4, .gg-word.r5, .gg-word.r6 { color: #4f6a1e; }
+.k-bar.gg-bar { height: 7px; margin-top: 3px; }
+
+/* The reasons a god remembers. */
+.gg-whys { list-style: none; margin: 5px 0 0; padding: 0; font-size: 12.5px; line-height: 1.3; }
+.gg-whys li { margin: 2px 0; padding-left: 34px; text-indent: -34px; }
+.gg-whys li b { display: inline-block; width: 30px; text-indent: 0; text-align: right; margin-right: 4px; font-weight: normal; font-variant-numeric: tabular-nums; }
+.gg-whys li.up b { color: #4f6a1e; }
+.gg-whys li.down b { color: #8c2f26; }
+.gg-whys li small { color: var(--ink-soft); font-style: italic; }
+.gg-none { margin: 4px 0 0; font-size: 12.5px; font-style: italic; color: var(--ink-soft); }
+
+/* A city's god on its page. */
+.greece-panel section.gg-patron { margin-top: 10px; padding: 7px 9px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.4); border: 1.2px solid var(--edge); border-left: 4px solid var(--god); }
+.greece-panel section.gg-patron h3 { margin: 0 0 4px; }
+.gg-patron .gg-row { display: flex; gap: 9px; align-items: flex-start; }
+.gg-patron .gg-em svg { width: 34px; height: 34px; }
+.gg-patron .gg-row > div { flex: 1; }
+.gg-patron .gg-who { margin: 0; font-size: 13px; line-height: 1.3; }
+.gg-patron .gg-who b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
+.gg-patron .gg-mood { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.gg-patron .gg-pious { margin: 6px 0 0; font-size: 12.5px; }
+.gg-patron .gg-foot { margin: 6px 0 0; font-size: 12px; font-style: italic; color: var(--ink-soft); }
+
+/* The Olympus page. */
+.greece-panel header.gg-olympus h2 { margin: 2px 0 2px; }
+.greece-panel .gg-intro { margin: 6px 0 4px; font-size: 12.5px; line-height: 1.35; color: var(--ink-soft); }
+.gg-cards .k-card.gg-card { margin: 5px 0; padding: 5px 8px 6px; border-left: 5px solid var(--god); border-image: none; border-top: 1px solid rgba(120, 90, 50, 0.35); border-right: 1px solid rgba(120, 90, 50, 0.35); border-bottom: 1px solid rgba(120, 90, 50, 0.35); border-radius: 4px; }
+.gg-card .gg-ch { display: flex; gap: 8px; align-items: center; }
+.gg-card .gg-em svg { width: 30px; height: 30px; display: block; }
+.gg-card .gg-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.gg-card .gg-name b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
+.gg-card .gg-name small { font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gg-card .gg-name small.gg-w { font-style: italic; }
+.gg-card .gg-mood { flex: none; width: 108px; text-align: right; }
+.gg-card .gg-whys { margin-top: 4px; font-size: 12px; }
+.gg-card.quiet { opacity: 0.86; }

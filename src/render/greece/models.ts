@@ -612,3 +612,39 @@ export function closedWay(line: number[], kind: 'land' | 'sea', heightAt: (x: nu
   ms.forEach((x, i) => mesh.setMatrixAt(i, x));
   return mesh;
 }
+
+/**
+ * (Slice 58) Mount Olympus, standing over Thessaly: a snowy peak of a few
+ * craggy cones, the twelve's little temple gleaming gold on the summit, and a
+ * ring of cloud about its shoulders. Its own height above the relief (the
+ * relief's own hills there are low).
+ */
+export function olympusModel(): THREE.BufferGeometry {
+  const p: Part[] = [];
+  const ROCKS = ['#7d7468', '#6c6358', '#8a8072'];
+  const SNOW = '#f8f6ef';
+  // The massif: a wide grey base and five peaks along a ridge, the middle one highest.
+  p.push({ geo: lumpy(new THREE.ConeGeometry(3.5, 1.8, 10, 2).scale(1.05, 1, 0.85).translate(0, 0.9, 0), 0.22, 3), color: ROCKS[0] });
+  const peaks: Array<[number, number, number, number]> = [
+    [0, 0, 1.6, 4.4],
+    [-1.55, 0.35, 1.25, 3.3],
+    [1.5, -0.3, 1.2, 3.1],
+    [-2.75, 0.75, 0.95, 2.3],
+    [2.7, -0.5, 0.95, 2.2],
+  ];
+  peaks.forEach(([x, z, r, h], i) => {
+    p.push({ geo: lumpy(new THREE.ConeGeometry(r, h, 7, 2).translate(x, h / 2, z), 0.12, 11 + i), color: ROCKS[(i + 1) % 3] });
+    // The snow on its upper part, streaking down a little.
+    p.push({ geo: lumpy(new THREE.ConeGeometry(r * 0.5, h * 0.45, 7, 1).translate(x, h - h * 0.225 + 0.01, z), 0.05, 21 + i), color: SNOW });
+  });
+  // The gods' house on the summit: a little gold temple.
+  p.push({ geo: box(0.4, 0.06, 0.28, 0, 4.3, 0), color: '#e8c04a' });
+  p.push({ geo: box(0.34, 0.18, 0.22, 0, 4.36, 0), color: '#fbe9a0' });
+  p.push({ geo: prism(0.38, 0.13, 0.12).translate(0, 4.54, 0), color: '#d9a62e' });
+  // A few wisps of cloud drifting on its south-east shoulder.
+  for (let i = 0; i < 4; i++) {
+    const s = 0.34 + hash2(i, 5, 58) * 0.18;
+    p.push({ geo: new THREE.IcosahedronGeometry(s, 1).scale(2.2, 0.45, 1).translate(0.9 + i * 0.55, 2.0 + hash2(i, 7, 58) * 0.5, 1.15 + (i % 2) * 0.35), color: '#fbfaf5' });
+  }
+  return merge(p);
+}

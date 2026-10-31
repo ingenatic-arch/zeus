@@ -46,6 +46,10 @@ import { seaWayTo, SITE_LANES, siteLaneId, siteOf } from '../../map/greece';
 import { CameraRig, type CameraView, type RigLimits } from '../cameraRig';
 import { armyBody, armyModel, BODY, bandModel, caravanModel, cityModel, closedWay, festivalModel, fieldsModel, fleetModel, puffGeometry, shipModel, siteModel, swordsModel, tableModel, wayMarks, type SiteGrowth } from './models';
 import { buildRelief, reliefMesh, type Relief } from './relief';
+// Slice 58: Mount Olympus on the map, its label, and the festivals' banners in their gods' colours.
+import { olympusModel } from './models';
+import { olympusLabelHtml } from '../../ui/greecegods';
+import { GODS } from '../../sim/pantheon';
 // Slice 50: the panels' kit (its tips; the page in its dress).
 import { kitHtml } from '../../ui/kit';
 
@@ -67,6 +71,9 @@ const GROW_LEAST = 0.75;
 const GROW_MOST = 1.4;
 /** A site's piece, a little larger than life as the towns are. */
 const SITE_SCALE = 1.6;
+/** (Slice 58) Mount Olympus: where it stands (lon, lat; a little west of the true summit, so its foot keeps off the coarse coast) and how large. */
+const OLYMPUS: [number, number] = [22.15, 40.1];
+const OLYMPUS_SCALE = 1.8;
 /** How far from the pointer (screen pixels) a moving piece's body answers it. */
 const BODY_REACH = 13;
 /** Smoke puffs over each festival's altar. */
@@ -146,6 +153,10 @@ export class GreeceMap {
   private barRect: Array<[number, number, number]> | null = null;
   private siteSize = new Map<string, [number, number]>();
   private armyTag!: HTMLElement;
+  /** (Slice 58) Mount Olympus, its label, and the label's size. */
+  private olympus!: THREE.Mesh;
+  private olympusTag!: HTMLElement;
+  private olympusSize: [number, number] | null = null;
   private pointer = { x: -1, y: -1 };
   private state: SimState | null = null;
   private readonly v = new THREE.Vector3();
@@ -197,6 +208,17 @@ export class GreeceMap {
       this.sites.set(site.id, { mesh: m, look: '' });
     }
     this.home = home as THREE.Mesh;
+    // (Slice 58) Mount Olympus, over Thessaly, standing on the relief's own ground there.
+    {
+      const m = new THREE.Mesh(olympusModel(), mat);
+      const [x, z] = project(OLYMPUS[0], OLYMPUS[1]);
+      m.position.set(x, this.relief.heightAt(x, z), z);
+      m.scale.setScalar(OLYMPUS_SCALE);
+      m.castShadow = true;
+      m.name = 'greece-olympus';
+      scene.add(m);
+      this.olympus = m;
+    }
     // Each ruled city's fields, beside it on its plain: the flattest dry ground a little way out, in front of it as the map is first seen (its label stands behind it).
     RULED.forEach((id, i) => {
       const [cx, cz] = this.at(id);
@@ -278,6 +300,12 @@ export class GreeceMap {
     tag.style.display = 'none';
     layer.appendChild(tag);
     this.armyTag = tag;
+    // (Slice 58) Olympus's label: before the cities' labels, so theirs stand over it where they meet.
+    const olympus = document.createElement('div');
+    olympus.className = 'glabel olympus';
+    olympus.style.setProperty('--c', '#d9a62e');
+    layer.prepend(olympus);
+    this.olympusTag = olympus;
     const card = document.createElement('div');
     card.className = 'greece-card';
     card.hidden = true;
@@ -476,6 +504,11 @@ export class GreeceMap {
       // (A little round the label, and its stem down to the city.)
       if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return id;
     }
+    // (Slice 58) Olympus's label.
+    if (this.olympusTag.style.display !== 'none') {
+      const b = this.olympusTag.getBoundingClientRect();
+      if (sx >= b.left - 3 && sx <= b.right + 3 && sy >= b.top - 3 && sy <= b.bottom + 7) return 'trav:olympus';
+    }
     // (Slice 31) A site's label, or its piece.
     for (const [id, el] of this.siteLabels) {
       if (el.style.display === 'none') continue;
@@ -514,6 +547,8 @@ export class GreeceMap {
     }
     if (this.ship.visible) test('ship', this.ship.position.x, 0.6, this.ship.position.z, 0.8);
     for (const [id, x] of this.sites) test(`trav:site-${id}`, x.mesh.position.x, x.mesh.position.y + 0.4, x.mesh.position.z, 0.6);
+    // (Slice 58) The mountain itself, a little way up its slopes.
+    test('trav:olympus', this.olympus.position.x, this.olympus.position.y + 2 * OLYMPUS_SCALE, this.olympus.position.z, 1.6);
     return best;
   }
 
@@ -675,12 +710,39 @@ export class GreeceMap {
       this.drawSizes(s);
     }
     this.drawSites(s, r, refresh, under);
+    this.drawOlympus(s, r, refresh);
     this.drawArmyTag(s, r, refresh);
     if (time - this.panelAt > 0.5) {
       this.panelAt = time;
       this.redraw();
       if (this.hovered) this.drawCard();
     }
+  }
+
+  /** (Slice 58) Olympus's label over its summit: "Olympus", with how many gods love you and how many are angry. */
+  private drawOlympus(s: SimState, r: DOMRect, refresh: boolean): void {
+    const el = this.olympusTag;
+    const m = this.olympus;
+    this.v.set(m.position.x, m.position.y + 5.3 * OLYMPUS_SCALE, m.position.z).project(this.camera);
+    const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
+    el.style.display = off ? 'none' : '';
+    if (off) return;
+    const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+    let ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+    if (refresh || !this.olympusSize) {
+      morph(el, olympusLabelHtml(s));
+      this.olympusSize = [el.offsetWidth, el.offsetHeight];
+    }
+    const [lw, lh] = this.olympusSize;
+    // (Like a site's, under the top bar or the lines under it, it hangs below the mountain.)
+    const below = (this.barRect ?? []).some(([barL, barR, barB]) => ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR);
+    if (below) {
+      this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
+      ly = clearOf(this.barRect ?? [], lx, lw, lh, r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh);
+    }
+    el.classList.toggle('below', below);
+    el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
+    el.classList.toggle('hot', this.hovered === 'trav:olympus' || (this.shown as string | null) === 'olympus');
   }
 
   /** (Slice 31) The tag over your army while it is out on the map (by road or by sea), with its men. */
@@ -1183,7 +1245,8 @@ export class GreeceMap {
       const k = SCALE[f.city];
       const y0 = this.relief.heightAt(x, z);
       if (!fe) {
-        const banners = new THREE.Mesh(festivalModel(PLACES[f.city].colour, PLACES[f.city].trim, 1.45), this.mat);
+        // (Slice 58: in the colour of the god it is held for, with the city's trim.)
+        const banners = new THREE.Mesh(festivalModel(`#${GODS[f.god].colour.toString(16).padStart(6, '0')}`, PLACES[f.city].trim, 1.45), this.mat);
         banners.position.set(x, y0, z);
         banners.scale.setScalar(k);
         banners.castShadow = true;
