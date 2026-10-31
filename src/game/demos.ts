@@ -107,8 +107,22 @@ import type { BuildKind } from '../sim/commands';
 import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
 import { FOUND_WHEAT } from '../sim/colonies';
 import { REFUSE } from '../sim/stores';
-// Slice 53
-import { GODS, honour, type GodId } from '../sim/pantheon';
+// Slice 55
+import { lairSpot, sendMonster, STIR, type Beast } from '../sim/monsters';
+import { MONSTER_IDS, type MonsterId } from '../sim/pantheon';
+import { centreOf } from '../sim/buildings';
+import { walkable } from '../sim/wild';
+// Slice 56
+import { GOD_IDS, honour } from '../sim/pantheon';
+// Slice 54: sanctuaries.
+import { SANCTUARY_COST } from '../sim/build';
+import { needOf, siteMaterials, stagesOf, workOf, type Site } from '../sim/monuments';
+import { type GodId } from '../sim/pantheon';
+import { sanctuaryOf } from '../sim/sanctuaries';
+import { income } from '../sim/treasury';
+import { TILE_ROAD } from '../sim/state';
+// Slice 53 (honour and GodId come in above)
+import { GODS } from '../sim/pantheon';
 import { HORSES } from '../sim/foods';
 import { festivalGoods, festivalUnderWay } from '../sim/worship';
 
@@ -2771,6 +2785,199 @@ const MONUMENT_TOWN = monumentTown('monument');
 const LIT_TOWN = monumentTown('lit');
 
 // ---------------------------------------------------------------------------
+// Slice 54: sanctuaries.
+
+/**
+ * #sanctuaries: #quarry's town (the headland's quarry, the storehouse by the
+ * bay road) with four sanctuaries east of its vineyards, beside the roads
+ * there: Athena's finished and staffed, her priests out; Poseidon's with its
+ * statue going up in its scaffold; Apollo's with its temple's columns rising;
+ * Demeter's just marked out, the ox carts bringing its marble. Three masons'
+ * yards and an armoury (for the bronze) are built for them, and the
+ * materials for the stages each is to reach are put on its site (set up for
+ * this demo, noted in the stock book as bought), so it opens in months, not
+ * years; the builders, the carts and the stages are played as they come.
+ * #sanctuary: the same town with only Demeter's marked out, one masons'
+ * yard, and the first ox carts on the road to it with marble.
+ */
+const SANCT_SPOTS: Record<'athena' | 'poseidon' | 'apollo' | 'demeter', number> = { athena: T(109, 66), poseidon: T(97, 69), apollo: T(103, 75), demeter: T(101, 63) };
+/** How long each may play on, at most, to its moment. */
+const SANCT_MOST = 2 * TICKS_PER_YEAR;
+/** #sanctuaries opens with Poseidon's statue about this far through its stage's work. */
+const SANCT_STATUE = 0.5;
+
+/** The nearest spot by a road for a building of this side and kind to a point (the nearest first, ties by row then column), or -1. */
+function spotNear(sim: Sim, kind: BuildKind, side: number, cx: number, cz: number, reach = 16): number {
+  const s = sim.state;
+  const n = sim.map.size;
+  let best = -1;
+  let bd = Infinity;
+  for (let tz = cz - reach; tz <= cz + reach; tz++) {
+    for (let tx = cx - reach; tx <= cx + reach; tx++) {
+      if (tx < 1 || tz < 1 || tx + side >= n || tz + side >= n) continue;
+      const d = Math.abs(tx - cx) + Math.abs(tz - cz);
+      if (d >= bd || buildingRefusal(sim.map, s, kind, tx, tz) !== '') continue;
+      let road = false;
+      for (let k = 0; k < side && !road; k++) road = [(tz - 1) * n + tx + k, (tz + side) * n + tx + k, (tz + k) * n + tx - 1, (tz + k) * n + tx + side].some((t) => s.tiles[t] === TILE_ROAD);
+      if (!road) continue;
+      best = tz * n + tx;
+      bd = d;
+    }
+  }
+  return best;
+}
+
+/** Put on a sanctuary's site what its stages from `from` to `to` (not including) need, noted as bought for the demo. */
+function stockSanctuary(sim: Sim, x: Site, from: number, to: number): void {
+  const s = sim.state;
+  const b = s.buildings.find((g) => g.id === x.id);
+  if (!b) return;
+  for (let k = from; k < to; k++) {
+    const st = stagesOf(x)[k];
+    if (!st) continue;
+    for (const w of siteMaterials(x)) {
+      const n = needOf(st, w);
+      if (n <= 0) continue;
+      setHeld(b, w, held(b, w) + n);
+      note(s, w, 'bought', 'for a sanctuary (set up for this demo)', n);
+    }
+  }
+}
+
+/**
+ * Review of slice 54: #quarry's town cuts marble but has no loggers' camp and
+ * no copper mine, so a site's timber and copper would never come. What the
+ * sites still to rise will want of them is put in the storehouse (set up for
+ * this demo, noted in the stock book as bought), for the ox carts to haul.
+ * The copper is more than the statues need: the armoury's smiths fetch theirs
+ * from the same storehouse.
+ */
+function supplyStorehouse(sim: Sim, timber: number, copper: number): void {
+  const s = sim.state;
+  const g = s.buildings.find((b) => b.kind === 'storehouse');
+  if (!g) return;
+  for (const [w, n] of [[TIMBER, timber], [COPPER, copper]] as const) {
+    if (n <= 0) continue;
+    setHeld(g, w, held(g, w) + n);
+    note(s, w, 'bought', 'for the sanctuaries (set up for this demo)', n);
+  }
+}
+
+function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void {
+  return (sim) => {
+    WORKS_QUARRY_TOWN(sim);
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const rolling = (god: GodId): boolean => {
+      const x = sanctuaryOf(s, god);
+      return !!x && cartsTo(s, x.id).some((k) => k.wait <= 0 && k.load > 0 && k.food === MARBLE);
+    };
+    const yards = which === 'sanctuary' ? 1 : 3;
+    // (The sanctuaries' coin and their yards': a gift for the demo, so it opens without years of saving.)
+    const gods = which === 'sanctuary' ? (['demeter'] as const) : (['athena', 'poseidon', 'apollo', 'demeter'] as const);
+    income(s, gods.length * SANCTUARY_COST + yards * (MASONS_COST + JOBS.masons * WAGE) + COST.armoury + JOBS.armoury * WAGE, 'gifts', 'set up for this demo: the sanctuaries’ coin');
+    if (which === 'sanctuary') {
+      send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+      const at = spotNear(sim, 'masons', 2, 104, 70);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+      // (Review of slice 54: an armoury for the statue's bronze, and the timber and copper the town can't make, so it rises when played on.)
+      const smithy = spotNear(sim, 'armoury', 3, 98, 64);
+      if (smithy >= 0) send({ type: 'build', kind: 'armoury', at: [smithy] });
+      playOn(2 * TICKS_PER_MONTH, () => rolling('demeter'));
+      supplyStorehouse(sim, 240, 400);
+      return;
+    }
+    for (const god of ['athena', 'poseidon', 'apollo'] as const) send({ type: 'sanctuary', god, at: [SANCT_SPOTS[god]] });
+    for (const [cx, cz] of [[104, 70], [100, 74], [108, 72]]) {
+      const at = spotNear(sim, 'masons', 2, cx, cz);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+    }
+    const forge = spotNear(sim, 'armoury', 3, 98, 64);
+    if (forge >= 0) send({ type: 'build', kind: 'armoury', at: [forge] });
+    const athena = sanctuaryOf(s, 'athena');
+    const poseidon = sanctuaryOf(s, 'poseidon');
+    const apollo = sanctuaryOf(s, 'apollo');
+    if (!athena || !poseidon || !apollo) return;
+    // Athena's all three stages, Poseidon's two, Apollo's one: each goes as far as its materials let it.
+    stockSanctuary(sim, athena, 0, 3);
+    stockSanctuary(sim, poseidon, 0, 2);
+    stockSanctuary(sim, apollo, 0, 1);
+    playOn(SANCT_MOST, () => !!athena.finished && poseidon.stage >= 2 && apollo.stage >= 1);
+    // Then Poseidon's statue and Apollo's temple, played until the statue is about half up.
+    stockSanctuary(sim, poseidon, 2, 3);
+    stockSanctuary(sim, apollo, 1, 2);
+    playOn(SANCT_MOST, () => poseidon.stage >= 2 && poseidon.building && poseidon.work >= SANCT_STATUE * workOf(stagesOf(poseidon)[2]));
+    // Demeter's marked out last, and played until its first marble is on the road.
+    send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+    playOn(TICKS_PER_MONTH, () => rolling('demeter') && s.walkers.some((w) => w.kind === 'priest' && w.origin === athena.id));
+    // (Review of slice 54: Demeter's timber and copper, and Apollo's copper for his statue, so they rise when played on.)
+    supplyStorehouse(sim, 240, 480);
+  };
+}
+const SANCTUARIES_TOWN = sanctuariesTown('sanctuaries');
+const SANCTUARY_TOWN = sanctuariesTown('sanctuary');
+
+/**
+ * #twelve: all twelve sanctuaries finished in two rows of six facing each
+ * other across a new road south of #quarry's town (the gods in their order,
+ * Zeus to Ares on the north side, Aphrodite to Dionysus on the south), to
+ * compare them. They are raised at once for the comparison, stage by stage
+ * as if their builders had just finished each (set up for this demo: no
+ * materials are hauled or used), so each god notices each stage as it would.
+ */
+const TWELVE_ROW = { x: 69, z: 50 };
+function twelveTown(sim: Sim): void {
+  WORKS_QUARRY_TOWN(sim);
+  const s = sim.state;
+  const n = sim.map.size;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  income(s, GOD_IDS.length * SANCTUARY_COST + 40 * ROAD_COST, 'gifts', 'set up for this demo: the sanctuaries’ coin');
+  const { x, z } = TWELVE_ROW;
+  const row: number[] = [];
+  for (let k = 0; k < 36; k++) row.push(z * n + x + k);
+  send({ type: 'road', tiles: row });
+  // Joined to the town's streets at its west end.
+  let near = -1;
+  let bd = Infinity;
+  for (let t = 0; t < n * n; t++) {
+    if (s.tiles[t] !== TILE_ROAD || row.includes(t)) continue;
+    const d = Math.abs((t % n) - x) + Math.abs(Math.floor(t / n) - z);
+    if (d < bd) {
+      bd = d;
+      near = t;
+    }
+  }
+  if (near >= 0) send({ type: 'road', tiles: roadRoute(sim.map, s, z * n + x, near) ?? [] });
+  GOD_IDS.forEach((god, i) => send({ type: 'sanctuary', god, at: [T(x + (i % 6) * 6, i < 6 ? z - 5 : z + 1)] }));
+  // (No ox carts called for materials they won't need.)
+  for (const b of s.buildings) if (b.kind === 'sanctuary') b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3; stage++) {
+    for (const god of GOD_IDS) {
+      const site = sanctuaryOf(s, god);
+      if (!site || site.finished) continue;
+      site.building = true;
+      site.work = workOf(stagesOf(site)[site.stage]);
+    }
+    sim.step();
+  }
+  sim.run(3 * TICKS_PER_DAY);
+}
+
+// ---------------------------------------------------------------------------
 // Slice 38: contested seas.
 
 /**
@@ -3640,6 +3847,23 @@ const SCENES: Record<string, Demo> = {
   // (see orderTown); a founded large wooded land, the heaviest kind, for the budgets.
   order: { view: 'order', setup: orderTown, overlay: 'missing' },
   bigwoods: { view: 'land', setup: kindTown('woods', 256, 'acorn') },
+  // Slice 55: monsters at the gates. #richtown's town with the Cyclops walking the last of the way to his den on the shore
+  // below the trading post, Poseidon's warning in the scroll; #companies' town with the Boar out wrecking the sheep pasture
+  // and the hoplites marching to it, their banner in hand; all seven before their lairs on #town's open ground, still.
+  monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
+  monsterraid: { view: 'monsterraid', setup: monsterRaidTown, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner, unread: 3 * TICKS_PER_DAY },
+  bestiary: { view: 'bestiary', speed: 'paused', setup: bestiaryTown, overlay: 'missing' },
+  // Slice 56: the gods walk your streets. #town's farming town (28 months in) with Demeter loving it (staged through the
+  // mood API), the moment she arrives over its fields: she rises, walks to her farms and the granary and blesses each.
+  // All twelve gods posed in a row on the open flood plain of the Bay, to compare (they never walk or leave).
+  epiphany: { view: 'epiphany', setup: epiphanyTown, overlay: 'missing' },
+  pantheon: { view: 'pantheon', setup: pantheonField },
+  // Slice 54: sanctuaries rise. #quarry's town with four sanctuaries at four stages (Athena's finished and staffed, Poseidon's
+  // statue going up, Apollo's temple rising, Demeter's just marked out); Demeter's alone, its first marble on the road; and
+  // all twelve finished in two rows, to compare.
+  sanctuaries: { view: 'sanctuaries', setup: SANCTUARIES_TOWN, overlay: 'religion', building: (s) => sanctuaryOf(s, 'athena')?.id ?? 0 },
+  sanctuary: { view: 'sanctuary', setup: SANCTUARY_TOWN, overlay: 'religion', building: (s) => s.buildings.find((b) => b.kind === 'sanctuary')?.id ?? 0 },
+  twelve: { view: 'twelve', setup: twelveTown, overlay: 'religion' },
   // Slice 53: the twelve and their tempers. #gods: #richtown with shrines to four gods, Poseidon honoured and Athena
   // jealous, an offering on its way to Demeter, Olympus open; #procession: Demeter's festival under way, her procession
   // round the core's agora, her shrine's panel open.
@@ -4410,6 +4634,170 @@ const ORDER_TRIES = 4;
 const ORDER_KEEP = 300;
 /** #order's law (on the court's panel). */
 const ORDER_LAW: ReadonlyArray<[string, string]> = [['theft', 'prison'], ['vandal', 'prison'], ['arson', 'execution'], ['smuggling', 'fine']];
+
+// Slice 55
+/**
+ * Monsters at the gates (slice 55). Each demo's monster is sent as its god
+ * would send it (sendMonster), with its god's reason; the rest is staged.
+ *
+ * #monster: #richtown's town, the Cyclops sent by Poseidon, seen on the shore
+ * and walking in from the west edge; it opens as he has the last few tiles
+ * to his den below the trading post, so he settles in within seconds.
+ *
+ * #monsterraid: #companies' town, the Boar sent by Artemis and settled in its
+ * marsh; the hoplites are sent (their banner, as a player would) to the field
+ * the Boar goes for first, the one nearest its lair, and when they are part
+ * of the way its raid is due (announced the day before, as always); it opens
+ * as the Boar is at the field, wrecking, and the hoplites a few tiles off.
+ *
+ * #bestiary: #town, all seven sent and set down before lairs of their kind
+ * side by side on the open ground below the town (staged: real lairs are
+ * miles apart), facing the camera, paused. They would raid in a month.
+ */
+const MONSTER_WHY: Record<MonsterId, string> = {
+  hydra: 'no marriage in your city is made before her altar',
+  medusa: 'your city gives no thought to wisdom',
+  cyclops: 'your ships sail his sea and give him nothing',
+  minotaur: 'your city has forgotten the king of the gods',
+  chimera: 'your city keeps no soldiers in his honour',
+  talos: 'your forges burn without a gift to him',
+  boar: 'your hunters take her deer and give her no share',
+};
+/** How far (tiles) the Cyclops still has to walk when #monster opens. */
+const MONSTER_LEFT = 7;
+/** How far (tiles) #monsterraid's hoplites hold from the field, out of the Boar's way, and how far off they are when it opens. */
+const MONSTERRAID_HOLD = 14;
+const MONSTERRAID_OPEN = 9;
+/** The longest any staging waits. */
+const MONSTER_GUARD = 3 * TICKS_PER_MONTH;
+/** #bestiary's row: its first lair's tile, and the step to the next (a diagonal, across the classic view), the lairs' mouths to the camera (south-west), the seven turned a little to their left (+z) to show their shapes. */
+const BESTIARY = { x: 66, z: 49, step: 3, mouth: (3 * Math.PI) / 4, face: Math.PI / 2 };
+
+function monsterTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const m = sendMonster(s, 'cyclops', MONSTER_WHY.cyclops);
+  if (!m) return;
+  const spot = lairSpot(s, m);
+  const end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && (m.state === 'coming' || (m.state === 'settling' && dhypot(m.x - spot.x, m.z - spot.z) > MONSTER_LEFT))) sim.step();
+}
+
+/** What the Boar goes for first: the field nearest its lair (its own rule, sim/monsters.ts). */
+function boarField(s: SimState, m: Beast): Building | undefined {
+  const n = BAY.size;
+  const lx = (m.lair % n) + 0.5;
+  const lz = Math.floor(m.lair / n) + 0.5;
+  const d = (b: Building): number => dhypot(centreOf(b)[0] - lx, centreOf(b)[1] - lz);
+  return s.buildings.filter((b) => ['farm', 'grove', 'vineyard', 'pasture', 'horsefarm', 'dairy'].includes(b.kind)).sort((a, b) => d(a) - d(b) || a.id - b.id)[0];
+}
+
+function monsterRaidTown(sim: Sim): void {
+  COMPANIES(sim);
+  const s = sim.state;
+  const n = BAY.size;
+  const m = sendMonster(s, 'boar', MONSTER_WHY.boar);
+  if (!m) return;
+  let end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && m.state !== 'lair') sim.step();
+  const field = boarField(s, m);
+  const hop = s.army.companies.find((c) => c.kind === 'hoplite');
+  const barracks = s.buildings.find((b) => b.kind === 'barracks');
+  if (!field || !hop || !barracks) return;
+  const [fx, fz] = centreOf(field);
+  const [bx, bz] = centreOf(barracks);
+  const send = (tile: number): void => {
+    sim.enqueue({ type: 'banner', company: hop.id, tile });
+    sim.flush();
+  };
+  /** The walkable tile nearest a point (within a few tiles), or -1. */
+  const near = (x: number, z: number): number => {
+    let best = -1;
+    let bd = Infinity;
+    for (let dz = -4; dz <= 4; dz++)
+      for (let dx = -4; dx <= 4; dx++) {
+        const t = (Math.floor(z) + dz) * n + Math.floor(x) + dx;
+        const d = dhypot((t % n) + 0.5 - x, Math.floor(t / n) + 0.5 - z);
+        if (walkable(sim.map, s, t) && d < bd) [best, bd] = [t, d];
+      }
+    return best;
+  };
+  // The hoplites first to a place on the way from the barracks, out of the Boar's way, and held there.
+  const k = MONSTERRAID_HOLD / Math.max(1, dhypot(bx - fx, bz - fz));
+  const hold = near(fx + (bx - fx) * k, fz + (bz - fz) * k);
+  if (hold < 0) return;
+  send(hold);
+  end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && hop.order !== 'hold') sim.step();
+  // Its raid due (announced the day before, as every raid is); at the field, the hoplites sent to it from their side.
+  m.next = s.tick + STIR + 1;
+  end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && !(m.state === 'raiding' && m.wait > 0)) sim.step();
+  // (Beside the Boar where it stands at the field, on the hoplites' side: open ground the men can get at it from.)
+  let cx = 0;
+  let cz = 0;
+  let k2 = 0;
+  for (const x of s.army.soldiers) if (x.company === hop.id) [cx, cz, k2] = [cx + x.x, cz + x.z, k2 + 1];
+  const away = Math.max(1e-6, dhypot(cx / k2 - m.x, cz / k2 - m.z));
+  const beside = near(m.x + ((cx / k2 - m.x) / away) * 2, m.z + ((cz / k2 - m.z) / away) * 2);
+  if (beside < 0) return;
+  send(beside);
+  const men = (): number => {
+    let best = Infinity;
+    for (const x of s.army.soldiers) if (x.company === hop.id) best = Math.min(best, dhypot(x.x - fx, x.z - fz));
+    return best;
+  };
+  end = s.tick + TICKS_PER_DAY * 3;
+  while (s.tick < end && men() > MONSTERRAID_OPEN) sim.step();
+}
+
+function bestiaryTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  const s = sim.state;
+  const n = BAY.size;
+  const mouth = BESTIARY.mouth;
+  MONSTER_IDS.forEach((kind, i) => {
+    const m = sendMonster(s, kind, MONSTER_WHY[kind]);
+    if (!m) return;
+    const x = BESTIARY.x + i * BESTIARY.step;
+    const z = BESTIARY.z + i * BESTIARY.step;
+    m.lair = z * n + x;
+    m.mouth = mouth;
+    m.state = 'lair';
+    m.settled = s.tick;
+    m.x = x + 0.5;
+    m.z = z + 0.5;
+    m.face = BESTIARY.face;
+    m.path = [];
+    m.next = s.tick + TICKS_PER_MONTH;
+  });
+  // (Their sightings, staged, are not news.)
+  s.messages.log = s.messages.log.filter((g) => g.kind !== 'monster');
+  s.rev++;
+}
+
+// Slice 56
+/** Why Demeter loves #epiphany's town (staged: slice 53 makes her moods real). */
+export const EPIPHANY_WHY = 'your full granaries and the bread on every table';
+/** #epiphany: #town, Demeter staged loving, and her visit begun (a command, so the opening is the moment she arrives). */
+function epiphanyTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  honour(sim.state, 'demeter', 72, 'staged', EPIPHANY_WHY, 0);
+  sim.enqueue({ type: 'visit', god: 'demeter', why: 'loving' });
+  sim.flush();
+}
+/** #pantheon: where the row of the twelve begins on the Bay's flood plain, and how far apart they stand, along the classic view's level (towards +x and +z). */
+// (Merge of slice 56: 2.8 apart, not 2.2, since the review made them 2.5 tiles tall; the row's start moved so its middle
+// stays at #pantheon's view, 64.6, 54.6.)
+export const PANTHEON_AT = { x: 53.7, z: 43.7 };
+export const PANTHEON_GAP = 2.8;
+function pantheonField(sim: Sim): void {
+  const step = PANTHEON_GAP / Math.SQRT2;
+  // (Zeus first on the left as you look: the row runs from the far end along the screen.)
+  const last = GOD_IDS.length - 1;
+  GOD_IDS.forEach((god, i) => sim.enqueue({ type: 'visit', god, why: 'pose', at: { x: PANTHEON_AT.x + (last - i) * step, z: PANTHEON_AT.z + (last - i) * step } }));
+  sim.flush();
+}
 
 // Slice 53
 /**

@@ -52,8 +52,14 @@ import { actionIcon, buildingIcon, messageIcon } from './icons';
 // Merge of slice 50 with slice 49.
 import { walkerFigure } from './icons';
 import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
+// Slice 56: a god's blessing on the building, under its plaque.
+import { blessingWords } from '../sim/epiphany';
+// Slice 54: a sanctuary's sections.
+import { SANCTUARY_QUIET, sanctuarySections } from './sanctuarypanel';
+import { GODS } from '../sim/pantheon';
 // Slice 53: the shrine's god.
 import { SHRINE_QUIET, shrineAct, shrineSections } from './olympus';
+import { sanctuaryAct } from './olympus';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -92,6 +98,9 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   // Slice 49: the infirmary (its physicians, the city's health, the quarantine) and the asklepieion (its beds, the city's health, the quarantine), src/ui/health.ts.
   infirmary: { more: infirmarySections, quiet: HEALTH_QUIET },
   asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
+  // Slice 54: a sanctuary (its god, its stages, the god's mood, its priests), src/ui/sanctuarypanel.ts.
+  // (Merge of slice 53: its festival and offering buttons, in the sections' slot, act through slice 53's.)
+  sanctuary: { more: sanctuarySections, quiet: SANCTUARY_QUIET, act: sanctuaryAct },
   // Slice 53: the shrine (its god, or the twelve to choose from; the god's mood; a festival and an offering), src/ui/olympus.ts.
   shrine: { more: shrineSections, quiet: SHRINE_QUIET, act: shrineAct },
 };
@@ -129,6 +138,8 @@ const WALKER_WORDS: Partial<Record<Walker['kind'], [string, string]>> = {
   // Slice 49.
   physician: ['physician', 'physicians'],
   bearer: ['pair of stretcher-bearers', 'pairs of stretcher-bearers'],
+  // Slice 54.
+  priest: ['priest', 'priests'],
 };
 const walkerWords = (k: Walker['kind'], n: number): string => {
   const w = WALKER_WORDS[k] ?? [k, `${k}s`];
@@ -138,6 +149,8 @@ const walkerWords = (k: Walker['kind'], n: number): string => {
 /** A building's name without its article: "Olive press". */
 export function nameOf(b: Building): string {
   if (b.kind === 'home') return HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)].replace(/^(A|An) /, '').replace(/^./, (c) => c.toUpperCase());
+  // Slice 54: whose sanctuary it is.
+  if (b.kind === 'sanctuary' && b.god) return `Sanctuary to ${GODS[b.god].name}`;
   return cap((BUILDING_NAMES[b.kind] ?? b.kind).replace(/^(A|An|The) /, ''));
 }
 
@@ -361,8 +374,11 @@ export function buildingHtml(s: SimState, map: CoastMap, b: Building): string {
   // (A store's rows say what it holds and has room for: its rooms' line goes.)
   const store = isStore(b.kind);
   const detail = st.detail.split('\n').filter((l) => !(store && /^Holds .* each in its own (room|store)$/.test(l)) && !entry?.quiet?.test(l));
+  // (Slice 56.)
+  const blessed = blessingWords(s, b);
   return [
     head,
+    blessed ? `<p class="k-blessed">${esc(blessed)}</p>` : '',
     own,
     staffBlock(s, map, b, entry),
     // (A store's rows first: what it holds, and what it does with each ware.)

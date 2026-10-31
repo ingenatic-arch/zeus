@@ -22,7 +22,9 @@
  * list and plays exactly as it did.
  */
 import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
-import { COPPER, MARBLE, TIMBER, type Ware } from './foods';
+import { ARMOUR, CHEESE, COPPER, HORSES, MARBLE, MEAT, TIMBER, WARE_NAMES, WHEAT, type Ware } from './foods';
+// Slice 54: a sanctuary's site, its god and their sacred good.
+import { GODS, type GodId } from './pantheon';
 import type { BuildingKind, SimState } from './state';
 
 export type MonumentKind = 'lighthouse' | 'colossus' | 'stadium';
@@ -54,6 +56,9 @@ export interface Stage {
   bronze: number;
   builders: number;
   days: number;
+  /** Slice 54: a sanctuary's last stage: its god's sacred good, and how much of it consecrates it (none for a monument). */
+  ware?: Ware;
+  sacred?: number;
 }
 
 /** Each monument's three stages: the foundations, the columns (or the bronze frame, or the seats), the finish. */
@@ -77,8 +82,8 @@ export const STAGES: Record<MonumentKind, readonly Stage[]> = {
 /** Stages before a monument is finished. */
 export const STAGE_COUNT = 3;
 
-/** What a stage needs of a material on site. */
-export const needOf = (st: Stage, w: Ware): number => (w === MARBLE ? st.marble : w === TIMBER ? st.timber : w === COPPER ? st.bronze : 0);
+/** What a stage needs of a material on site (slice 54: and of a sanctuary's sacred good, on top). */
+export const needOf = (st: Stage, w: Ware): number => (w === MARBLE ? st.marble : w === TIMBER ? st.timber : w === COPPER ? st.bronze : 0) + (st.ware === w ? (st.sacred ?? 0) : 0);
 /** The builder-ticks of work a stage takes. */
 export const workOf = (st: Stage): number => st.builders * st.days * TICKS_PER_DAY;
 /** A monument's totals of each material, all three stages. */
@@ -88,7 +93,8 @@ export const totalOf = (k: MonumentKind, w: Ware): number => STAGES[k].reduce((a
 export interface Site {
   /** Its building's id. */
   id: number;
-  kind: MonumentKind;
+  /** Slice 54: a monument's kind, or a sanctuary. */
+  kind: SiteKind;
   /** The stage it is at: 0, 1 or 2; STAGE_COUNT once finished. */
   stage: number;
   /** Has this stage's work begun (its materials were all on site, and are used)? */
@@ -101,6 +107,10 @@ export interface Site {
   done: number[];
   /** When it was finished (0: not yet). */
   finished: number;
+  /** Slice 54: a sanctuary's god (none for a monument). */
+  god?: GodId;
+  /** Slice 54: when a finished sanctuary lost the last of its workers (0: staffed, or not finished; always 0 for a monument). */
+  idle: number;
 }
 
 /** The Stadium's games: when the next open (0: none planned), when those on now end (0: none on), and the tallies of the games on now or last held. */
@@ -133,7 +143,7 @@ export const monumentOf = (s: SimState, kind: MonumentKind): Site | undefined =>
 /** Is this monument finished (and standing)? */
 export const finished = (s: SimState, kind: MonumentKind): boolean => !!monumentOf(s, kind)?.finished;
 /** The stage a site is at now (undefined once finished). */
-export const stageNow = (x: Site): Stage | undefined => STAGES[x.kind][x.stage];
+export const stageNow = (x: Site): Stage | undefined => stagesOf(x)[x.stage];
 /** How far along a site is, 0 (marked out) to 1 (finished): the stages done and the share of the work on the one under way. */
 export function progressOf(x: Site): number {
   if (x.finished) return 1;
@@ -188,4 +198,78 @@ export function gamesMood(s: SimState): { w: number; text: string } | null {
   if (g.until > s.tick) return { w: GAMES_MOOD, text: 'The games are on at the Stadium' };
   if (g.ended > 0 && s.tick - g.ended < AFTER_GAMES) return { w: AFTER_MOOD, text: 'Still talking of the games' };
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 54: sites that are sanctuaries.
+//
+// A sanctuary to one of the twelve (sanctuaries.ts) is raised as a smaller
+// monument is, on a site in the same list, by the same ox carts and masons'
+// builders: its record has the god, its stages are `sanctuaryStages`, and its
+// materials are the monuments' and its god's sacred good. Every reader of a
+// site's stages or materials asks `stagesOf` and `siteMaterials`, which give
+// a monument's exactly as before.
+
+/** What stands on a site: a monument, or a sanctuary. */
+export type SiteKind = MonumentKind | 'sanctuary';
+/** Is this kind of building raised on a site (a monument or a sanctuary)? */
+export const isSiteKind = (k: BuildingKind | string): k is SiteKind => isMonument(k) || k === 'sanctuary';
+
+/** How much of a god's sacred good consecrates their sanctuary: a granary's measures of a food, a few cartloads of a good, sixteen sets of armour, eight horses. */
+export function sacredMeasure(w: Ware): number {
+  if (w === WHEAT || w === MEAT || w === CHEESE) return 200;
+  if (w === ARMOUR) return 16;
+  if (w === HORSES) return 8;
+  return 100;
+}
+
+const sanctuaryStageCache = new Map<GodId, readonly Stage[]>();
+/**
+ * A god's sanctuary's three stages, the same for every god but the last's
+ * sacred good. With one fully staffed masons' yard (four builders) the work
+ * takes about 285 days, and the first stage's materials a month or so to
+ * haul: about a year. Two sanctuaries sharing that yard take about two.
+ * (Worked out inside a function, so the order modules load in can't spoil it.)
+ */
+export function sanctuaryStages(god: GodId): readonly Stage[] {
+  const had = sanctuaryStageCache.get(god);
+  if (had) return had;
+  const g = GODS[god];
+  const st: readonly Stage[] = [
+    { name: 'The foundations', what: 'the temple’s stepped platform and the footings of the court’s walls', marble: 160, timber: 80, bronze: 0, builders: 4, days: 60 },
+    { name: 'The temple', what: 'its ring of columns, its walls and its roof, raised inside the scaffold', marble: 320, timber: 160, bronze: 0, builders: 6, days: 80 },
+    {
+      name: 'The statue and finish',
+      what: `${g.name}’s statue cast in bronze, the altar and the court, consecrated with ${WARE_NAMES[g.sacred]}`,
+      marble: 120,
+      timber: 0,
+      bronze: 120,
+      builders: 6,
+      days: 70,
+      ware: g.sacred,
+      sacred: sacredMeasure(g.sacred),
+    },
+  ];
+  sanctuaryStageCache.set(god, st);
+  return st;
+}
+
+/** A site's stages: a monument's (STAGES), or a sanctuary's to its god. */
+export const stagesOf = (x: Site): readonly Stage[] => (x.kind === 'sanctuary' ? sanctuaryStages(x.god ?? 'zeus') : STAGES[x.kind]);
+
+const materialCache = new Map<Ware, readonly Ware[]>();
+/** The materials a site can need, in the order it lists them: a monument's (MATERIALS), and for a sanctuary its god's sacred good too (unless it is one of them already: Hephaestus's copper). */
+export function siteMaterials(x: Site): readonly Ware[] {
+  if (x.kind !== 'sanctuary') return MATERIALS;
+  const w = GODS[x.god ?? 'zeus'].sacred;
+  if (MATERIALS.includes(w)) return MATERIALS;
+  let m = materialCache.get(w);
+  if (!m) materialCache.set(w, (m = [...MATERIALS, w]));
+  return m;
+}
+
+/** What a site is called: "the Lighthouse", "the sanctuary to Demeter". */
+export function siteName(x: { kind: SiteKind; god?: GodId }, cap = false): string {
+  if (x.kind !== 'sanctuary') return monumentName(x.kind, cap);
+  return `${cap ? 'The' : 'the'} sanctuary to ${GODS[x.god ?? 'zeus'].name}`;
 }

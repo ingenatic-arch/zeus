@@ -22,6 +22,8 @@ import { estateStocked } from './estates';
 import { justiceMoods } from './justice';
 // Slice 49
 import { healthMoods } from './health';
+// Slice 56: a home a god blessed.
+import { blessingOn, GODS, goddess } from './pantheon';
 // Slice 53: a festival's procession passing the door (pantheon.ts, a leaf).
 import { festiveMood } from './pantheon';
 
@@ -427,6 +429,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   // Slice 39: pride in an ambition achieved (or all three), for a year.
   const pride = prideMood(s);
   if (pride) add(pride.w, pride.text);
+  // Slice 56: a god's blessing on the house, for a season.
+  const boon = b.kind === 'home' ? blessingOn(s, b.id) : undefined;
+  if (boon) add(2, `Blessed by ${GODS[boon.god].name}: ${goddess(boon.god) ? 'her' : 'his'} visit lifts the house`);
   // Slice 53: a festival's procession passed their door this season.
   const fest = festiveMood(s, b.id);
   if (fest) add(fest.w, fest.text);

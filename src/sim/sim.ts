@@ -57,6 +57,11 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Phase 7 groundwork.
 import { freshGods, setGods, stepGods } from './pantheon';
+// Slice 55: monsters at the gates.
+import { freshLegends, stepMonsters } from './monsters';
+// Slice 56.
+import { GOD_IDS, type GodId } from './pantheon';
+import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
 // Slice 53
 import { dedicate, holdFestival, moveOffering, moveProcession, sendOffering, stepWorship } from './worship';
 // Slice 37
@@ -79,6 +84,8 @@ import { lawCommand, moveConvict } from './justice';
 import { colonyEmpireCommand, stepColonyEmpire } from './colonyempire';
 // Slice 49
 import { FIRST_PHYSICIAN, freshHealth, moveBearer, movePhysician, quarantineCommand, setHealth, stepHealth, stepInfirmaries } from './health';
+// Slice 54 (GOD_IDS and GodId as slice 56's import above).
+import { movePriest, sanctuaryRefusal, stepSanctuaries } from './sanctuaries';
 
 export const DEFAULT_SEED = 0x2e05; // "Zeus"
 /** How many build actions undo remembers. */
@@ -148,6 +155,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     annals: freshAnnals(),
     // Phase 7 groundwork
     gods: freshGods(),
+    // Slice 55
+    legends: freshLegends(),
   };
   if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
   s.herds = freshHerds(mapOf(s), s);
@@ -253,6 +262,8 @@ export class Sim {
     // Trade routes, their caravans and ships, and the caravan yard's porters (nothing in a town with neither).
     stepRoutes(s, map, stepDockers);
     stepCulture(s, map);
+    // Slice 54: the sanctuaries' priests, their staff watched, their gods' standing honour (nothing with no sanctuary finished).
+    stepSanctuaries(s, map);
     stepTaxOffices(s, map);
     stepWatchPosts(s, map);
     stepArchitects(s, map);
@@ -296,6 +307,8 @@ export class Sim {
     stepArmy(s, map);
     // Expeditions: companies mustering at the edge, the march across Greece, the fight, the march home (nothing with none sent).
     stepExpeditions(s, map);
+    // Slice 55: the monsters on your land: coming in, their lairs, raids, healing, leaving (nothing with no monster sent and no stone standing).
+    stepMonsters(s, map, (b, how) => toRubble(s, map, b, how));
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
@@ -305,6 +318,8 @@ export class Sim {
     stepAmbition(s);
     // Phase 7 groundwork: the gods notice the city, and forget what has faded (nothing with the switch off).
     stepGods(s);
+    // Slice 56: the gods in the city walk on and bless; a god who has just come to love the city comes to see it (nothing with none and the switch off).
+    stepEpiphany(s);
     // Slice 53: worship (festivals beginning, each god's day of the month, the month's record; nothing with the switch off).
     stepWorship(s, map);
     // Daily systems.
@@ -373,6 +388,14 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Phase 7 groundwork.
     case 'gods':
       setGods(s, c.on === true);
+      break;
+    // Slice 56.
+    case 'visit':
+      if (GOD_IDS.includes(c.god as GodId) && VISIT_WHYS.includes(c.why as VisitWhy)) startVisit(s, c.god as GodId, c.why as VisitWhy, c.at && Number.isFinite(c.at.x) && Number.isFinite(c.at.z) ? { x: c.at.x, z: c.at.z } : undefined);
+      break;
+    // Slice 54.
+    case 'sanctuary':
+      if (GOD_IDS.includes(c.god) && Array.isArray(c.at)) record(s, placePlots(s, map, c.at, 'sanctuary', c.god));
       break;
     // Slice 53: worship.
     case 'dedicate':
@@ -718,7 +741,7 @@ function addBuilding(s: SimState, n: number, x: number, z: number, kind: Buildin
 }
 
 /** Housing plots, fountains, farms, granaries, the agora, shrines or theatres, on the same ground rules. */
-function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind): UndoEntry {
+function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind, god?: GodId): UndoEntry {
   const e = emptyEntry();
   const n = map.size;
   const covered: number[] = [];
@@ -729,6 +752,8 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     const x = t % n;
     const z = Math.floor(t / n);
     if (buildingRefusal(map, s, kind, x, z) !== '') continue;
+    // Slice 54: a sanctuary needs its god, one to a god.
+    if (kind === 'sanctuary' && (!god || sanctuaryRefusal(s, god) !== '')) continue;
     // (A tower takes the stretches of wall under it into it: undo gives them back.)
     if (s.walls.length) {
       const took = dropWalls(s, footprint(n, x, z, sideOf(kind)));
@@ -743,6 +768,11 @@ function placePlots(s: SimState, map: CoastMap, at: number[], kind: BuildingKind
     if (kind === 'quarry') for (let dz = -1; dz <= 3; dz++) for (let dx = -1; dx <= 3; dx++) if ((dz < 0 || dz > 2 || dx < 0 || dx > 2) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
     // Slice 35: a monument's site is marked out the moment it is placed.
     if (isMonument(kind)) markSite(s, b);
+    // Slice 54: so is a sanctuary's, with its god.
+    if (kind === 'sanctuary') {
+      b.god = god;
+      markSite(s, b);
+    }
     // Slice 35 (slice 32's review): the loggers' camp clears the trees right round it too, so none stands (or grows back) through its corner.
     if (kind === 'loggers') for (let dz = -1; dz <= 2; dz++) for (let dx = -1; dx <= 2; dx++) if ((dz < 0 || dz > 1 || dx < 0 || dx > 1) && x + dx >= 0 && z + dz >= 0 && x + dx < n && z + dz < n) covered.push((z + dz) * n + x + dx);
   }
@@ -1140,6 +1170,9 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? movePhysician(s, map, w)
               : w.kind === 'bearer'
                 ? moveBearer(s, map, w)
+              // Slice 54: a sanctuary's priests.
+              : w.kind === 'priest'
+                ? movePriest(s, map, w)
               // Slice 53: a festival's procession, and a porter carrying an offering to a shrine.
               : w.kind === 'procession'
                 ? moveProcession(s, map, w)

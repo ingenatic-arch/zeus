@@ -15,6 +15,8 @@ import { pirateBand, PIRATE_PLACES } from '../src/sim/fleet';
 import { moodOf as homeMood } from '../src/sim/folk';
 import { migrate } from '../src/sim/migrate';
 import { COLOSSUS_MOOD, COLOSSUS_WHY, FIRST_GAMES, gamesMood, lit, piratesKeepClear, progressOf, STAGES, workOf, type Site } from '../src/sim/monuments';
+// Slice 54: a site's stages through stagesOf (a sanctuary's are its god's).
+import { stagesOf } from '../src/sim/monuments';
 import { buildersAt, cartsTo, VISITOR_PAYS } from '../src/sim/monumentworks';
 import { siteStatus } from '../src/sim/monumentstatus';
 import { roadRoute } from '../src/sim/roads';
@@ -65,7 +67,7 @@ function runUntil(sim: Sim, done: () => boolean, most: number, each?: () => void
 /** Finish the stage a site is on now, as if its builders had just done the last of its work (then a tick). */
 function finishStage(sim: Sim, x: Site): void {
   x.building = true;
-  x.work = workOf(STAGES[x.kind][x.stage]);
+  x.work = workOf(stagesOf(x)[x.stage]);
   sim.step();
 }
 

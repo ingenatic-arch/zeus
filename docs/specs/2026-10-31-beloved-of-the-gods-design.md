@@ -243,7 +243,7 @@ Only where it earns its keep:
 - **Saves:** a round-trip with a monster in its lair, a hero away, an omen running and a god in the streets. A version 47 save loads and plays on (its shrines to all the gods).
 - **The ledger invariant** with festivals, offerings, sanctuaries, halls and Zeus's gift.
 - **Wrath is always warned:** no curse lands without its omen at least a month before; an offering that lifts the mood past angry always turns it.
-- **Routing:** monsters reach their targets and their lair; heroes reach the lair; a god walks off the map when leaving; the carts haul to sanctuaries.
+- **Routing:** monsters reach their targets and their lair; heroes reach the lair; a god reaches each place on their visit and leaves where they stand, their flourish reversed ("leave as they came"); the carts haul to sanctuaries.
 - **Monsters never die to soldiers;** a hero of that monster always wins.
 - **Budgets:** the prepared demos still open under 3 seconds; `#olympus` with two gods, a monster and a band holds the frame budget headless.
 

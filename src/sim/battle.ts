@@ -53,6 +53,8 @@ import { note } from './stockbook';
 import { isStore, roomFor } from './stores';
 import type { Company, Foe, Raid, SimState, Soldier, Walker } from './state';
 import { income } from './treasury';
+// Slice 55: monsters in the battle (a foe whose `raid` is minus the monster's id): its own blows, its bulk, its name.
+import { bulkOfFoe, foeName, monsterFight } from './monsters';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -137,7 +139,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
   // A band just in (or from an older save) gets its men; the men of a band that has left the map are gone with it, but for the fallen.
   for (const { r, w } of bands.values()) if (w && r.fallen === 0 && !a.foes.some((f) => f.raid === r.id)) muster(s, r, w);
   if (a.foes.some((f) => up(f) && !bands.get(f.raid)?.w) || a.foes.some((f) => !up(f) && s.tick - f.fell >= FALLEN_LIE)) {
-    a.foes = a.foes.filter((f) => (up(f) ? !!bands.get(f.raid)?.w : s.tick - f.fell < FALLEN_LIE));
+    // (Slice 55: a monster's foe is kept and dropped by monsters.ts.)
+    a.foes = a.foes.filter((f) => (f.raid < 0 || (up(f) ? !!bands.get(f.raid)?.w : s.tick - f.fell < FALLEN_LIE)));
   }
   const foes = a.foes.filter(up);
   const byFoe = new Map<number, Foe>();
@@ -211,6 +214,11 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     }
   }
 
+  // Slice 55: the monsters go for your men, and strike.
+  if (foes.some((f) => f.raid < 0)) monsterFight(s, menToFight);
+  /** How near a man must be to strike a foe: a monster's bulk further (slice 55). */
+  const reachOf = (f: Foe): number => (f.raid < 0 ? REACH + bulkOfFoe(s, f.raid) : REACH);
+
   // Your men: who goes for whom. (A marching company whose banner raiders have come near turns to fight.)
   const shooting = new Map<number, Foe>();
   const marchFight = new Set<number>();
@@ -227,7 +235,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     const seek = (c.order === 'hold' || c.order === 'drill' || (c.order === 'march' && marchFight.has(c.id))) && !c.routed && x.path.length === 0;
     let t = x.foe ? byFoe.get(x.foe) : undefined;
     if (t && !up(t)) t = undefined;
-    const onMe = (): Foe | undefined => foes.find((f) => f.foe === x.id && dhypot(f.x - x.x, f.z - x.z) <= REACH);
+    const onMe = (): Foe | undefined => foes.find((f) => f.foe === x.id && dhypot(f.x - x.x, f.z - x.z) <= reachOf(f));
     if (c.kind === 'hoplite') {
       // (A hoplite chases no further than his leash from the banner, nor a band already running.)
       if (t && (!seek || dhypot(t.x - c.x, t.z - c.z) > LEASH || bands.get(t.raid)?.r.broke || (walled && wallsBetween(map, s, x.x, x.z, t.x, t.z, false)))) t = undefined;
@@ -236,7 +244,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
       t ??= onMe();
       x.foe = t ? t.id : 0;
       if (t) {
-        if (dhypot(t.x - x.x, t.z - x.z) > REACH * 0.85 && seek) moveTo(map, s, x, t.x, t.z, CLOSE_PACE.hoplite);
+        if (dhypot(t.x - x.x, t.z - x.z) > reachOf(t) * 0.85 && seek) moveTo(map, s, x, t.x, t.z, CLOSE_PACE.hoplite);
         x.face = datan2(t.z - x.z, t.x - x.x);
       }
       continue;
@@ -249,7 +257,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
       t ??= onMe();
       x.foe = t ? t.id : 0;
       if (t) {
-        if (dhypot(t.x - x.x, t.z - x.z) > REACH * 0.85 && seek) moveTo(map, s, x, t.x, t.z, CLOSE_PACE.horseman);
+        if (dhypot(t.x - x.x, t.z - x.z) > reachOf(t) * 0.85 && seek) moveTo(map, s, x, t.x, t.z, CLOSE_PACE.horseman);
         x.face = datan2(t.z - x.z, t.x - x.x);
       }
       continue;
@@ -278,7 +286,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
 
   // (Men in a fight keep a little apart: no two crowd onto the same spot.)
   spread(map, s, men.filter((x) => x.foe > 0));
-  spread(map, s, foes.filter((f) => f.state === 'fight'), true);
+  spread(map, s, foes.filter((f) => f.state === 'fight' && f.raid > 0), true);
   // Bands at a wall or gate they must break hammer at it (slice 25).
   for (const { r } of bands.values()) {
     const at = sieges.get(r.id);
@@ -292,7 +300,7 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     const c = companies.get(x.company);
     if (!c) continue;
     const t = x.foe ? byFoe.get(x.foe) : undefined;
-    if (t && up(t) && dhypot(t.x - x.x, t.z - x.z) <= REACH) {
+    if (t && up(t) && dhypot(t.x - x.x, t.z - x.z) <= reachOf(t)) {
       x.cool = SWING + Math.floor(roll(s, x.id, 1) * 4);
       x.swung = s.tick;
       if (roll(s, x.id, 2) < HIT) t.hp -= ATTACK[c.kind] * (0.8 + 0.4 * roll(s, x.id, 3)) * TAKES.raider;
@@ -311,6 +319,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
     }
   }
   for (const f of foes) {
+    // (Slice 55: a monster's blows are its own, monsterFight's.)
+    if (f.raid < 0) continue;
     if (f.cool > 0) f.cool--;
     if (f.state !== 'fight' || f.cool > 0) continue;
     const t = byMan.get(f.foe);
@@ -322,7 +332,8 @@ export function stepBattle(s: SimState, map: CoastMap): void {
   }
 
   // The fallen.
-  for (const f of foes) if (f.hp <= 0 && up(f)) fallFoe(s, map, f, bands.get(f.raid));
+  // (Slice 55: a monster never falls to soldiers: monsters.ts keeps its health above nothing, and it breaks off.)
+  for (const f of foes) if (f.hp <= 0 && up(f) && f.raid > 0) fallFoe(s, map, f, bands.get(f.raid));
   for (const x of men) if (x.hp <= 0 && standing(x)) fallMan(s, x, companies.get(x.company), bands);
   // Who is fighting: the bands stand while theirs fight; companies note their strength as a fight begins.
   for (const { r } of bands.values()) if (a.foes.some((f) => f.raid === r.id && f.state === 'fight')) r.fought = s.tick;
@@ -663,8 +674,11 @@ function fallFoe(s: SimState, map: CoastMap, f: Foe, band: { r: Raid; w: Walker 
 /** A soldier falls: wounded (he lies a while, then walks back to heal) or killed (mourned at home, his place called again). */
 function fallMan(s: SimState, x: Soldier, c: Company | undefined, bands: Map<number, { r: Raid; w: Walker | undefined }>): void {
   // (Whose raiders struck him: the band of the raider on him, else any band on the map.)
-  const by = s.army.foes.find((f) => f.foe === x.id && up(f));
-  const r = (by ? bands.get(by.raid)?.r : undefined) ?? [...bands.values()][0]?.r;
+  // (Slice 55: or a monster's blow that caught him beside the man it struck at.)
+  const by = s.army.foes.find((f) => f.foe === x.id && up(f)) ?? s.army.foes.find((f) => f.raid < 0 && dhypot(f.x - x.x, f.z - x.z) <= REACH + bulkOfFoe(s, f.raid) + 0.2);
+  // (Slice 55: struck down by a monster.)
+  const beast = by && by.raid < 0 ? foeName(s, by.raid) : '';
+  const r = beast ? undefined : ((by ? bands.get(by.raid)?.r : undefined) ?? [...bands.values()][0]?.r);
   for (const f of s.army.foes) if (f.foe === x.id) {
     f.foe = 0;
     f.state = 'with';
@@ -683,7 +697,8 @@ function fallMan(s: SimState, x: Soldier, c: Company | undefined, bands: Map<num
   x.state = 'fallen';
   x.hp = 0;
   if (r) r.killed++;
-  mourn(s, x, c, r);
+  if (beast) mournMan(s, x, c, beast);
+  else mourn(s, x, c, r);
   s.rev++;
 }
 

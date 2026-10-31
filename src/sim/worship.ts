@@ -52,7 +52,7 @@ import { moodOf } from './folk';
 import { canWorkIn } from './labour';
 import { NEWS, say, WARNING } from './messages';
 import { MONUMENT_KINDS, finished } from './monuments';
-import { FESTIVE_LASTS, forget, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, type Festival, type GodId } from './pantheon';
+import { FESTIVE_LASTS, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, standing, worship, type Festival, type GodId } from './pantheon';
 import { MAKERS } from './production';
 import { door, roadsBeside } from './rounds';
 import { nearestReached, roadSearch, tracePath } from './roads';
@@ -62,6 +62,10 @@ import { pay, spendable } from './treasury';
 import { besideRoad, newWalker, roadPoints, setPath, speedOf } from './walk';
 import { dhypot } from '../map/dmath';
 import type { Building, SimState, Walker } from './state';
+// Merge with slices 54 and 56: festivals and offerings at a finished sanctuary (its procession from its altar), and the
+// god come in person as their festival begins.
+import { altarOf, sanctuaryDone, sanctuaryName, sanctuaryOf } from './sanctuaries';
+import { startVisit } from './epiphany';
 
 // ---------------------------------------------------------------------------
 // The numbers, in one place (tuned by eye: a city doing nothing special for a
@@ -71,8 +75,8 @@ import type { Building, SimState, Walker } from './state';
 /** A god's shrines: the first is worth this much, the next these, and each after the last of them. At most SHRINE_MOST in all. */
 export const SHRINE_HONOURS = [5, 3, 2, 1];
 export const SHRINE_MOST = 12;
-/** A rival minds a third as much. */
-export const RIVAL_SHARE = 1 / 3;
+/** A rival minds a third as much (pantheon.ts, with worship and standing). */
+export { RIVAL_SHARE } from './pantheon';
 /** A festival: what it costs, what it honours and how long that lasts, how far ahead it is announced, one a year per god. */
 export const FESTIVAL_COST = 250;
 export const FESTIVAL_HONOUR = 15;
@@ -163,39 +167,10 @@ export function goodsWords(w: Ware, n: number): string {
 // ---------------------------------------------------------------------------
 // Worship and rivalry.
 
-/** A god's rival's grudge, in words: "you honoured Poseidon, her rival". */
-const rivalWhy = (god: GodId, holder: GodId): string => `you honoured ${GODS[god].name}, ${herOf(holder)} rival`;
-
-/**
- * Honour a god for something done once (a festival, an offering, a stage of a
- * sanctuary): see honour in pantheon.ts. While the god's rival is honoured
- * less (their mood is lower), the rival remembers a third as much against you,
- * fading as the honour does.
- */
-export function worship(s: SimState, god: GodId, amount: number, kind: string, why: string, fade: number): void {
-  honour(s, god, amount, kind, why, fade);
-  s.gods.worshipped[god] = s.tick;
-  if (amount <= 0) return;
-  const r = GODS[god].rival;
-  const grudge = Math.round(amount * RIVAL_SHARE);
-  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) honour(s, r, -grudge, 'rival', rivalWhy(god, r), fade);
-}
-
-/**
- * Honour a god for something that counts while it lasts (their shrines, a
- * sanctuary standing): one memory of its kind, replaced (0 forgets it). The
- * rival's standing grudge, a third as much, holds while the rival is honoured
- * less, and is forgotten when not.
- */
-export function standing(s: SimState, god: GodId, kind: string, why: string, amount: number): void {
-  setStanding(s, god, kind, why, amount);
-  if (amount > 0) s.gods.worshipped[god] = s.tick;
-  const r = GODS[god].rival;
-  const k = `rival:${kind}`;
-  const grudge = Math.round(amount * RIVAL_SHARE);
-  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) setStanding(s, r, k, `${why}, ${herOf(r)} rival`, -grudge);
-  else forget(s, r, k);
-}
+// (Merge with slice 54: `worship` and `standing` live in pantheon.ts, the mood maths' own module, so sanctuaries.ts can
+// honour its god through them without importing this module, which imports sanctuaries.ts: the cycle changed how a demo's
+// history played under the test runner. They are re-exported here as before.)
+export { standing, worship } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // Shrines.
@@ -266,6 +241,21 @@ function takeSacred(s: SimState, w: Ware, n: number): void {
 // ---------------------------------------------------------------------------
 // Festivals.
 
+/** Merge with slice 54: a finished sanctuary (consecrated) holds festivals and takes offerings as a dedicated shrine does. */
+const holySanctuary = (s: SimState, b: Building): boolean => b.kind === 'sanctuary' && !!b.god && sanctuaryDone(s, b.god) && sanctuaryOf(s, b.god)?.id === b.id;
+
+/** Why a building can't have a festival or an offering for being what it is ('' if it can: a shrine, or a finished sanctuary). */
+function placeRefusal(s: SimState, b: Building | undefined, what: 'festival' | 'offering'): string {
+  if (b?.kind === 'sanctuary' && b.god && !holySanctuary(s, b)) return `${sanctuaryName(b.god, true)} is not finished: ${what === 'festival' ? 'festivals' : 'offerings'} wait for its consecration`;
+  if (!b || (b.kind !== 'shrine' && b.kind !== 'sanctuary')) return what === 'festival' ? 'Only a shrine or a sanctuary holds a festival' : 'Offerings are taken to a shrine or a sanctuary';
+  return '';
+}
+
+/** Where a festival or an offering is held, in words: "the shrine by the bay, by the granary", or "the sanctuary to Demeter". */
+export function placeWords(map: CoastMap, b: Building, s?: SimState): string {
+  return b.kind === 'sanctuary' && b.god ? sanctuaryName(b.god) : shrineWords(map, b, s);
+}
+
 /** The day a god's last festival began (its procession set out), or -1: for slice 56's visit on a festival. */
 export const festivalHeld = (s: SimState, god: GodId): number => s.gods.lastFestival[god] ?? -1;
 /** Is a festival to the god announced or under way? */
@@ -311,7 +301,8 @@ export function nextFestival(s: SimState, god: GodId): number {
 /** Why a festival can't be held at a shrine now ('' if it can). */
 export function festivalRefusal(s: SimState, map: CoastMap, id: number): string {
   const b = findBuilding(s, id);
-  if (!b || b.kind !== 'shrine') return 'Only a shrine holds a festival';
+  const not = placeRefusal(s, b, 'festival');
+  if (not || !b) return not;
   if (!s.gods.on) return 'The gods are not watching yet';
   const god = b.god;
   if (!god) return 'Dedicate the shrine to a god first: a festival is for one of the twelve';
@@ -320,7 +311,7 @@ export function festivalRefusal(s: SimState, map: CoastMap, id: number): string 
   if (f) return f.walker ? `${G.name}’s festival is under way` : `A festival to ${G.name} is announced for ${dayWords(f.day)}`;
   const next = nextFestival(s, god);
   if (next) return `${G.name} had a festival on ${dayWords(festivalHeld(s, god))}: one a year (the next from ${dayWords(next)}${dateOfTick(next).yearBC !== dateOfTick(s.tick).yearBC ? ' next year' : ''})`;
-  if (roadsBeside(s, map.size, b).length === 0) return 'No road leads from the shrine for the procession';
+  if (roadsBeside(s, map.size, b).length === 0) return `No road leads from the ${b.kind === 'sanctuary' ? 'sanctuary' : 'shrine'} for the procession`;
   const can = spendable(s);
   if (can < FESTIVAL_COST) return `A festival costs ${FESTIVAL_COST} dr, and the treasury can spare ${Math.max(0, Math.floor(can))}`;
   const need = festivalGoods(G.sacred);
@@ -346,7 +337,7 @@ export function holdFestival(s: SimState, map: CoastMap, id: number): void {
     kind: 'gods',
     u: NEWS,
     title: `A festival to ${G.name} is announced`,
-    words: `A festival to ${G.name}, ${G.epithet}, is announced at ${shrineWords(map, b, s)}, for ${dayWords(f.day)}: ${herOf(god)} procession will walk round the agora, and the homes it passes will be glad for a season. It cost ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, n)}.`,
+    words: `A festival to ${G.name}, ${G.epithet}, is announced at ${placeWords(map, b, s)}, for ${dayWords(f.day)}: ${herOf(god)} procession will walk round the agora, and the homes it passes will be glad for a season. It cost ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, n)}.`,
     at: { building: b.id },
   });
 }
@@ -430,7 +421,7 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
   const way = b ? processionWay(s, map.size, b) : null;
   if (!b || !way || way.length < 2) {
     s.gods.festivals.splice(s.gods.festivals.indexOf(f), 1);
-    say(s, { kind: 'gods', u: NEWS, title: `${G.name}’s festival`, words: `${G.name}’s festival was held${b ? ` at ${shrineWords(map, b, s)}` : ''}, but no road led out for a procession. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`, at: b ? { building: b.id } : undefined });
+    say(s, { kind: 'gods', u: NEWS, title: `${G.name}’s festival`, words: `${G.name}’s festival was held${b ? ` at ${placeWords(map, b, s)}` : ''}, but no road led out for a procession. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`, at: b ? { building: b.id } : undefined });
     return;
   }
   const w = newWalker(s, 'procession', PROCESSION_PEOPLE);
@@ -441,7 +432,10 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
   const n = map.size;
   const [dx, dz] = door(n, b, way[0]);
   const [ex, ez] = door(n, b, way[way.length - 1]);
-  setPath(w, [[dx, dz, -1], ...roadPoints(s, n, way), [ex, ez, -1]]);
+  // (Merge with slice 54: from a sanctuary, the procession sets out from its altar, and comes home to it.)
+  const altar = b.kind === 'sanctuary' ? altarOf(s, b) : null;
+  const ends: Array<[number, number, number]> = altar ? [[altar.x, altar.z, -1]] : [];
+  setPath(w, [...ends, [dx, dz, -1], ...roadPoints(s, n, way), [ex, ez, -1], ...ends]);
   s.walkers.push(w);
   f.walker = w.id;
   passBy(s, map, w, way[0]);
@@ -450,9 +444,14 @@ function beginFestival(s: SimState, map: CoastMap, f: Festival): void {
     kind: 'gods',
     u: NEWS,
     title: `${G.name}’s festival begins`,
-    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${shrineWords(map, b, s)}${s.buildings.some((a) => a.kind === 'agora') ? ' for the agora' : ' through the streets'}. Homes it passes will be glad for a season.`,
+    words: `${G.name}’s festival begins: ${herOf(f.god)} procession sets out from ${altar ? `the altar of ${placeWords(map, b, s)}` : placeWords(map, b, s)}${s.buildings.some((a) => a.kind === 'agora') ? ' for the agora' : ' through the streets'}. Homes it passes will be glad for a season.`,
     at: { building: b.id },
   });
+  // Merge with slice 56: the god comes in person for their festival, rising where the procession sets out (the shrine, or
+  // the sanctuary's altar). Only with the gods watching (this step runs only then, so never in an older demo's history);
+  // refused, as any visit is, with three gods in the city already or the god there now.
+  const [cx, cz] = centreOf(b);
+  startVisit(s, f.god, 'festival', altar ?? { x: cx, z: cz });
 }
 
 const scratch: Building[] = [];
@@ -517,7 +516,7 @@ export function moveProcession(s: SimState, map: CoastMap, w: Walker): boolean {
 // ---------------------------------------------------------------------------
 // Offerings.
 
-/** The offering on its way to a shrine, if any. */
+/** The offering on its way to a shrine (or a sanctuary), if any. */
 export const offeringTo = (s: SimState, id: number): Walker | undefined => s.walkers.find((w) => w.kind === 'offering' && w.target === id);
 
 /** The nearest place by road from a shrine that holds its god's sacred good, and the way there (from the shrine's side). */
@@ -540,7 +539,8 @@ function nearestSacred(s: SimState, size: number, b: Building, w: Ware): { g: Bu
 /** Why an offering can't be sent to a shrine now ('' if it can). */
 export function offerRefusal(s: SimState, map: CoastMap, id: number): string {
   const b = findBuilding(s, id);
-  if (!b || b.kind !== 'shrine') return 'Offerings are taken to a shrine';
+  const not = placeRefusal(s, b, 'offering');
+  if (not || !b) return not;
   if (!s.gods.on) return 'The gods are not watching yet';
   if (!b.god) return 'Dedicate the shrine to a god first: an offering is for one of the twelve';
   const G = GODS[b.god];
@@ -548,7 +548,8 @@ export function offerRefusal(s: SimState, map: CoastMap, id: number): string {
   const n = offeringOf(G.sacred);
   const have = sacredStock(s, G.sacred);
   if (have < n) return `${G.name}’s offering is ${goodsWords(G.sacred, n)}, and the stores hold ${have ? goodsWords(G.sacred, have).replace(/ of .*$/, '') : 'none'}`;
-  if (!nearestSacred(s, map.size, b, G.sacred)) return roadsBeside(s, map.size, b).length ? `No store the shrine’s roads reach holds ${WARE_NAMES[G.sacred].toLowerCase()}` : 'No road leads to the shrine';
+  const what = b.kind === 'sanctuary' ? 'sanctuary' : 'shrine';
+  if (!nearestSacred(s, map.size, b, G.sacred)) return roadsBeside(s, map.size, b).length ? `No store the ${what}’s roads reach holds ${WARE_NAMES[G.sacred].toLowerCase()}` : `No road leads to the ${what}`;
   return '';
 }
 
@@ -592,7 +593,7 @@ export function moveOffering(s: SimState, map: CoastMap, w: Walker): boolean {
     kind: 'gods',
     u: NEWS,
     title: `An offering to ${G.name}`,
-    words: `An offering of ${goodsWords(w.food, w.load)} reached ${b ? `${G.name}’s ${shrineWords(map, b, s).replace(/^the /, '')}` : `${G.name}`}. ${G.name} is ${moodWord(moodOfGod(s, god))}.`,
+    words: `An offering of ${goodsWords(w.food, w.load)} reached ${b ? `${G.name}’s ${placeWords(map, b, s).replace(/^the /, '').replace(/ to \S+$/, '')}` : `${G.name}`}. ${G.name} is ${moodWord(moodOfGod(s, god))}.`,
     at: b ? { building: b.id } : undefined,
   });
   w.load = 0;
@@ -800,7 +801,7 @@ export function godDay(s: SimState, god: GodId, look: CityLook): void {
   neglect(s, god);
 }
 
-/** Has a god any worship standing now (a shrine, later a sanctuary) or lately? */
+/** Has a god any worship standing now (a shrine, a sanctuary: their `standing` marks it each month) or lately? */
 function worshippedLately(s: SimState, god: GodId): boolean {
   const w = s.gods.worshipped[god] ?? -1;
   return w >= 0 && s.tick - w < TICKS_PER_YEAR;
@@ -810,7 +811,7 @@ function worshippedLately(s: SimState, god: GodId): boolean {
 function neglect(s: SimState, god: GodId): void {
   if (!noticed(s) || s.tick - s.gods.noticedAt < TICKS_PER_YEAR || worshippedLately(s, god)) return;
   const step = Math.min(NEGLECT_STEP, Math.max(0, moodOfGod(s, god) - NEGLECT_FLOOR));
-  if (step > 0) honour(s, god, -step, 'neglect', 'no shrine, festival or offering in a year', NEGLECT_FADE);
+  if (step > 0) honour(s, god, -step, 'neglect', 'no shrine, sanctuary, festival or offering in a year', NEGLECT_FADE);
 }
 
 // ---------------------------------------------------------------------------
@@ -826,7 +827,7 @@ function cutShort(s: SimState, map: CoastMap, f: Festival): void {
     kind: 'gods',
     u: NEWS,
     title: `${G.name}’s festival is cut short`,
-    words: `${G.name}’s festival is cut short: ${b ? `${herOf(f.god)} procession went home` : `${herOf(f.god)} shrine was pulled down, and the procession went home`}. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`,
+    words: `${G.name}’s festival is cut short: ${b ? `${herOf(f.god)} procession went home` : `the place it set out from was pulled down, and the procession went home`}. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`,
     at: b ? { building: b.id } : undefined,
   });
   void map;
@@ -920,7 +921,7 @@ function neglectNews(s: SimState): void {
     kind: 'gods',
     u: WARNING,
     title: all ? 'The gods feel neglected' : cold.length === 1 ? `${names[0]} feels neglected` : `${cap(NUMBER_WORDS[cold.length])} gods feel neglected`,
-    words: `${all ? 'All twelve gods have' : `${andList(names)} ${cold.length === 1 ? 'has' : 'have'}`} had no shrine, festival or offering from your city in a year, and ${cold.length === 1 ? 'grows' : 'grow'} colder a little each month (no further than displeased by neglect alone). A shrine dedicated to a god (click a shrine), a festival or an offering stops it, and it fades over a year.`,
+    words: `${all ? 'All twelve gods have' : `${andList(names)} ${cold.length === 1 ? 'has' : 'have'}`} had no shrine, sanctuary, festival or offering from your city in a year, and ${cold.length === 1 ? 'grows' : 'grow'} colder a little each month (no further than displeased by neglect alone). A shrine dedicated to a god (click a shrine), a sanctuary, a festival or an offering stops it, and it fades over a year.`,
   });
 }
 
@@ -957,17 +958,19 @@ function moodNews(s: SimState, gods: GodId[], up: boolean): void {
 }
 
 /** What a procession or an offering's porter is doing, for the hover tip (status.ts). */
-export function worshipWalkerStatus(_s: SimState, w: Walker): { title: string; detail: string } {
+export function worshipWalkerStatus(s: SimState, w: Walker): { title: string; detail: string } {
   const god = GOD_IDS[w.steps];
   const G = god ? GODS[god] : null;
+  // (Merge with slice 54: a shrine's, or a sanctuary's.)
+  const place = findBuilding(s, w.kind === 'procession' ? w.origin : w.target)?.kind === 'sanctuary' ? 'sanctuary' : 'shrine';
   if (w.kind === 'procession') {
     return {
       title: G ? `The procession for ${G.name}` : 'A procession',
-      detail: `${G ? `${G.name}’s festival: ` : ''}priestesses and townsfolk in white and ${G ? `${G.name}’s colour` : 'colour'}, walking from the shrine round the agora and back · ${w.load === 1 ? 'one home' : `${w.load} homes`} glad so far, for a season`,
+      detail: `${G ? `${G.name}’s festival: ` : ''}priestesses and townsfolk in white and ${G ? `${G.name}’s colour` : 'colour'}, walking from the ${place} round the agora and back · ${w.load === 1 ? 'one home' : `${w.load} homes`} glad so far, for a season`,
     };
   }
   return {
     title: G ? `An offering to ${G.name}` : 'An offering',
-    detail: `Carrying ${goodsWords(w.food, w.load)} from the stores to ${G ? `${G.name}’s` : 'the'} shrine · ${G ? `${G.name} is honoured when it arrives` : 'the god is honoured when it arrives'}`,
+    detail: `Carrying ${goodsWords(w.food, w.load)} from the stores to ${G ? `${G.name}’s` : 'the'} ${place} · ${G ? `${G.name} is honoured when it arrives` : 'the god is honoured when it arrives'}`,
   };
 }

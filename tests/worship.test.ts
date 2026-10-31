@@ -155,7 +155,7 @@ describe('neglect', () => {
       expect(moodOfGod(s, 'ares')).toBeGreaterThanOrEqual(NEGLECT_FLOOR);
     }
     expect(moodOfGod(s, 'ares')).toBeLessThan(-10);
-    expect(reasonsOf(s, 'ares')[0].why).toBe('no shrine, festival or offering in a year');
+    expect(reasonsOf(s, 'ares')[0].why).toBe('no shrine, sanctuary, festival or offering in a year');
     const low = moodOfGod(s, 'ares');
     worship(s, 'ares', 4, 'offering', 'your offerings to Ares', 6 * TICKS_PER_MONTH);
     s.tick += TICKS_PER_MONTH;
@@ -334,9 +334,9 @@ describe('the gods in play', () => {
   it('a state from before worship (the version before) gains its empty record, nothing else', () => {
     const s = demoSim('town').state;
     const old = JSON.parse(JSON.stringify(s)) as Record<string, unknown> & { gods: Record<string, unknown> };
-    old.version = SIM_STATE_VERSION - 1;
+    old.version = 51; // (the version before this step: 51, slice 54; slice 53 took 52 at its merge)
     for (const k of ['festivals', 'worshipped', 'lastFestival', 'months', 'month', 'festive']) delete old.gods[k];
-    migrate(old);
+    expect(migrate(old)).toBe(51);
     expect(old.version).toBe(SIM_STATE_VERSION);
     expect(old.gods.festivals).toEqual([]);
     expect(old.gods.month).toBe(-1);

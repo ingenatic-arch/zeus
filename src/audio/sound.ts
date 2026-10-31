@@ -427,6 +427,94 @@ export class Sound {
     }
   }
 
+  // Slice 56: a god's sound sting as they arrive, or (`out`) leave: thunder for Zeus, surf and a conch for Poseidon,
+  // a lyre for Apollo... each a second or two, quieter as they go. At most one every half second, whoever comes.
+  private stingAt = -Infinity;
+  /** Sounds played for the gods (for the smoke test). */
+  stings = 0;
+  sting(god: string, out = false): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master || this.muted) return;
+    if (ctx.currentTime - this.stingAt < 0.5) return;
+    this.stingAt = ctx.currentTime;
+    this.stings++;
+    this.played++;
+    const v = out ? 0.6 : 1;
+    const up = (fs: number[], gain: number, gap: number, from = 0): void => fs.forEach((f, i) => this.bell(gain * v, f, from + i * gap));
+    switch (god) {
+      case 'zeus':
+        // A crack of lightning and thunder rolling away.
+        this.burst(0.3 * v, 3200, 0.7, 0.12, 0, 'highpass');
+        this.burst(0.22 * v, 900, 0.6, 0.3, 0.05, 'lowpass');
+        this.thump(0.4 * v, 48, 2.2);
+        for (let i = 0; i < 5; i++) this.burst(0.12 * v, rand(90, 220), 0.8, 0.5, 0.25 + i * rand(0.2, 0.35), 'lowpass');
+        break;
+      case 'poseidon':
+        // Surf rising and breaking, and a conch's call.
+        this.swish(0.22 * v, 300, 1800, 1.4);
+        this.burst(0.14 * v, 600, 0.5, 0.9, 0.5, 'lowpass');
+        this.horn(0.06 * v, 0.3, 1.2, 0.4);
+        break;
+      case 'demeter':
+        // A breeze through the wheat, and soft bells climbing.
+        this.swish(0.06 * v, 1400, 2600, 1.6);
+        up(out ? [1175, 988, 784, 659] : [659, 784, 988, 1175], 0.03, 0.16, 0.1);
+        break;
+      case 'athena':
+        // An owl's call, and a clear bell.
+        this.tone(0.06 * v, 392, 0.35, 'sine', 0);
+        this.tone(0.05 * v, 330, 0.55, 'sine', 0.42);
+        this.bell(0.03 * v, 880, 0.9);
+        break;
+      case 'apollo':
+        // A lyre's bright chord, plucked upwards.
+        up(out ? [1047, 784, 659, 523] : [523, 659, 784, 1047, 1319], 0.035, 0.09);
+        break;
+      case 'artemis':
+        // Silver arrows' whistle and a high, cold bell.
+        this.swish(0.07 * v, 4200, 1600, 0.4);
+        up([1568, 2093], 0.025, 0.25, 0.2);
+        break;
+      case 'ares':
+        // A crash of bronze and a low war horn.
+        this.burst(0.22 * v, 2600, 2, 0.35, 0, 'bandpass');
+        this.thump(0.3 * v, 70, 0.6);
+        this.horn(0.08 * v, 0.15, 0.9, 1);
+        break;
+      case 'aphrodite':
+        // A soft rustle of wings and petals, bells falling like petals.
+        this.swish(0.05 * v, 2200, 3600, 1);
+        up([1319, 1175, 988, 1175, 1319], 0.022, 0.12, 0.1);
+        break;
+      case 'hephaestus':
+        // Three strokes on the anvil, and the sparks' hiss.
+        for (let i = 0; i < 3; i++) {
+          this.bell(0.05 * v, 1250 + i * 30, i * 0.24);
+          this.knock(0.12 * v, 300, i * 0.24);
+        }
+        this.burst(0.06 * v, 5200, 0.8, 0.5, 0.1, 'highpass');
+        break;
+      case 'hermes':
+        // A rush of wings and a quick bright run.
+        this.swish(0.1 * v, 900, 4200, 0.35);
+        up(out ? [2093, 1568, 1319, 1047] : [1047, 1319, 1568, 2093], 0.025, 0.05, 0.05);
+        break;
+      case 'dionysus':
+        // A drum and a reedy aulos, bending.
+        this.thump(0.22 * v, 90, 0.4);
+        this.knock(0.1 * v, 180, 0.45);
+        this.tone(0.035 * v, 440, 0.7, 'sawtooth', 0.2);
+        this.tone(0.03 * v, 523, 0.6, 'sawtooth', 0.6);
+        break;
+      case 'hera':
+        // A stately fanfare and bells.
+        this.salpinx(0.03 * v, 0, 0.5, 392);
+        this.salpinx(0.03 * v, 0.45, 0.8, 523);
+        up([784, 988, 1175], 0.025, 0.08, 0.5);
+        break;
+    }
+  }
+
   private env(gain: number, at: number, attack: number, decay: number): GainNode {
     const ctx = this.ctx as AudioContext;
     const g = ctx.createGain();

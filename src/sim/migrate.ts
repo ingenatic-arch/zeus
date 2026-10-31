@@ -206,6 +206,16 @@
  * the save was made, a smaller one when it grows to that. Every shrine is
  * "to all the gods", as it always was. Nothing in the city changes.
  *
+ * Slice 55 (Monsters at the gates): the town has its record of monsters now,
+ * empty: no monster on its land, no stone figure, none slain. Nothing in the
+ * city changes.
+ * Slice 56 (The gods walk your streets): no god is in the city, nothing has
+ * been blessed, no god was loving at the last look and none has ever come
+ * (`gods.walks`). Nothing in the city changes.
+ * Slice 54 (Sanctuaries rise): a site's record says when a finished
+ * sanctuary lost its workers (`idle`); an older town has no sanctuary, so
+ * every monument's site gets 0 where it has none, and nothing else is
+ * touched (no new ware). Nothing in the city changes.
  * Slice 53 (The twelve and their tempers): worship's record is there now,
  * empty: no festival announced or held, no god worshipped yet (so neglect
  * waits a year from when the city was noticed), no months of moods kept, and
@@ -256,7 +266,10 @@ import { freshAnnals } from './annals';
 import { freshHealth } from './health';
 // Phase 7 groundwork.
 import { freshGods, NOTICE_PEOPLE } from './pantheon';
-// Slice 53
+// Slice 55.
+import { freshLegends } from './monsters';
+// Slice 56.
+import { freshWalks } from './pantheon';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -323,7 +336,10 @@ export function migrate(st: unknown): number {
   if (st.version === 45) fromSlice51(st);
   if (st.version === 46) fromSlice49(st);
   if (st.version === 47) fromSlice53g(st);
-  if (st.version === 48) fromSlice53(st);
+  if (st.version === 48) fromSlice55(st);
+  if (st.version === 49) fromSlice56(st);
+  if (st.version === 50) fromSlice54(st);
+  if (st.version === 51) fromSlice53(st);
   return from;
 }
 
@@ -1202,6 +1218,37 @@ function fromSlice53g(st: Record<string, unknown>): void {
     const tick = typeof st.tick === 'number' ? st.tick : 0;
     const people = typeof st.population === 'number' ? st.population : 0;
     st.gods = freshGods(true, people >= NOTICE_PEOPLE ? tick : -1);
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 55 (Monsters at the gates): see the note above. Only its own field,
+ * only if it is missing: `legends`, with no monster, no stone and none slain.
+ */
+function fromSlice55(st: Record<string, unknown>): void {
+  if (!isObj(st.legends)) st.legends = freshLegends();
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 56 (The gods walk your streets): see the note above. Only its own
+ * field, only if it is missing: `gods.walks`, nobody in the city. (A `gods`
+ * that is missing is left for the save checks to refuse.)
+ */
+function fromSlice56(st: Record<string, unknown>): void {
+  if (isObj(st.gods) && !isObj(st.gods.walks)) st.gods.walks = freshWalks();
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 54 (Sanctuaries rise): see the notes at the top. It fills in only its
+ * own field (a site's `idle`), only where it is absent, and assumes nothing
+ * of any other line's.
+ */
+function fromSlice54(st: Record<string, unknown>): void {
+  if (isObj(st.monuments) && Array.isArray(st.monuments.sites)) {
+    for (const x of st.monuments.sites as unknown[]) if (isObj(x) && x.idle === undefined) x.idle = 0;
   }
   st.version = (st.version as number) + 1;
 }

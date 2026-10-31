@@ -56,6 +56,8 @@ export const PRISON_COST = 400;
 export const INFIRMARY_COST = 150;
 export const ASKLEPIEION_COST = 600;
 export const ESTATE_PLOT_COST = 100;
+/** Slice 54: marking out a sanctuary (5 x 5) to one of the twelve (sanctuaries.ts): less than a monument, more than anything else. */
+export const SANCTUARY_COST = 1200;
 /** Clearing rubble: a small fee for each heap, by its footprint (2 x 2, 3 x 3). */
 export const CLEAR_SMALL = 10;
 export const CLEAR_BIG = 20;
@@ -110,6 +112,8 @@ export const COST: Record<BuildingKind, number> = {
   // Slice 49.
   infirmary: INFIRMARY_COST,
   asklepieion: ASKLEPIEION_COST,
+  // Slice 54.
+  sanctuary: SANCTUARY_COST,
 };
 
 /** What clearing a heap of rubble with this footprint side costs. */

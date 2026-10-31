@@ -68,6 +68,230 @@ The starting build (`11f9290`) and this slice's, measured with the same loosened
 - **The month-by-month bars' tips** said the month before the one each bar was kept in; they now say the right month, and they use the game's own tip like every other panel rather than the browser's.
 - **Shift+G everywhere.** The help still said Shift steps back through G's stores, and about twenty tips (the storehouse in a press's, a pasture's, a mine's or a stall's hover, the full granary's warning, the new-need lines) still said "G twice" or "G ×3" for the stores; they all say Shift G now.
 
+### At the merge
+Slices 55 (the monsters), 56 (the gods in the city) and 54 (the sanctuaries) joined the main line first, so this slice's saves are now version 52, not 49. Every older save still loads: a `#town` saved on the main line just before this merge loads, plays on, and a shrine dedicated in it honours its god.
+- **A god comes to their festival.** As a festival's procession sets out, its god rises there and then walks on to the places they love: "Demeter rises where her procession sets out, come for her festival." `#procession` now opens with Demeter already walking from her shrine. At a god's own sanctuary they bless it first. As before, at most three gods walk the city at once, so a festival held while three are about brings nobody.
+- **A sanctuary is worship.** Its stages and the finished sanctuary honour its god the way a shrine or a festival does now: the god's rival minds it ("your sanctuary to Athena, his rival"), and while a sanctuary stands with its priests, its god is not neglected.
+- **Festivals and offerings at a sanctuary.** A finished sanctuary's panel has a "Festival and offering" section with the two buttons and a link to the god on Olympus. Its procession walks from the altar and home to it. An unfinished one says festivals wait for its consecration.
+- **Olympus shows the sanctuaries.** Each god's card says where their sanctuary stands: none, rising (2 of 3), standing, or dimmed. On a god's page the sanctuary comes first under Worship, with a link to it. The overview's Gods page links each sanctuary too. A god's page acts at the sanctuary first, then at a shrine.
+- **One drawing of the twelve.** The sanctuary chooser, the sanctuary's panel and a god's panel all use this slice's emblems now, so each god looks the same everywhere.
+- **Every earlier town is as it was.** I played all 173 earlier demos from the main line before and after the merge, as they open and 900 ticks on. Date, people and money were the same in every one, and so was the rest of the city. Two differences come from this slice's own gods:
+  - The gods read the city each month now, so their moods move where they didn't before.
+  - In `#sanctuaries` and `#twelve` the rivals already mind the sanctuaries as the demo opens. Played on about a month, `#sanctuaries` gets one new message: "Poseidon and Apollo are pleased with your city".
+- **Checked on the merged game:**
+  - `#gods`, `#procession`, `#sanctuaries` (with Athena's page on Olympus), `#twelve`, `#epiphany`, `#monster`, `#town` and `#order` open with no errors.
+  - The browser checks pass for the gods, the procession, the sanctuaries, the merge's own checks, the gods walking and the monsters. Shift+G still steps through the stores on `#town`.
+  - There are 857 tests. In the full run on this busy machine, 852 passed and 5 ran out of time or missed a timing budget. Four of those 5 passed when I ran their files alone. The fifth plays every demo through, checking that no wages go unpaid while each town is set up. Here it runs past its own 20-minute limit, as it already did before this slice. So I checked by hand the four demos the gods change (`#gods`, `#procession`, `#sanctuaries` and `#twelve`): no wages go unpaid in any of them.
+
+## Slice 54 — Sanctuaries rise (31 Oct)
+
+The first slice on phase 7's Temples line: you can now raise a great sanctuary to any of the twelve gods from the Mythology tab, watch the ox carts and the masons' builders put it up in three stages, and see the god take notice as it rises. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves: **state version 49** on this line (it is renumbered when the phase's lines merge); version 47 and 48 saves load and play on. The monuments' code now serves sanctuaries too, but the Lighthouse, the Colossus and the Stadium are raised exactly as before, and every one of the 167 earlier demos opens exactly as it did. The Mythology tab has a second button.
+
+### What's new
+- **The sanctuary.** A 5 × 5 walled precinct for one of the twelve, one to a god, 1,200 dr to mark out. The Sanctuary button on the Mythology tab opens a card of the twelve, each with their emblem in their colour, what they are god of and the sacred good their sanctuary needs; gods already honoured are greyed out with the reason.
+- **Three stages**, raised by the same ox carts and masons' builders as the monuments: the foundations (160 marble, 80 timber), the temple (320 marble, 160 timber) and the statue and finish (120 marble, 120 copper cast into bronze by an armoury's smiths, and the god's sacred good: 200 measures of a food, 100 of oil, wine, fleece or copper, 16 sets of armour or 8 horses, carted from whichever granary or storehouse has it). With one masons' yard, a year or more from marking out to finished: about fifteen months in `#sanctuary`, whose storehouse is across town (see What the review changed).
+- **The god notices.** Each stage finished is remembered (+6, +8, +10 to the god's mood, fading over two years). Finished and staffed, the sanctuary is a standing honour (+18) while it stands so. Left without workers for a season it **dims**: its lamps go out, the honour lapses and a message says so; workers bring it back.
+- **Priests.** A finished sanctuary takes 8 workers and sends priests in its god's colour on the religion round, blessing homes as a priestess does but reaching half as far again (48 tiles of road, against a shrine's 32). Priestesses tend its altar.
+- **Its panel**: the god's emblem and name, the three stages with bars and what each still wants, the god's mood word and reasons, and its priests. Two places are left empty for later slices (festivals and offerings, and blessings).
+- **The look.** One builder for all twelve: the walled court, the stepped temple with its ring of columns, the altar, cypresses, banners, and the god's statue in their own pose with their emblem. Each temple's roof is glazed in a tone of its god's (Zeus's in marble tiles). Aphrodite's and Hermes's are round tholoi. Each god also has a side court: Zeus's oak, Hera's irises, Poseidon's pool, Demeter's wheat, Athena's olives, Apollo's laurels, Artemis's wild grove, Ares' yard of arms, Aphrodite's roses, Hephaestus's smoking forge, Hermes's herms and Dionysus's vines. Each stage looks different: stakes and cords on a levelled pad, the platform laid course by course, the columns rising in scaffolding under a crane, then the statue rising in its own scaffold beside a casting pit.
+
+### What to try
+1. #sanctuaries — four sanctuaries at four stages east of #quarry's vineyards. Athena's is finished and staffed, with her panel open (her mood and its reasons) and her priests out. Poseidon's statue is going up, Apollo's temple is rising and Demeter's has just been marked out. Play it on and watch Demeter's ox carts.
+2. #sanctuary — Demeter's site alone, just marked out, its first marble on the road. Play it on to watch the stages come (the foundations start after about three months, the temple after seven or eight).
+3. #twelve — all twelve finished in two rows, to tell apart.
+4. #sanctuaries — open the Mythology tab and press the Sanctuary button for the chooser, pick a god, and mark one out beside a road.
+5. #sanctuaries-modern and #twelve-plain — the other two looks.
+
+### What I'd like your eye on
+- **Can you tell the twelve apart at a glance in #twelve?** I leaned on the roofs' glaze and two round temples. Too loud for the city, or not enough?
+- **The pace and the price**: about a year with one yard, 1,200 dr to mark out, and 600 marble, 240 timber and 120 copper in all, besides the sacred good. Too quick or too slow for a centrepiece?
+- **How much the god cares**: +18 while it stands and is staffed, and +6, +8 and +10 for the stages, each fading over two years. Does that feel like the biggest thing you can do for a god?
+- **The priests' reach** (half as far again as a priestess), and dimming after a season without workers.
+
+### Known rough edges
+- `#twelve` is a demo shortcut: its sanctuaries' stages are completed directly in the setup, so every stage's message and every god's memory of it fall on the same day (the scroll opens with 48 sanctuary messages). `#sanctuaries` and `#sanctuary` play their stages for real, but their coin and materials are put on site "set up for this demo" (in the ledger and the stock book).
+- From some angles a side court is behind its temple; turn the view to see it.
+- A dimmed sanctuary is drawn greyer and its banners furled; there is no other sign in the city yet.
+- The god's mood shows on the sanctuary's panel only. The Olympus panel is another line's slice.
+- The panel's "What it is doing" and "Its stages" overlap a little while it rises: the first says where each material comes from, the second how far each stage is.
+- The checks ran with three other lines building on the same 4 cores, so the tests and the smoke needed long timeouts, and every time in Measurements is noise. A handful of time-bound tests still fail under that load, as they do on the starting build (see Measurements).
+
+### Measurements
+The starting build (`11f9290`) and this slice's, measured side by side with the same loosened `measure.mjs` (in three parts, as one run no longer fits the two-hour limit on this machine). Headless, software WebGL, with three other lines building on 4 cores (load average 30 to 50), so **every time below is noise**: the bare link took 10 to 14 s to be ready in both. Triangles, draw calls and sizes are exact.
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Tests | 803 in 60 files, all pass (the groundwork's run) | 809 in 61 files. Under load 40 to 50: 768 pass, 37 time out, 4 fail. Of the 4, the kit's icon test was real: fixed (`52d379f`), 8 of 8 pass. The other 3 (a per-call time, two land-bake times) are measured on the clock. The 21 files with a failure, rerun with long timeouts on 2 workers: 283 of 288 pass. Of the 5 left: two land-bake times and the routes replay's 60 s fail the same way on `11f9290` run beside it; the routes and trade replays pass in a scratch copy with longer timeouts; the every-demo wages test ran out of its 20 minutes, and my three demos pass it alone |
+| Build | | succeeds; 44 s with the prepared towns cached, 15 to 23 min when they bake again under this load |
+| The game itself | 3,004 KB, 998 KB gzipped | 3,066 KB, 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 128 files, 4,658 KB gzipped (largest 82 KB) |
+| Every earlier demo opened paused (date, money, people, homes, levels, buildings, every count in the probe's city) | 167 demos | all 167 identical |
+| Version 47 and 48 saves (`#monument` and `#town`, saved by the code at `11f9290^` and `11f9290`) | | load to 49, play a quarter on and save again |
+| Triangles and draw calls in every earlier view, the map of Greece, every land and `#order` | | identical. (Two things differ, both animated: a mesh count in `#food`'s overlay columns, where the view's own triangles are identical, and one more smoke puff in `#creak`, 2 triangles) |
+| `#sanctuaries` | (new) | 1.50 M triangles, 91 draw calls |
+| `#twelve` (twelve sanctuaries, finished, in one view) | (new) | 1.94 M triangles, 129 draw calls (`#order`'s view: 2.52 M and 150) |
+| The slow smoke | | passes, with every slice 54 check. It ran in four parts because the whole would not fit in two hours. The one failure is `#jailbreak`'s popup, gone before the smoke could click it (slice 51); that step also fails on `11f9290` run alone under this load |
+
+### What the review changed
+- **`#sanctuary` and `#sanctuaries` now rise when played on.** `#quarry`'s town cuts marble but has no loggers' camp and no copper mine, so Demeter's site waited for its timber for ever, and Apollo's statue for its copper. The storehouse now holds the timber and copper they still need (set up for the demo, in the stock book), and `#sanctuary` has an armoury for the bronze. Played on in my run, `#sanctuaries`' Poseidon finishes a month in, Apollo's about six months in and Demeter's after about thirteen months. In `#sanctuary`, Demeter's foundations started after about three months (the carts are slow across town, and marble comes only as the quarry cuts it), the temple after about seven and a half and the statue after about eleven and a half; with its stages' work, that is about fifteen months in all. Left alone, though, that town's masons' yard catches fire and burns about fourteen months in, and its storehouse on the headland falls down. The town warns you first: it needs a watch post and an architect's office nearer.
+- **A sanctuary's stuck line is under Sanctuaries** in the Messages panel, not Monuments. When it waits for a granary's food and a storehouse's good at once, the line names both.
+- **The chooser sits a little lower**, clear of the Greece button. The Sanctuary button's hint says "a year or more with one masons' yard, longer when the stores are far from it".
+- **Nothing else in an old save is touched** as it loads: the step to version 49 now only gives each site its new field.
+- **Corrected above:** `#twelve`'s scroll and the gods' memories show every stage, all dated the same day, not only the finishing. The time a sanctuary takes is now given as I measured it.
+
+Still for your eye: whether fifteen months in `#sanctuary` feels right for a centrepiece, and whether the roofs' colours are too loud in the classic look (in `#twelve`).
+
+### At the merge
+Slices 55 (the monsters) and 56 (the gods in the city) joined the main line first, so this slice's saves are now version 51, not 49. Every older save still loads.
+- **A god comes to see their sanctuary.** When a sanctuary is finished, its god now rises at its altar, blesses it first and then walks on to the places they love: play `#sanctuaries` on for about a month and Poseidon rises in his court ("Poseidon rises at the altar of his new sanctuary, come to see it"), blesses it and then the trading post, and goes. At most three gods walk the city at once, as before, so a fourth sanctuary finished while three are about brings nobody. `#twelve` raises its twelve while the demo is being set up, so no god comes there.
+- **A god's own sanctuary is the first place they visit**, whenever they come.
+- **Monsters can wreck a sanctuary** like any other building: one that falls, finished or half built, leaves 5 × 5 rubble, its god's +18 honour goes with it, and ox carts on their way turn home with their loads.
+- **Every earlier town is as it was.** I played all 170 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on. The only difference is the new empty "idle" field on the monuments' sites. `#town`'s save is the same size as before.
+- **Checked on the merged game:** `#sanctuaries`, `#sanctuary`, `#twelve`, `#pantheon`, `#epiphany`, `#monster`, `#monument` and `#town` open with no errors, and the sanctuaries', monuments', monsters' and gods' own browser checks pass. All 835 tests pass. On this busy machine, 3 of them ran out of time or missed a timing budget in the full run, and their files passed when run alone.
+
+## Slice 56 — The gods walk your streets (31 Oct)
+
+When a god's mood first reaches loving, the god comes to your city: towering over the townhouses, glowing, with a halo, rising at a fitting spot with their own flourish, then walking in straight lines over roofs and rivers to the places they love, blessing each for a season, and leaving as they came. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **State version 49 on this line** (renumbered at the merge). Older saves load: a version 48 save (`#town` saved before this slice, kept as a fixture) and the same with its gods taken out, as a phase 6 save.
+- **Nothing in any earlier demo changes**: every one of the 165 earlier demos' prepared towns is identical to before. No god's mood reaches loving in any of them, so no god comes unless you make one love you (which the Olympus line will let you do).
+- **A blessed place plays differently**: no fire or wear builds up in it, its makers work a quarter faster, and a blessed home's mood is 2 higher, for a season or two.
+
+### What's new
+- **A god's visit.** As a god first reaches loving (at most once a year each, three at most in the city at once), they arrive at a place that fits them: Demeter among the fields, Poseidon on the shore by the quay, Hephaestus by the forges and mines, Artemis in the woods, the others at a shrine of theirs or the agora. Then they walk, at a stately pace and straight over everything, to up to four of the places they love (Demeter's farms and granary, Dionysus's vineyards, winery and theatre, Aphrodite's finest homes, Hera's biggest households...). A god who finds none of theirs walks among your homes instead, and says so. A visit lasts at most 30 days (half a minute at normal speed).
+- **Blessings.** Each place they stop at is blessed until the start of the season after next: no fire risk or wear builds up in it (a fire next door can still spread to it), a maker works a quarter faster, a home is happier. It shows a soft gold shimmer, a gold line at the head of its panel ("Blessed by Demeter until autumn: its crop grows a quarter faster...") and in its hover tip.
+- **The figures.** Each of the twelve in their own dress and attribute (Zeus's bolt, Poseidon's trident, Demeter's sheaf and torch, Athena's helmet and aegis, Apollo's lyre, Artemis's bow, Ares' shield and spear, Aphrodite's dove, Hephaestus's hammer, Hermes's hat and caduceus, Dionysus's thyrsus, Hera's sceptre), lit from within with a rim of their colour, a glow behind them, a halo about the head and one on the ground, and a fading trail of footprints of light.
+- **Flourishes and stings.** Arriving and leaving, each god has their own: Zeus a lightning strike and flash, Poseidon a column of spray, Demeter falling grain and petals, Athena an owl circling, Apollo a shaft of sunlight, Artemis silver arrows of moonlight, Ares bronze sparks and a ring of dust, Aphrodite rose petals and doves, Hephaestus a burst of sparks, Hermes white wings, Dionysus vines and a wine-dark mist, Hera a peacock's fan of light. Each has a short sound, made in code.
+- **Hover and click.** Hovering a god names them and says what they are doing, why they came and when they go. A click opens their panel: their emblem, their mood and why, why they came, what they are doing next, what they have blessed so far, and a Follow button. Esc puts it away.
+- **Messages.** Their coming ("Demeter walks among your fields: she is pleased with your full granaries. She means to visit three farms and a granary."), each blessing, and their going, under a new kind, The gods in the city.
+- **For the other lines:** festivals (slice 53) and finished sanctuaries (slice 54) can send a god with `startVisit` when they merge.
+
+### What to try
+1. #epiphany — Demeter come to `#town`'s fields. Watch her walk from farm to farm and on to the granary, then leave. Hover her, click her, and click a farm she has blessed.
+2. #pantheon — all twelve in a row, Zeus on the left. Hover and click any of them.
+3. #epiphany-modern and #epiphany-plain, #pantheon-modern and #pantheon-plain — the other two looks.
+
+### What I'd like your eye on
+- **Do they read as gods?** Their size (2.5 tiles: they stand clear over a street of two-storey townhouses), the glow, the halo, the pace, and whether each is clear at a glance from their dress and attribute in `#pantheon`.
+- **The visit's length.** The spec says "a few days"; at normal speed a few days is a few seconds, too quick to hover and follow, so a visit lasts up to 30 days. Too long?
+- **The flourishes.** I looked at Demeter's and Zeus's in screenshots; the others I checked only run without errors. Are they too much or too little?
+- **The modern and plain looks.** The figures read whiter and hotter there than in the classic look (their glow is tuned for the classic look's half-resolution pixels), and the coloured glow behind each one meets the ground as a coloured dome.
+- **The sound stings** were never heard: headless, the browser makes no sound before a click.
+
+### Known rough edges
+- A theatre a god visits gets the general blessing (no fire risk or wear) and the shimmer, not a fuller house: that would need the theatre's own rules, which belong to the Olympus line.
+- `#epiphany` opens with Demeter already arriving; on a slow machine she may be at her first farm by the time you see her.
+- `#town`'s save is now one character under the save test's size budget; the next line that adds to the state will need it raised.
+- A god sent by a finished sanctuary arrives at their usual fitting spot (a shrine of theirs, the agora...), not at the new sanctuary itself; letting `startVisit`'s `at` place any visit is a one-line change for slice 54's merge.
+- With twelve gods posed, `#pantheon` costs 118 draw calls (each figure is a body and two legs, three draws).
+
+### Measurements
+The starting build (`11f9290`) and this slice's, measured with the same shortened, loosened `measure.mjs` back to back on this machine: headless, software WebGL, with four lines building at once (load 35 to 55 on 4 cores, and a container restart in the middle), so every time below is noise; only the sizes, triangles and draw calls mean anything.
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Tests | 803 in 60 files (all pass in the groundwork's own run); here 795 passed and 8 timed out, in 30 min | 814 in 61 files; here 782 passed and 32 timed out, in 90 min. The 21 files with a failure, run again with long time limits: all pass but two of `lands.test`'s bake-time checks (17.5 s against a 6 s budget, on the loaded machine); `culture.test`'s "quickly" check passes run alone |
+| Build | 14.6 s with the prepared towns cached | about 21 s cached; 11 to 13 min when the demos bake again (under load) |
+| The game itself | 3,004 KB, 998 KB gzipped | 3,060 KB, 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 127 files, 4,573 KB gzipped (largest 82 KB) |
+| The bare link, ready (page's clock) | 9.2 s | 16.9 s (the machine's load, not the slice: the views' scenes are the same) |
+| Triangles and draw calls in the coast's five views, `#town`'s three and `#physicians`' two | | identical (the gods' seven instanced meshes draw nothing with no god in the city) |
+| A save of `#town` | 190 KB | 190 KB (194,499 characters, against the save test's 194,500) |
+| `#epiphany` | (new) | its view 1.41 M triangles and 90 draws; `#town`'s view from it 1.49 M and 107 |
+| `#pantheon` | (new) | 864 K triangles and 118 draws (117 before the review made the gods taller) |
+| Each god | (new) | 500 (Hephaestus) to 748 (Hermes) triangles |
+| The slow smoke (loosened, on this build) | | run in three parts, as the machine's two-hour limit and a restart cut it: no failure anywhere; the one stop was slice 51's `#jailbreak` popup, which faded before a click could reach it, and does the same on the starting build under this load. The new `#epiphany` and `#pantheon` checks pass |
+| A frame's work before drawing | `#town-shot` 56 ms in the full baseline run | `#epiphany-shot` 55 ms, `#pantheon-shot` 63 ms (1 to 3 frames in 8 s: not a measurement) |
+
+### What the review changed
+- **The gods are bigger.** At first they stood 1.8 tiles tall. Beside the farms in `#epiphany` that looked tall enough, but when I sent Aphrodite into `#order`'s streets she came up only to the ridges of its two-storey townhouses, which doesn't match "towering". They now stand 2.5 tiles tall, clear over a street of townhouses. Their stride, footprints, the halo on the ground and the glow behind them grew with them, and Athena's owl now circles above her head again. `#pantheon`'s row is a little more crowded as a result.
+- **The blessing's words were too strong.** A blessed place's line said "no fire or wear can touch it". In fact no fire risk or wear builds up in it, but a fire burning next door can still spread to it. The line now says exactly that.
+- **A god's last stop** used to read "Next: nowhere: then leaving". It now reads "Next: leaving your city".
+- **Following a walker while following a god** no longer leaves the camera torn between the two: the walker wins, and pressing Esc stops the follow cleanly.
+- **What I checked after these changes:** every earlier demo still opens exactly as before (all 165), the slice's own checks and nine older demos pass in the browser, and the older views' triangles and draw calls are unchanged. I heard none of the sound stings, because the browser here plays no sound, but each god's sting does fire as they arrive and as they leave, without errors. I'd still like your eye on the gods' new height, and on how hot they look in the modern and plain looks: in the plain look, the gold burst as Demeter blesses a farm can blow out to white for a moment.
+
+### At the merge
+Slice 55 (the monsters) joined the main line first, so this slice's saves are now version 50, not 49. Every older save still loads: one from before the gods walked gets an empty record of them, as it would of the monsters.
+- **Every earlier town is as it was.** I played all 168 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on.
+- **Gods and monsters together.** I sent the Calydonian Boar into `#pantheon`; it walked in and settled by Dionysus, and both drew with no errors. Where a god and a monster are both under the pointer, the one nearer you (the one drawn in front) now gets the hover and the click; before, a god always won, even standing behind a monster. A god's panel and a monster's now take turns on the left, so Esc always closes the one showing.
+- **`#pantheon` is roomier.** Now that the gods stand 2.5 tiles tall, the row was crowded, so they stand further apart and the view is pulled back to fit all twelve on a 1920 × 1080 screen. Each looks smaller on screen as a result: zoom in to see a god up close.
+- **The save test's size budget for `#town` went up** by the 125 characters the two new empty records add (58 for the monsters, 67 for the gods' visits). Nothing else grew.
+- **Checked on the merged game:** `#epiphany` and `#pantheon` (in all three looks), `#monster`, `#monsterraid`, `#bestiary`, `#town`, `#richtown`, `#order`, `#physicians` and `#battle` open with no errors; the gods', monsters' and building panels' own checks pass. All 827 tests pass. On this busy machine 5 ran out of time or missed a timing budget in the full run, and each of their files passed when run alone.
+
+## Slice 55 — Monsters at the gates (31 Oct)
+
+The seven monsters are real now: a god can send one, it is seen first, walks in and makes its lair in a cave, a marsh or a rocky den near your town, and every few weeks comes out for its own kind of target, wrecking, burning and killing, while your soldiers can wound it and drive it back but never kill it. Nothing in the game sends one by itself yet (the gods' curses that will are slice 57), so you meet them in three new demos. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Nothing in an older town.** No monster comes unless one is sent, and every earlier demo opens exactly as before (same people, money, homes and levels; checked against the starting build).
+- **Saves carry a record of monsters.** Older saves load with an empty one.
+
+### What's new
+- **Seven monsters, each sent by its god:** the Hydra (Hera) and the Calydonian Boar (Artemis) in a marsh; Medusa (Athena), the Minotaur (Zeus) and the Chimera (Ares) in a cave; the Cyclops (Poseidon) and Talos (Hephaestus) in a rocky den on the shore. Each lair is found on whatever land you have (a cave by steep ground, a marsh by the river or wet ground, a den by the sea, near the quay if there is one), on open ground well away from your buildings, with a fallback when a land has no such ground.
+- **Seen before it comes.** First a warning with no name ("Fishermen saw something vast wade ashore among the rocks…"); four days later it walks in from the edge of your land to its lair, and an alarm names it, its god and the god's reason. Its first raid is three to five weeks later, then every three to six weeks; the day before each, "The Boar is stirring", and as it sets out, "The Boar is out".
+- **Raids.** Each goes for its own: the Boar the fields and herds, the Cyclops the trading post (first while a ship is moored), the shipyard and the homes by the sea, Medusa the busiest street, Talos your walls, towers and armouries, the Hydra the homes by the water, the Minotaur the most crowded homes, the Chimera whatever burns (setting things alight on the way). It walks there across country as raiders do, smashing through a wall in its way, stays five days wrecking what it reaches (the city's own rubble and fire: the watch can put out the Chimera's fires), then walks home. People near it run indoors; those in a home it wrecks die, and their house's story tells it. Medusa wrecks nothing: she turns walkers caught in the street to stone, and the grey figures stand where they were for a season.
+- **Fighting it.** Take a company's banner and click by the monster (the Army tab's usual order). Your men fight it man by man; every blow it lands can kill a man outright. A full company wounds it badly at the cost of several men, and below about two fifths of its health it breaks off and goes back to its lair to heal for a season, with no raids till then. Soldiers never kill it: only a hero can (slice 59).
+- **Called home.** Win its god back to warm and it leaves your land.
+- **The figures.** Each is its own figure, several times a man's height (the Cyclops and Talos tallest), walking, striking, its necks, coils or snakes swaying, limping when badly hurt, with a health bar over it once hurt. Hover a monster or its lair for its name, its god and why, what it is doing, its health, its lair, its last raid and "Only a hero can slay it"; click for its panel.
+
+### What to try
+1. #monster — the Cyclops walking the last stretch of the shore to his den below the trading post; he settles in a few seconds later. Read the two messages, hover him and click him.
+2. #monsterraid — the Boar at the sheep pasture, the hoplites (their banner in hand) marching to it. Watch the fight; it breaks off and limps home. Then try sending the archers too: it turns on archers who shoot it, so they pay for their arrows as the hoplites do.
+3. #bestiary — all seven side by side before their lairs, paused. Zoom in on each.
+4. #bestiary-modern and #bestiary-plain — the other two looks.
+5. #monster, played on for a month or so — his first raid on the quay, announced the day before.
+
+### What I'd like your eye on
+- **The seven figures.** Does each read as itself at the usual zoom, and are the sizes right against the houses and your soldiers? The Chimera and Medusa are the ones I am least sure of.
+- **The lairs.** Do the heap of rock with its dark mouth, the black pool in the reeds and the ring of jagged stones read as a cave, a marsh and a den?
+- **How hard they are.** Against 16 hoplites in my trial fights, the men struck down (about half of them killed, the rest wounded): Medusa 1 or 2 before she broke off, the Chimera 2 or 3, the Minotaur and the Boar 4 or 5, the Cyclops 8, and the Hydra broke the company (half of it struck down, 4 killed) and walked home still above the mark where it breaks off.
+- **The warning.** The day's warning before a raid is about a second at normal speed, and the walk from its lair to its target five to twenty more. Enough to get a company there, or should the warning come two or three days ahead?
+
+### Known rough edges
+- A big monster can stand with its body over a building beside it (the Boar by the farmhouse in `#monsterraid`).
+- When it wrecks a building, the scroll also has the city's usual line for a building that fell, beside the monster's own.
+- Something can be built on a lair's tile; the lair is then reached from the nearest open tile.
+- Medusa only catches walkers with a job (water carriers, priestesses, actors, watchmen, inspectors, physicians).
+- A monster healing inside its lair isn't drawn.
+
+### Measurements
+The starting build (11f9290) and this slice's, measured back to back with a shortened copy of the usual measuring script on this machine: headless, software WebGL, and very busy (load 25 to 45 on 4 cores, the other three lines building and testing beside it, and a restart part way). So every time below is about ten times slower than the last check-in's and mostly measures the machine, not the game; the triangle and draw counts are exact.
+
+| What | Before (11f9290) | After |
+|---|---|---|
+| Tests | 803 in 60 files | 816 in 61 files (one added in review); under load 810 passed and the other 5 were timing checks or ran out of time; each passed when run alone |
+| The game itself | 998 KB gzipped | 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped | 128 files, 4,651 KB gzipped |
+| The bare link, ready (page's clock) | 13.9 s | 15.5 s (machine load: the land's bake alone went from 3.2 to 3.7 s) |
+| #town, #richtown, #empire ready | 13.4, 7.7, 7.6 s | 9.3, 7.9, 9.8 s |
+| Triangles and draw calls in every earlier view measured | | identical |
+| #bestiary, all seven and their lairs | (new) | 1.34 M triangles, 144 draw calls (#town's view: 1.49 M and 102) |
+| A frame's work in #monsterraid's fight | (new) | not measurable here: two frames in eight seconds |
+| The smoke | | the full smoke could not finish in two hours on this machine, twice; the bare link, five older demos, both other looks of #bestiary and every new check passed |
+
+- **Every earlier demo opens exactly as before.** I compared all 165 earlier demos' towns from the starting build and from this one: date, people, money, homes and levels, buildings, walkers, soldiers and messages, all the same.
+- **Saves**: they now carry the monsters; older saves load with none, and a save with a monster on the land loads back the same.
+- **The budgets**: nothing is drawn for monsters when there are none. With all seven on screen, #bestiary has about 40 more draw calls than #town's view, from fourteen figures and lairs; on a real machine I'd expect that to be fine, but I couldn't measure frame rate here, so I'd like you to watch #monsterraid's fight for stutter.
+
+### What the review changed
+- **Archers no longer get free shots.** A company of archers holding ground a few steps from a monster's lair could shoot it from beyond its reach, wearing it down without losing a man (16 archers took the Boar from full health to below two thirds in a few weeks, untouched). Now a monster stung by arrows goes for the archers as far as a bow carries, even away from its lair, and they pay for it as hoplites do (the same 16 archers had 9 men struck down by the Boar's charge). Towers still shoot it without loss: see below.
+- **Medusa's words.** At her target the tip and panel said she was "wrecking what she reaches"; she wrecks nothing, so they now say she is turning to stone whoever she catches in the street. Her raid's summary no longer begins "she wrecked nothing" when she turned people to stone.
+- **"He has wrecked", "she has wrecked".** A raid's line in the tip and panel said "it has wrecked" for the Cyclops, the Minotaur, Talos and Medusa too.
+- **A monster's health bar is easier to see.** It was a hairline over its head, lost against a roof behind it; it is now a tile wide or more and thick enough to read at the usual zoom, green, then amber, then red.
+- **The trial fights' numbers** above now say "struck down" (killed or wounded): the counts I gave first were all the men struck down, not the dead.
+- **Checked again after the changes:** every earlier demo still opens exactly as before (all 165 towns compared with the starting build), the bare link and a handful of older demos open with no errors, the new demos' checks pass, and the download, triangles and draw calls are unchanged.
+- Checked and left as they are: a monster that can't get at a soldier gives up on soldiers for a while and goes on (it can't be held in place for ever, and it can't stall a company), the save check that lets a monster stand with no way to walk (nothing else gets through it), and no monster leaking into the raiders' code (their spread, blows, falls and drawing all skip it).
+- **For your eye** (I didn't change them): Medusa is hard to pick out at the usual zoom, a thin pale figure against the grey of her cave; the Chimera reads as a lion with a goat's head, its serpent tail as a green stick. A tower within range of a lair or a raid's path shoots the monster with no cost in men; that may be right (it is what towers are for) or may want a cost (the monster wrecking the tower, say).
+
+### At the merge
+Slice 55 is the first of the phase's slices to join the main line, so nothing needed renumbering: saves are at version 49, and a save from before the monsters (48, or the phase 6 saves before it) loads with no monster on its land. Nothing of the slice changed on the way in.
+- **Every earlier town is as it was.** I played all 165 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on.
+- **Checked on the merged game:** #monster, #monsterraid and #bestiary (in all three looks) open with no errors and do what is described above, with their own checks passing; #town, #battle, #raid, #raiders, #threat, #walls and #siege still pass their checks. All 816 tests pass (on this busy machine 20 ran out of time in the full run; each of their files passed when run alone).
+- Nothing in the game sends a monster yet: that comes with the gods' wrath in slice 57, so for now you meet them only in the three demos.
+
 ## Slice 52 — A city in order (26 Oct)
 
 The phase's last slice puts everything the phase built into one town, `#order`, on a generated river delta: streets up to villas, a gang in its den, a court and a prison with men inside, physicians out, two colonies, a storehouse with its rules, two years of messages and charts, and plague reported in Athens with her ship on the way. Around it, one number tuned, the panels slice 50 left behind brought onto the kit, a large wooded land measured, and the small leftovers from the phase's reviews closed. You weren't here while it was built: every choice below is mine, from the spec's defaults.

@@ -6,6 +6,9 @@
  */
 import * as THREE from 'three';
 import { isHuge, isLarge, isSmall } from '../sim/buildings';
+// Slice 54.
+import { sideOf } from '../sim/buildings';
+import { sanctuaryPicture } from './sanctuary';
 // Slice 35.
 import { monumentPicture } from './monuments';
 import type { BuildingKind } from '../sim/state';
@@ -25,7 +28,7 @@ function partsOf(tool: string): PicturePart[] | null {
   const homes = homePicture(tool);
   if (homes) return homes.map((geo) => ({ geo, x: 0, z: 0, yaw: 0, s: [1, 1, 1] }));
   // (Slice 35: the masons' yard and the monuments.)
-  return monumentPicture(tool) ?? workPicture(tool);
+  return monumentPicture(tool) ?? sanctuaryPicture(tool) ?? workPicture(tool);
 }
 
 /** Pictures for these tools, by tool (a tool with no model of its own gets none). */
@@ -44,7 +47,7 @@ export function drawPictures(tools: readonly string[]): Map<string, string> {
     const kind = KIND[tool] ?? (tool as BuildingKind);
     const stall = tool.endsWith('stall');
     // (Slice 36: an estate's plot is 4 x 4.)
-    const side = tool === 'estate' ? 4 : stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
+    const side = tool === 'estate' ? 4 : stall ? 1.4 : isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : kind === 'sanctuary' ? sideOf(kind) : 3;
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(col(PAL.hemiSky), col(PAL.hemiGround), 1.3));
     const sun = new THREE.DirectionalLight(col(PAL.sun), 2.9);

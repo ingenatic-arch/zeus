@@ -25,8 +25,10 @@ import { CONVICT_ROPE, CONVICT_TUNIC } from './justice';
 import { BEARER_SPEED } from '../sim/health';
 import { CARRIER_SPEED } from '../sim/walk';
 import { BEARER_TUNIC, BLANKET, LITTER_CLOTH, PHYSICIAN_ROBE, PHYSICIAN_SASH, type HealthFigures } from './health';
+// Slice 54: a priest robed in his god's colour.
+import { GODS } from '../sim/pantheon';
 // Slice 53: the gods' colours (a dedicated shrine's priestess, a procession, an offering's porter).
-import { GOD_IDS, GODS } from '../sim/pantheon';
+import { GOD_IDS } from '../sim/pantheon';
 import { findBuilding } from '../sim/buildings';
 
 /** Slice 49: how far behind one of the caught his watchman walks. */
@@ -297,6 +299,34 @@ function priestess(): THREE.BufferGeometry {
     // The veil over her hair, falling to the shoulders.
     { geo: new THREE.IcosahedronGeometry(0.064, 0).scale(1, 0.85, 1).translate(-0.016, 0.38, 0), color: PAL.priestessMantle },
     { geo: new THREE.CylinderGeometry(0.05, 0.068, 0.08, 6).translate(-0.022, 0.32, 0), color: PAL.priestessMantle },
+  ];
+  return mergeTinted(parts);
+}
+
+/**
+ * Slice 54: a sanctuary's priest: a bearded man in a long robe of his god's
+ * colour (the tinted part), a white mantle over one shoulder, a laurel
+ * wreath on his head and a tall staff in his hand, a censer smoking in the
+ * other. Taller and plainer than the shrine's priestess, so the two are told
+ * apart in the street.
+ */
+function priest(): THREE.BufferGeometry {
+  const parts: TPart[] = [
+    { geo: new THREE.CylinderGeometry(0.055, 0.1, 0.34, 7).translate(0, 0.17, 0), color: '', tint: true },
+    // The white mantle, over the left shoulder and down the back.
+    { geo: new THREE.CylinderGeometry(0.07, 0.095, 0.22, 7, 1, true, Math.PI * 0.35, Math.PI * 1.1).translate(0, 0.23, 0), color: PAL.marble },
+    { geo: new THREE.CylinderGeometry(0.068, 0.062, 0.05, 7).translate(0, 0.33, 0), color: PAL.marble },
+    // The staff, held out to the side, taller than he is.
+    { geo: new THREE.CylinderGeometry(0.011, 0.011, 0.52, 4).translate(0.05, 0.26, -0.09), color: PAL.charDark },
+    { geo: new THREE.CylinderGeometry(0.014, 0.014, 0.12, 4).rotateZ(-0.5).translate(0.04, 0.28, -0.075), color: PAL.skin },
+    // The censer on its chain, the other hand.
+    { geo: new THREE.CylinderGeometry(0.013, 0.013, 0.12, 4).rotateZ(-0.9).translate(0.06, 0.26, 0.07), color: PAL.skin },
+    { geo: new THREE.IcosahedronGeometry(0.028, 0).translate(0.12, 0.2, 0.08), color: PAL.offeringBowl },
+    { geo: new THREE.ConeGeometry(0.018, 0.05, 4).translate(0.12, 0.24, 0.08), color: PAL.flame },
+    // His head, beard and wreath.
+    { geo: new THREE.IcosahedronGeometry(0.056, 0).translate(0.005, 0.39, 0), color: PAL.skin },
+    { geo: new THREE.ConeGeometry(0.04, 0.07, 5).rotateZ(Math.PI).translate(0.03, 0.34, 0), color: PAL.hair },
+    { geo: new THREE.TorusGeometry(0.052, 0.012, 4, 8).rotateX(Math.PI / 2).translate(0.004, 0.41, 0), color: PAL.oliveLeafDark },
   ];
   return mergeTinted(parts);
 }
@@ -1011,6 +1041,8 @@ export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | '
   // Slice 49: an infirmary's physician, and an asklepieion's stretcher-bearers.
   | 'physician'
   | 'bearer'
+  // Slice 54: a sanctuary's priest.
+  | 'priest'
   // Slice 53: a festival's procession (by its first), and a porter with an offering.
   | 'procession'
   | 'offering';
@@ -1022,6 +1054,8 @@ export class Walkers {
   private readonly carriers: Look;
   private readonly vendors: Look;
   private readonly priestesses: Look;
+  /** Slice 54: a sanctuary's priests. */
+  private readonly priests: Look;
   // Slice 53: a festival's procession.
   private readonly marchers: Look;
   private readonly actors: Look;
@@ -1082,6 +1116,8 @@ export class Walkers {
     this.vendors = small(vendor(false));
     this.vendorsMixed = small(vendor(true));
     this.priestesses = small(priestess());
+    // Slice 54.
+    this.priests = small(priest());
     this.actors = small(actor());
     this.collectors = [small(collector(false)), small(collector(true))];
     this.oilVendors = small(oilVendor());
@@ -1110,7 +1146,7 @@ export class Walkers {
     // (In the big batch with the carts: two men and a litter run as many vertices as a cart, and among the people they would raise
     // every walker's cost to theirs; see MergedLooks' tiers in looks.ts.)
     this.bearers = [big(bearers(false)), big(bearers(true))];
-    this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
+    this.all = [this.physicians, ...this.bearers, this.convicts, ...Object.values(this.crooks).flat(), ...this.thieves, ...this.raiders, ...this.kinds, this.carriers, this.vendors, this.vendorsMixed, this.oilVendors, this.fleeceVendors, this.wineVendors, this.priestesses, this.priests, this.actors, ...this.collectors, ...this.carts, ...this.porters, ...this.grooms, ...this.hunters, ...this.watchmen, this.inspectors, this.drovers, this.donkeys, this.jarDonkeys];
     // Slice 53
     this.marchers = small(marcher());
     this.all.push(this.marchers);
@@ -1259,6 +1295,8 @@ export class Walkers {
           const god = findBuilding(state, w.origin)?.god;
           this.priestesses.push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(robe)));
         }
+        // Slice 54: a sanctuary's priest, robed in his god's colour.
+        else if (w.kind === 'priest') this.priests.push(this.m, still(this.c.setHex(GODS[findBuilding(state, w.origin)?.god ?? 'zeus'].colour)));
         // Slice 53: a porter carrying an offering to a shrine, in the god's colour, the sacred good on his shoulder.
         else if (w.kind === 'offering') {
           const god = GOD_IDS[w.steps];
@@ -1421,6 +1459,8 @@ export class Walkers {
     for (const w of state.walkers) if (w.kind === 'raider') bands.set(w.home, w);
     const live = new Set<number>();
     for (const f of foes) {
+      // (Slice 55: a monster in the battle is drawn by itself.)
+      if (f.raid < 0) continue;
       const was = this.foeWas.get(f.id);
       if (!was) continue;
       live.add(f.id);

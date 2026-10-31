@@ -21,6 +21,8 @@ import type { Annals } from './annals';
 import type { Health } from './health';
 // Phase 7 groundwork: the twelve gods and their moods (pantheon.ts).
 import type { GodId, Gods } from './pantheon';
+// Slice 55: the monsters on your land (monsters.ts).
+import type { Legends } from './monsters';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
@@ -28,8 +30,11 @@ import type { GodId, Gods } from './pantheon';
 // (Slice 51: the overview, renumbered 46 at its merge.)
 // (Slice 49: physicians and plague, renumbered 47 at its merge.)
 // (Phase 7 groundwork: the gods' moods, 48.)
-// (Slice 53: the twelve and their tempers, 49 on its line; renumbered at its merge.)
-export const SIM_STATE_VERSION = 49;
+// (Slice 55: monsters at the gates, 49 on its line and at its merge.)
+// (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
+// (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
+// (Slice 53: the twelve and their tempers, 49 on its line, renumbered 52 at its merge.)
+export const SIM_STATE_VERSION = 52;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -80,9 +85,11 @@ export type BuildingKind =
   | 'prison'
   // Slice 49: the infirmary and the asklepieion (health.ts).
   | 'infirmary'
-  | 'asklepieion';
+  | 'asklepieion'
+  // Slice 54: a great sanctuary to one of the twelve (sanctuaries.ts).
+  | 'sanctuary';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion'];
+export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary'];
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -232,11 +239,13 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   // Slice 49: an infirmary's physician, and an asklepieion's pair of stretcher-bearers (health.ts).
   | 'physician'
   | 'bearer'
+  // Slice 54: a sanctuary's priest (sanctuaries.ts).
+  | 'priest'
   // Slice 53: a festival's procession, and a porter carrying an offering to a shrine (worship.ts).
   | 'procession'
   | 'offering';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'procession', 'offering'];
+export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest', 'procession', 'offering'];
 
 /** Someone living in a home. */
 export interface Person {
@@ -267,7 +276,9 @@ export interface Story {
     // Slice 49: one of them fell ill (names: who; `n` 1 the plague), mended, or died of it.
     | 'ill'
     | 'mended'
-    | 'died';
+    | 'died'
+    // Slice 55: one of them killed by a monster (names: who, the monster, or "Medusa’s gaze").
+    | 'slain';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */
@@ -586,6 +597,8 @@ export interface SimState {
   annals: Annals;
   /** Phase 7 groundwork: the gods' switch, when the city was first noticed, and each god's memories of it (pantheon.ts). */
   gods: Gods;
+  /** Slice 55: the monsters on your land, their lairs and raids, Medusa's stones, and those slain (monsters.ts; slice 59 adds the heroes). */
+  legends: Legends;
 }
 
 /**

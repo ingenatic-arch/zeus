@@ -45,7 +45,9 @@ import type { CityId } from '../map/greece';
 import { TICKS_PER_DAY } from './clock';
 import { ARMOUR, CHEESE, COPPER, FLEECE, HORSES, MEAT, OIL, WHEAT, WINE, type Ware } from './foods';
 import { memoryWorth } from './memory';
-import type { Memory, SimState } from './state';
+import type { Building, Memory, SimState } from './state';
+// Slice 56: the gods in the city (epiphany.ts; types only, so the load order is unchanged).
+import type { Blessing, Walks } from './epiphany';
 
 // ---------------------------------------------------------------------------
 // The twelve.
@@ -330,6 +332,8 @@ export interface Gods {
   noticedAt: number;
   /** Each god's memories of your city, by god. */
   memories: Record<GodId, Memory[]>;
+  // Slice 56 (The gods walk your streets): the gods in the city now, the places they blessed, who was loving at the last look (epiphany.ts).
+  walks: Walks;
   // Slice 53: worship (worship.ts).
   /** Festivals announced or under way (one per god at most). */
   festivals: Festival[];
@@ -363,8 +367,8 @@ export const MOOD_MONTHS = 24;
 export function freshGods(on = false, noticedAt = -1): Gods {
   const memories = {} as Record<GodId, Memory[]>;
   for (const g of GOD_IDS) memories[g] = [];
-  // (Slice 53: worship's record, empty.)
-  return { on, noticedAt, memories, festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {} };
+  // (Slice 56: and nobody walking in the city. Slice 53: worship's record, empty.)
+  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {} };
 }
 
 /** How many people a city needs before the gods notice it. */
@@ -511,6 +515,30 @@ export function stepGods(s: SimState): void {
 }
 
 // ---------------------------------------------------------------------------
+// Slice 56 (The gods walk your streets): the gods' walks through the city and
+// the places they bless live in `gods.walks` (epiphany.ts moves them). The
+// blessing is read here, so the systems it touches (production.ts, hazards.ts,
+// folk.ts) import only this module, which imports only leaves.
+
+/** A fresh record of the gods in the city: nobody walking, nothing blessed, nobody loving yet, no god ever come. */
+export const freshWalks = (): Walks => ({ figures: [], blessed: [], loving: [], last: {}, next: 1 });
+
+/** The blessing on a building now (by its id), if any. */
+export function blessingOn(s: SimState, id: number): Blessing | undefined {
+  const list = s.gods?.walks?.blessed;
+  if (!list || list.length === 0) return undefined;
+  for (const x of list) if (x.id === id && x.until > s.tick) return x;
+  return undefined;
+}
+
+/** How much faster a blessed maker works (a quarter). */
+export const BOON = 1.25;
+
+/** The pace a blessing gives a building's work: BOON while it is blessed, 1 otherwise. */
+export const boonOf = (s: SimState, b: Building): number => (blessingOn(s, b.id) ? BOON : 1);
+
+/** Is this god a goddess (for "she" and "her")? */
+export const goddess = (g: GodId): boolean => g === 'hera' || g === 'demeter' || g === 'athena' || g === 'artemis' || g === 'aphrodite';
 // Slice 53: the mood maths that worship.ts needs (the Olympus line's).
 
 /** Forget every memory of a kind a god has (a reading of the city that no longer holds). */
@@ -534,7 +562,47 @@ export function setStanding(s: SimState, god: GodId, kind: string, why: string, 
 
 /** A god's words: she or he. */
 export const FEMALE: ReadonlySet<GodId> = new Set<GodId>(['hera', 'demeter', 'athena', 'artemis', 'aphrodite']);
-export const herOf = (g: GodId): string => (FEMALE.has(g) ? 'her' : 'his');
+export const herOf = (g: GodId): string => (goddess(g) ? 'her' : 'his');
+
+// Slice 53: worship and rivalry (worship.ts re-exports these; they live here so sanctuaries.ts can honour
+// its god without importing worship.ts, which imports sanctuaries.ts).
+
+/** A rival minds a third as much. */
+export const RIVAL_SHARE = 1 / 3;
+
+/** A god's rival's grudge, in words: "you honoured Poseidon, her rival". */
+const rivalWhy = (god: GodId, holder: GodId): string => `you honoured ${GODS[god].name}, ${herOf(holder)} rival`;
+
+/**
+ * Honour a god for something done once (a festival, an offering, a stage of a
+ * sanctuary): see honour above. While the god's rival is honoured
+ * less (their mood is lower), the rival remembers a third as much against you,
+ * fading as the honour does.
+ */
+export function worship(s: SimState, god: GodId, amount: number, kind: string, why: string, fade: number): void {
+  honour(s, god, amount, kind, why, fade);
+  s.gods.worshipped[god] = s.tick;
+  if (amount <= 0) return;
+  const r = GODS[god].rival;
+  const grudge = Math.round(amount * RIVAL_SHARE);
+  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) honour(s, r, -grudge, 'rival', rivalWhy(god, r), fade);
+}
+
+/**
+ * Honour a god for something that counts while it lasts (their shrines, a
+ * sanctuary standing): one memory of its kind, replaced (0 forgets it). The
+ * rival's standing grudge, a third as much, holds while the rival is honoured
+ * less, and is forgotten when not.
+ */
+export function standing(s: SimState, god: GodId, kind: string, why: string, amount: number): void {
+  setStanding(s, god, kind, why, amount);
+  if (amount > 0) s.gods.worshipped[god] = s.tick;
+  const r = GODS[god].rival;
+  const k = `rival:${kind}`;
+  const grudge = Math.round(amount * RIVAL_SHARE);
+  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) setStanding(s, r, k, `${why}, ${herOf(r)} rival`, -grudge);
+  else forget(s, r, k);
+}
 
 /** How long a home a procession passed stays glad (a season), and how glad. */
 export const FESTIVE_LASTS = 90 * TICKS_PER_DAY;

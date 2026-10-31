@@ -40,6 +40,8 @@ import { besideRoad, centre, PATROL_SPEED, position, RUN_SPEED, setPath } from '
 import { restFor } from './water';
 // Slice 41: the inspector mends what vandals smashed.
 import { mendBroken } from './misdeeds';
+// Slice 56: no fire risk or wear builds up in a place a god has blessed.
+import { blessingOn } from './pantheon';
 
 /** Fire risk and wear run from 0 to this. */
 export const HAZARD_FULL = 1000;
@@ -134,6 +136,8 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   // Slice 49: the infirmary's lamps and the asklepieion's sacred fire.
   infirmary: 420,
   asklepieion: 420,
+  // Slice 54: marble, as the monuments.
+  sanctuary: Infinity,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -182,6 +186,8 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   // Slice 49.
   infirmary: 480,
   asklepieion: 420,
+  // Slice 54.
+  sanctuary: Infinity,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 
@@ -216,6 +222,8 @@ export const FIRST_YEAR_PACE = 0.7;
 /** How much a building's fire risk rises a day (0 if it can't burn). */
 export function riskRate(s: SimState, b: Building): number {
   if (!burnable(b)) return 0;
+  // (Slice 56.)
+  if (blessingOn(s, b.id)) return 0;
   const days = b.kind === 'home' ? HOME_RISK_DAYS[Math.min(b.level, HOME_RISK_DAYS.length - 1)] / crowding(b) : RISK_DAYS[b.kind];
   const young = s.tick < TICKS_PER_YEAR && s.crime.on ? FIRST_YEAR_PACE : 1;
   return (HAZARD_FULL * young) / (days * pace(s, b, 1));
@@ -224,6 +232,8 @@ export function riskRate(s: SimState, b: Building): number {
 /** How much a building's wear rises a day (0 if it doesn't wear). */
 export function wearRate(s: SimState, b: Building): number {
   if (!wears(b)) return 0;
+  // (Slice 56.)
+  if (blessingOn(s, b.id)) return 0;
   const days = b.kind === 'home' ? HOME_WEAR_DAYS[Math.min(b.level, HOME_WEAR_DAYS.length - 1)] : WEAR_DAYS[b.kind];
   return HAZARD_FULL / (days * pace(s, b, 2));
 }

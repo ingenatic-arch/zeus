@@ -188,6 +188,9 @@ function storyLine(f: Family, e: Story, i: number): string {
       return e.n ? `${e.names[0]} lived through the plague` : `${e.names[0]} was well again`;
     case 'died':
       return e.n ? `${e.names[0]} died of the plague` : `${e.names[0]} died of a fever`;
+    // Slice 55.
+    case 'slain':
+      return /gaze$/.test(e.names[1] ?? '') ? `${e.names[0]} was caught in ${e.names[1]} in the street and turned to stone; the house mourned` : `${e.names[0]} was killed by ${e.names[1] ?? 'a monster'} as the house fell; the rest fled`;
   }
 }
 

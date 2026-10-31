@@ -32,6 +32,10 @@ import { NEWS_KINDS } from '../sim/crime';
 import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 // Phase 7 groundwork.
 import { GOD_IDS } from '../sim/pantheon';
+// Slice 55.
+import { MONSTER_IDS } from '../sim/pantheon';
+// Slice 56.
+import { VISIT_WHYS } from '../sim/epiphany';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -433,9 +437,39 @@ export function stateProblem(st: unknown): string {
   if (!healthOk(st.health)) return damaged('its record of health and plague is wrong');
   // Phase 7 groundwork.
   if (!godsOk(st.gods)) return damaged('its record of the gods is wrong');
+  // Slice 55.
+  if (!legendsOk(st.legends)) return damaged('its record of monsters is wrong');
+  // Slice 56.
+  if (!walksOk((st.gods as Record<string, unknown>).walks)) return damaged('its record of the gods in the city is wrong');
   // Slice 53: worship's record (festivals, the last of each, the months of moods, homes glad from a procession).
   if (!worshipOk(st.gods)) return damaged('its record of the gods’ worship is wrong');
   return '';
+}
+
+// Slice 55
+const BEAST_STATES = ['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving'];
+const BEAST_NUMBERS = ['chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
+const LAIRS = ['cave', 'marsh', 'shore'];
+/** Slice 55: the monsters on the land (each of a known kind, sent by one of the twelve, with its way, its lair and its numbers), Medusa's stones, and those slain. */
+function legendsOk(l: unknown): boolean {
+  if (!isObj(l) || !fin(l.next) || !Array.isArray(l.monsters) || !Array.isArray(l.stones) || !Array.isArray(l.slain)) return false;
+  const beast = (m: unknown): boolean =>
+    isObj(m) &&
+    MONSTER_IDS.includes(m.kind as never) &&
+    GOD_IDS.includes(m.god as never) &&
+    BEAST_STATES.includes(m.state as string) &&
+    LAIRS.includes(m.den as string) &&
+    BEAST_NUMBERS.every((k) => fin(m[k])) &&
+    nums(m.path) &&
+    (m.path as number[]).length % 2 === 0 &&
+    ['why', 'aim', 'lastWords'].every((k) => typeof m[k] === 'string') &&
+    typeof m.warned === 'boolean' &&
+    typeof m.broke === 'boolean' &&
+    Array.isArray(m.wrecked) &&
+    (m.wrecked as unknown[]).every((w) => typeof w === 'string');
+  const stone = (x: unknown): boolean => isObj(x) && ['x', 'z', 'face', 'tick'].every((k) => fin(x[k])) && typeof x.kind === 'string';
+  const slain = (x: unknown): boolean => isObj(x) && MONSTER_IDS.includes(x.kind as never) && LAIRS.includes(x.den as string) && fin(x.lair) && fin(x.tick) && typeof x.by === 'string';
+  return (l.monsters as unknown[]).every(beast) && (l.stones as unknown[]).every(stone) && (l.slain as unknown[]).every(slain);
 }
 
 /** Slice 53: worship's record on the gods. */
@@ -454,6 +488,29 @@ function godsOk(g: unknown): boolean {
   if (!isObj(g) || typeof g.on !== 'boolean' || !fin(g.noticedAt) || !isObj(g.memories)) return false;
   const mem = g.memories;
   return GOD_IDS.every((id) => Array.isArray(mem[id]) && (mem[id] as unknown[]).every((m) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade)));
+}
+
+/** Slice 56: the gods in the city, the places they blessed, who was loving, when each last came. */
+function walksOk(w: unknown): boolean {
+  if (!isObj(w) || !fin(w.next) || !Array.isArray(w.figures) || !Array.isArray(w.blessed) || !Array.isArray(w.loving) || !isObj(w.last) || !Object.entries(w.last).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
+  const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
+  const states = ['arriving', 'walking', 'blessing', 'leaving', 'posing'];
+  return (
+    (w.loving as unknown[]).every(god) &&
+    (w.blessed as unknown[]).every((b) => isObj(b) && fin(b.id) && fin(b.until) && god(b.god)) &&
+    (w.figures as unknown[]).every(
+      (f) =>
+        isObj(f) &&
+        god(f.god) &&
+        ['id', 'x', 'z', 'px', 'pz', 'heading', 'since', 'at', 'came', 'leaves'].every((k) => fin(f[k])) &&
+        states.includes(f.state as string) &&
+        VISIT_WHYS.includes(f.why as never) &&
+        typeof f.words === 'string' &&
+        nums(f.blessed) &&
+        Array.isArray(f.stops) &&
+        (f.stops as unknown[]).every((p) => isObj(p) && fin(p.id) && fin(p.x) && fin(p.z)),
+    )
+  );
 }
 
 /** Slice 49: health's switch, the sick, plague in Greece and in the city, the fever, the quarantine and the tallies. */
@@ -518,7 +575,9 @@ function monumentsOk(m: unknown): boolean {
     (x) =>
       isObj(x) &&
       Number.isInteger(x.id) &&
-      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium') &&
+      // (Slice 54: or a sanctuary, to a known god; and when a finished one lost its workers.)
+      (x.kind === 'lighthouse' || x.kind === 'colossus' || x.kind === 'stadium' || (x.kind === 'sanctuary' && GOD_IDS.includes(x.god as never))) &&
+      fin(x.idle) &&
       Number.isInteger(x.stage) &&
       (x.stage as number) >= 0 &&
       (x.stage as number) <= 3 &&
