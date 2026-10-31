@@ -138,6 +138,8 @@ const RISK_DAYS: Record<BuildingKind, number> = {
   asklepieion: 420,
   // Slice 54: marble, as the monuments.
   sanctuary: Infinity,
+  // Slice 59: a hero's hall: stone and bronze, its hearth the only fire.
+  herohall: 600,
 };
 /** A home's, by level (plot, tent, hut, cottage, townhouse, fine house, villa), before crowding. */
 const HOME_RISK_DAYS = [Infinity, 420, 420, 400, 360, 330, 330];
@@ -188,6 +190,8 @@ const WEAR_DAYS: Record<BuildingKind, number> = {
   asklepieion: 420,
   // Slice 54.
   sanctuary: Infinity,
+  // Slice 59: stone, slow to wear.
+  herohall: 720,
 };
 const HOME_WEAR_DAYS = [Infinity, 600, 600, 540, 540, 540, 540];
 

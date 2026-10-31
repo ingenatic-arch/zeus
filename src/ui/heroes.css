@@ -1,0 +1,43 @@
+/* Slice 59: the hero's hall chooser, and the heroes' rows in the building and monster panels, on the kit. */
+
+/* ------------------------------------------------------------------------ the chooser */
+.herochooser {
+  position: fixed; right: 300px; top: 112px; z-index: 40; width: 600px; max-width: calc(100vw - 330px);
+  padding: 14px 16px 16px; border-radius: 6px; color: var(--ink);
+  background: var(--k-parch);
+  box-shadow: 0 0 0 2px #8a6430, 0 0 0 3px #4a3216, 3px 8px 22px rgba(30, 18, 6, 0.45);
+}
+.herochooser[hidden] { display: none; }
+.herochooser .hc-head { position: relative; padding-right: 30px; }
+.herochooser .hc-head h2 { margin: 0; font: 700 20px/1.15 var(--display); letter-spacing: 0.035em; color: #2b2016; }
+.herochooser .hc-head p { margin: 5px 0 10px; font-size: 13.5px; line-height: 1.35; color: var(--ink-soft); }
+.herochooser .hc-close { position: absolute; right: 0; top: -2px; width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer; font-size: 19px; line-height: 1; color: #3a2814; background: var(--k-bronze); box-shadow: 0 1px 2px rgba(40, 24, 8, 0.4); }
+.herochooser .hc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.herochooser .hc-card {
+  appearance: none; border: 0; cursor: pointer; text-align: center; padding: 8px 6px 9px; border-radius: 5px; display: grid; justify-items: center; align-content: start; gap: 2px;
+  background: linear-gradient(rgba(255, 252, 240, 0.72), rgba(246, 234, 206, 0.72));
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--hero) 70%, #4a3216), inset 0 4px 0 color-mix(in srgb, var(--hero) 85%, transparent), 0 2px 4px rgba(40, 24, 8, 0.25);
+  color: var(--ink);
+}
+.herochooser .hc-card:hover:not(:disabled) { background: linear-gradient(#fffaf0, #f6e8c6); transform: translateY(-1px); }
+.herochooser .hc-card:disabled { cursor: not-allowed; filter: grayscale(0.85); opacity: 0.55; }
+.herochooser .hc-name { font: 700 15px/1.15 var(--display); letter-spacing: 0.04em; margin-top: 4px; }
+.herochooser .hc-of { font: italic 12.5px/1.2 var(--serif); color: var(--ink-soft); }
+.herochooser .hc-slays { font-size: 12px; line-height: 1.2; color: #7a2a1e; font-weight: 600; }
+.herochooser .hc-demands { display: grid; gap: 1px; margin-top: 3px; }
+.herochooser .hc-demands i { font-style: normal; font-size: 11.5px; line-height: 1.2; color: #8c2f26; }
+.herochooser .hc-demands i.met { color: #3d6a24; }
+.herochooser .hc-count { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+
+/* ------------------------------------------------------------------------ the panels */
+.hero-who { border-left: 4px solid var(--hero); padding-left: 8px; }
+.hero-who p { margin: 2px 0; }
+.hero-demands { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 3px; }
+.hero-demands li { display: grid; grid-template-columns: 16px auto 1fr; gap: 6px; align-items: baseline; font-size: 13px; }
+.hero-demands .mark { font-weight: 700; }
+.hero-demands .met .mark { color: #3d6a24; }
+.hero-demands .unmet .mark { color: #8c2f26; }
+.hero-demands .have { color: var(--ink-soft); text-align: right; font-size: 12px; }
+.hero-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
+.hero-row .hero-what { display: grid; font-weight: 600; font-size: 13.5px; }
+.hero-row .hero-what small { font-weight: 400; font-size: 12px; color: var(--ink-soft); }

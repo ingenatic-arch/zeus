@@ -125,6 +125,8 @@ const HIDE = '#7a5838';
 /** The Chimera and the Boar are built at a beast's size and scaled up (their heights in MAKES are what they come to). */
 const CHIMERA_SCALE = 1.3;
 const BOAR_SCALE = 1.1;
+// Slice 59: Medusa drawn a little larger, to read over her rocks.
+const MEDUSA_SCALE = 1.25;
 const HAIR = '#3a2a1e';
 
 /** The Cyclops (3 tiles): a hairy giant in hides, one great eye, a tree-trunk club in his right hand. */
@@ -259,9 +261,10 @@ function minotaur(): Rig {
 /** Medusa (1.9 tiles): a woman's body on a serpent's coils, a crown of snakes, eyes that glow. */
 function medusa(): Rig {
   const r = rig('medusa', false, 1.0);
-  const scale = '#4f6e35';
-  const belly = '#a8a565';
-  const skin = '#9fae86';
+  // (Slice 59: brighter, so she reads against her rocks and the grass: emerald scales, a gold belly, a purple chiton.)
+  const scale = '#2f8a4a';
+  const belly = '#d8c060';
+  const skin = '#b7c9a0';
   // The coils, from her waist round behind her in a loop and out to the tip of her tail (each sways on its own).
   const COIL: Array<[number, number]> = [
     [0.02, 0],
@@ -278,7 +281,7 @@ function medusa(): Rig {
     const [nx, nz] = COIL[Math.min(COIL.length - 1, i + 1)];
     const [px, pz] = COIL[Math.max(0, i - 1)];
     const g = joint(r.body, cx, rad * 0.85, cz, [
-      { geo: blob(rad, 580 + i).scale(1.6, 0.8, 1), color: i % 2 ? scale : '#5c7c3e' },
+      { geo: blob(rad, 580 + i).scale(1.6, 0.8, 1), color: i % 2 ? scale : '#3fa055' },
       { geo: blob(rad * 0.7, 590 + i, 0).scale(1.5, 0.4, 0.8).translate(0, -rad * 0.5, 0), color: belly },
     ]);
     g.rotation.y = -Math.atan2(nz - pz, nx - px);
@@ -288,24 +291,24 @@ function medusa(): Rig {
     // Her waist rising from the coils, a bronze girdle, a dark chiton over her breast, her head.
     { geo: cyl(0.2, 0.26, 0.5, 8).translate(0.05, 0.45, 0), color: scale },
     { geo: cyl(0.21, 0.21, 0.08, 8).translate(0.05, 0.72, 0), color: PAL.bronze },
-    { geo: cyl(0.15, 0.2, 0.5, 8).translate(0.05, 0.98, 0), color: '#6b2f2a' },
+    { geo: cyl(0.15, 0.2, 0.5, 8).translate(0.05, 0.98, 0), color: '#7a2a72' },
     { geo: cyl(0.155, 0.155, 0.05, 8).translate(0.05, 1.18, 0), color: PAL.bronze },
     { geo: blob(0.2, 596).scale(0.8, 0.6, 1.3).translate(0.05, 1.2, 0), color: skin },
     { geo: cyl(0.06, 0.07, 0.14, 6).translate(0.06, 1.33, 0), color: skin },
     { geo: blob(0.15, 597).scale(1, 1.15, 0.95).translate(0.08, 1.48, 0), color: skin },
-    { geo: new THREE.SphereGeometry(0.03, 6, 4).translate(0.21, 1.5, 0.055), color: '#ffe84a' },
-    { geo: new THREE.SphereGeometry(0.03, 6, 4).translate(0.21, 1.5, -0.055), color: '#ffe84a' },
+    { geo: new THREE.SphereGeometry(0.04, 6, 4).translate(0.21, 1.5, 0.055), color: '#ffe84a' },
+    { geo: new THREE.SphereGeometry(0.04, 6, 4).translate(0.21, 1.5, -0.055), color: '#ffe84a' },
   ]);
-  // The snakes of her hair, each its own, writhing.
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2;
+  // The snakes of her hair, each its own, writhing (slice 59: more of them, longer and brighter, a crown you can see from afar).
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
     const g = new THREE.Group();
     g.position.set(0.04 + Math.cos(a) * 0.1, 1.55, Math.sin(a) * 0.12);
     g.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9 + 0.2);
     r.body.add(g);
     piece(g, [
-      { geo: cyl(0.018, 0.03, 0.26, 4).translate(0, 0.13, 0), color: i % 2 ? '#3f5a2a' : '#5e7a36' },
-      { geo: blob(0.035, 600 + i, 0).scale(1.6, 0.8, 1).translate(0.03, 0.27, 0), color: '#2f4220' },
+      { geo: cyl(0.024, 0.04, 0.38, 4).translate(0, 0.19, 0), color: i % 2 ? '#5fbf3a' : '#2f8a4a' },
+      { geo: blob(0.05, 600 + i, 0).scale(1.6, 0.8, 1).translate(0.04, 0.39, 0), color: '#1f5a2a' },
     ]);
     r.sway.push({ o: g, p: i * 1.7, a: 0.25, axis: 'x', base: g.rotation.x });
   }
@@ -319,6 +322,9 @@ function medusa(): Rig {
     { geo: cone(0.03, 0.3, 4).rotateZ(-Math.PI / 2).translate(0.15, -0.56, 0), color: PAL.bronze },
   ]);
   r.arms.push({ o: right, k: 1.6 }, { o: left, k: 1.3 });
+  // (Slice 59: a little larger than a woman's height would make her, so she rises over her rocks.)
+  r.body.scale.setScalar(MEDUSA_SCALE);
+  r.stride *= MEDUSA_SCALE;
   return r;
 }
 
@@ -367,7 +373,8 @@ function hydra(): Rig {
 function chimera(): Rig {
   const r = rig('chimera', true, 1.0);
   const tawny = '#c08a3e';
-  const mane = '#6e3f1c';
+  // (Slice 59: a darker, redder mane; a white goat's head up on its back; a long green serpent for a tail.)
+  const mane = '#7a3412';
   const legAt: Array<[number, number, number]> = [
     [0.45, 0.22, 1],
     [0.45, -0.22, -1],
@@ -384,16 +391,20 @@ function chimera(): Rig {
     { geo: new THREE.SphereGeometry(0.03, 6, 4).translate(0.92, 1.1, 0.08), color: '#ffcf3a' },
     { geo: new THREE.SphereGeometry(0.03, 6, 4).translate(0.92, 1.1, -0.08), color: '#ffcf3a' },
     // The goat's head on its back, on a neck of its own, with ridged horns curling back.
-    { geo: cyl(0.07, 0.1, 0.45, 5).rotateZ(0.25).translate(-0.05, 1.15, 0), color: '#8e8577' },
-    { geo: blob(0.13, 644, 0).scale(1.4, 0.9, 0.8).translate(0.05, 1.42, 0), color: '#b8ad9a' },
-    { geo: new THREE.TorusGeometry(0.1, 0.03, 4, 8, Math.PI * 1.2).rotateZ(0.3).translate(-0.04, 1.55, 0.07), color: '#3b3128' },
-    { geo: new THREE.TorusGeometry(0.1, 0.03, 4, 8, Math.PI * 1.2).rotateZ(0.3).translate(-0.04, 1.55, -0.07), color: '#3b3128' },
+    { geo: cyl(0.08, 0.12, 0.6, 5).rotateZ(0.2).translate(-0.08, 1.22, 0), color: '#d8d0bc' },
+    { geo: blob(0.18, 644, 0).scale(1.45, 0.9, 0.8).translate(0.06, 1.56, 0), color: '#eee8d8' },
+    { geo: cone(0.05, 0.16, 4).rotateZ(Math.PI).translate(0.24, 1.42, 0), color: '#d8d0bc' },
+    { geo: new THREE.SphereGeometry(0.025, 5, 3).translate(0.2, 1.62, 0.1), color: '#c8301e' },
+    { geo: new THREE.SphereGeometry(0.025, 5, 3).translate(0.2, 1.62, -0.1), color: '#c8301e' },
+    { geo: new THREE.TorusGeometry(0.15, 0.04, 4, 8, Math.PI * 1.2).rotateZ(0.3).translate(-0.06, 1.74, 0.09), color: '#2b2118' },
+    { geo: new THREE.TorusGeometry(0.15, 0.04, 4, 8, Math.PI * 1.2).rotateZ(0.3).translate(-0.06, 1.74, -0.09), color: '#2b2118' },
   ]);
   // The serpent tail, rising and swaying, its head up.
   const tail = joint(r.body, -0.6, 0.85, 0, [
-    { geo: cyl(0.04, 0.08, 0.9, 5).rotateZ(0.9).translate(-0.34, 0.27, 0), color: '#4f6e35' },
-    { geo: cyl(0.035, 0.04, 0.4, 5).rotateZ(-0.4).translate(-0.62, 0.68, 0), color: '#4f6e35' },
-    { geo: blob(0.07, 645, 0).scale(1.6, 0.8, 1).translate(-0.5, 0.88, 0), color: '#33481f' },
+    { geo: cyl(0.06, 0.11, 1.0, 5).rotateZ(0.9).translate(-0.38, 0.3, 0), color: '#3fa055' },
+    { geo: cyl(0.05, 0.06, 0.55, 5).rotateZ(-0.4).translate(-0.7, 0.8, 0), color: '#3fa055' },
+    { geo: blob(0.11, 645, 0).scale(1.6, 0.8, 1).translate(-0.55, 1.06, 0), color: '#1f5a2a' },
+    { geo: box(0.1, 0.03, 0.06).translate(-0.42, 1.03, 0), color: '#c8301e' },
   ]);
   r.sway.push({ o: tail, p: 0.5, a: 0.35, axis: 'x', base: 0 });
   // Its breath: a tongue of fire from the lion's jaws.

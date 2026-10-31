@@ -83,6 +83,10 @@ import { GODS, type GodId } from '../sim/pantheon';
 import { PRIEST_RANGE, sanctuaryName, sanctuaryRefusal } from '../sim/sanctuaries';
 import { needOf, sanctuaryStages, siteMaterials, type Site } from '../sim/monuments';
 import { materialName } from '../sim/monumentstatus';
+// Slice 59: a hero's hall, for the hero chosen on the chooser.
+import { hallName, hallRefusal } from '../sim/heroes';
+import type { HeroId } from '../sim/pantheon';
+import { hallPlaceLines } from '../ui/heroes';
 const capacityOf = (level: number): number => HOME_CAPACITY[level];
 
 export type ToolName =
@@ -135,7 +139,9 @@ export type ToolName =
   | 'infirmary'
   | 'asklepieion'
   // Slice 54.
-  | 'sanctuary';
+  | 'sanctuary'
+  // Slice 59.
+  | 'herohall';
 export const TOOLS: readonly ToolName[] = [
   'road',
   'housing',
@@ -187,6 +193,8 @@ export const TOOLS: readonly ToolName[] = [
   'asklepieion',
   // Slice 54.
   'sanctuary',
+  // Slice 59.
+  'herohall',
 ];
 
 /** The tools that add a stall to an agora, and each one's good (`stall` is the oil stall's, as it always was). */
@@ -285,6 +293,13 @@ export class Tools {
   private den: ReturnType<typeof denReachWords> = { line: '', warn: '' };
   /** What a release would send. */
   private pending: (() => void) | null = null;
+  /** Slice 59: the hero whose hall the Hero's hall tool places (chosen on the chooser; null: none yet). */
+  hero: HeroId | null = null;
+  /** Slice 59: choose the hero whose hall to place (null: none), and show it. */
+  chooseHero(h: HeroId | null): void {
+    this.hero = h;
+    this.preview();
+  }
 
   constructor(
     private readonly sim: Sim,
@@ -581,6 +596,11 @@ export class Tools {
       this.drawWall(sx, sy, marks);
       return;
     }
+    // Slice 59: a hero's hall, for the hero chosen.
+    if (this.tool === 'herohall') {
+      this.placeHall(sx, sy, marks);
+      return;
+    }
     if (isPlacer(this.tool)) {
       this.placeOne(this.tool, sx, sy, marks);
       return;
@@ -736,6 +756,8 @@ export class Tools {
       asklepieion: ['asklepieion', 'asklepieia'],
       // Slice 54.
       sanctuary: ['sanctuary', 'sanctuaries'],
+      // Slice 59.
+      herohall: ['hero’s hall', 'heroes’ halls'],
     };
     for (const [k, c] of kinds) bits.push(`${c} ${KIND_WORDS[k][c === 1 ? 0 : 1]}`);
     // Rubble is carted away for a small fee.
@@ -1087,6 +1109,32 @@ export class Tools {
       }
       this.send(kind === 'fountain' ? { type: 'fountain', at: [at] } : { type: 'build', kind, at: [at] });
     };
+  }
+
+  /** Slice 59: a hero's hall, 4 x 4, where you click, for the hero chosen. */
+  private placeHall(sx: number, sy: number, marks: Map<number, number>): void {
+    const s = this.sim.state;
+    const map = this.sim.map;
+    const n = map.size;
+    this.overlay?.setPreview(null);
+    const side = sideOf('herohall');
+    const at = this.plotAt(side);
+    const x = at % n;
+    const z = Math.floor(at / n);
+    const cost = priceOf(s, 'herohall');
+    const h = this.hero;
+    const r = (h ? hallRefusal(s, h) : 'Choose a hero first, on the card') || buildingRefusal(map, s, 'herohall', x, z) || (spendable(s, 'herohall') >= cost ? '' : s.money >= cost ? keptBack(s) : 'Not enough drachmas');
+    const roads = beside(n, x, z, side).filter((t) => s.tiles[t] === TILE_ROAD);
+    const mk = r ? MARK_BAD : roads.length === 0 ? MARK_WARN : MARK_OK;
+    for (let dz = 0; dz < side; dz++) for (let dx = 0; dx < side; dx++) if (x + dx < n && z + dz < n) marks.set((z + dz) * n + x + dx, mk);
+    this.setMarks(marks);
+    if (r || !h) {
+      this.tip.show(r, sx, sy, true);
+      return;
+    }
+    const more = hallPlaceLines(s, h, roads.length > 0);
+    this.tip.show([`${hallName(h)} · ${fmt(cost)} dr`, ...more.lines].join('\n'), sx, sy, false, more.warn);
+    this.pending = () => this.send({ type: 'herohall', hero: h, at: [at] });
   }
 
   /** Slice 36: an estate's plot, 4 x 4, where you click. */

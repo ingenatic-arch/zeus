@@ -288,6 +288,9 @@ const COLLAPSE_ICON = LINE_ICONS.rubble;
 // Slice 55: a monster's: three claw marks torn across a dark ground.
 const MONSTER_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.8" fill="#3a2e28" stroke="#1e1612" stroke-width=".8"/><path d="M4.4 3.6c1.4 3 1.6 6 .6 9M7.6 2.8c1.4 3.4 1.6 6.8.4 10.2M10.8 3.6c1.2 3 1.2 6-.2 9" stroke="#d8432a" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
 
+// Slice 59: a hero's: a laurel wreath round a bronze sword's hilt.
+const HERO_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6v9.4" stroke="#b8862e" stroke-width="1.8" stroke-linecap="round"/><path d="M5.4 10.6h5.2" stroke="#6e4e30" stroke-width="1.4" stroke-linecap="round"/><path d="M8 11.4v2.4" stroke="#6e4e30" stroke-width="1.4" stroke-linecap="round"/><path d="M3.2 5.6c-.8 3.6.8 7 4.2 8.2M12.8 5.6c.8 3.6-.8 7-4.2 8.2" stroke="#4f7a32" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M3 7.2l-1.4-.6M3.4 9.4l-1.4.2M4.4 11.4l-1.2.8M13 7.2l1.4-.6M12.6 9.4l1.4.2M11.6 11.4l1.2.8" stroke="#6a9a3e" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
 /** Each kind of message's drawing. Kinds added later fall back to the scroll; the kit's test asks for every kind. */
 export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   greece: LINE_ICONS.greece,
@@ -318,6 +321,8 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   epiphany: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="3.2" rx="3.6" ry="1.3" fill="none" stroke="#e8b830" stroke-width="1.1"/><circle cx="8" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M5.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M3 15h10" stroke="#c8963c" stroke-width="1" stroke-linecap="round"/></svg>',
   // Slice 53: the gods' news, Zeus's thunderbolt.
   gods: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.6 .8 3.2 8.8h3.8L5.2 15.2l7.4-9.2H8.6L11 .8z" fill="#f0cf5a" stroke="#7a5a10" stroke-width=".9" stroke-linejoin="round"/></svg>',
+  // Slice 59
+  hero: HERO_ICON,
 };
 
 // Slice 54: a sanctuary's news: a small temple, its pediment and columns in marble.

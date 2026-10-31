@@ -2,6 +2,72 @@
 
 Notes to Oliver, newest first.
 
+## Slice 59 — Heroes answer (1 Nov)
+
+The seven heroes can come to your city now: raise a hero's hall, meet what they ask, and they come by sea or by road to live in it, walk your streets, and slay the monster you send them against, in a long fight before its lair that they always win. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **State version 52** (50 on this line; renumbered as slices 56 and 54 reached the main line first). Older saves load: a version 51 save comes up with no hero, and the groundwork's `#town` save (version 48) and the same as a phase 6 save (version 47) load through every step and play on.
+- **Nothing in any earlier demo changes**: every one of the 173 earlier demos' prepared towns (the main line's, with slices 54 and 56) is identical to before, key for key, once brought up to this version. No hero exists unless you raise their hall.
+- **A monster's raid is now announced three days before it sets out** (it was one day: about a second at normal speed). The raids themselves come when they did.
+- **A monster stung by a tower's arrows before its lair now comes out for that tower** and wrecks it. Towers still shoot it on its raids at no cost.
+- **Medusa and the Chimera look different**: Medusa is brighter and a quarter larger, and the Chimera has a big goat's head and a long serpent tail.
+
+### What's new
+- **A hero's hall.** On the Mythology tab (or V twice), the Hero's hall button opens a chooser of the seven: each card shows the hero, what they slay, and their demands, met or not. A hero with a hall already is greyed out. A hall is 4 × 4 and costs 1,500 dr. It is a walled courtyard of pale stone with a columned house at the back, the hero's bronze statue, a tripod, an altar, cypresses, and banners in the hero's colour at the gate.
+- **Demands, each named with its progress.** Heracles wants a sanctuary to Zeus, 2,000 people and a full granary. Perseus wants Athena warm and a sanctuary to her. Theseus wants a court and ten fine houses. Odysseus wants six triremes and a sanctuary to Athena. Bellerophon wants a horse farm and twenty horsemen. Jason wants a shipyard and three trade routes. Atalanta wants Artemis warm and three hunting lodges. The hall's panel lists each one with a tick or a cross and how far along it is ("6 of 10").
+- **Their coming.** Once every demand is met, word goes out (a message), and within the month the hero arrives: by sea at the trading post if you have one, else by road from the edge. They walk to their hall and live in its courtyard, and every week or so they stroll out to the agora, the theatre or the court and back. They stand half again a man's height, each with their own marks: Heracles' lion skin and club, Perseus' winged cap, shield and sword, Theseus' crest and sword, Odysseus' cap, bow and beard, Jason's golden fleece and spear, Atalanta's green tunic, quiver and spear, and Bellerophon riding Pegasus with his wings beating. A gold ring on the ground under each one picks them out among the walkers. Homes near a hall whose hero lives there are a little prouder.
+- **Slaying.** From the hall's panel or the monster's, "Send Theseus". A hero who can't slay that monster says who can. Sent, the hero walks to the lair (and waits there if the monster is out raiding), then fights it before its mouth for eight days, striking blow for blow while its health bar falls, and always wins. Then the city celebrates for a week (every home happier, and a crowd dancing at the hall), the monster's god is satisfied, and the lair becomes a place of legend, marked by a stele and a bronze tripod, where visitors leave 20 dr a month (a new line on the ledger).
+- **Heroes abroad.** "Ride with your armies" on the hall's panel sends the hero with your next expedition. They are worth over thirty men in the fight (Heracles fifty), the report says so, and they come home with it.
+- **Wishes.** Once come, each hero has one wish, shown on the panel with how long it has gone unkept. Heracles wants a festival to Zeus each year, Perseus and Atalanta want their goddess kept pleased, Theseus wants the court kept at work, Odysseus wants to sail away for a season ("Let him sail"), Bellerophon wants a horse farm with horses, and Jason wants the shipyard kept at work. Left unkept for a year, the hero grows restless (a warning). At two years they leave, warned a month before, and you can win them back a year later.
+- **Messages** about the heroes have a kind of their own, Heroes. Hovering a hero says who they are and what they are doing, and clicking one opens their hall's panel.
+
+### What to try
+1. #hero — Perseus's hall in `#richtown`'s town, with its panel open: Athena is warm and a sanctuary to her is the one demand left (mark one out, and once it is finished word goes out to him). Press V twice to see the chooser of the seven.
+2. #slay — Theseus walking from his hall to the Minotaur's cave on the headland by `#order`'s town, seen side on, the cave below the town's lines. Let it run: he fights it before the cave, wins, the city celebrates at his hall, and the cave gets its stele and tripod. Hover him and click him.
+3. #hero-modern and #hero-plain, #slay-modern and #slay-plain — the other two looks.
+
+### What I'd like your eye on
+- **The fight.** Eight days (about eight seconds at normal speed) of blows before the cave. Is it long enough to watch, and does it read as a fight?
+- **The heroes' size.** At half again a man's height they are small at the classic zoom. Theseus beside the Minotaur in `#slay` is easy to miss without his gold ring (now a little wider, and wide and beating while he fights). Should they be bigger, as the gods are?
+- **The halls.** Are the seven told apart well enough by the statue and the banners' colour? Should the hall carry more of its hero?
+- **The fête's crowd** is simple robed figures in bright colours, dancing in the courtyard and in a ring before the gate. Does it read as a celebration?
+- **The new Medusa and Chimera**, side by side in #bestiary.
+
+### Known rough edges
+- **Heracles' wish can't be kept yet.** He wants a festival to Zeus each year, and festivals at home are slice 53's: until it merges, his wish reads loosely (marked for the merge) and goes unkept, so he grows restless after a year. The sanctuary demands are real: slice 54 reached this line before the check-in, so a sanctuary to Athena, finished, meets Perseus's last demand.
+- A hero walks straight across open ground and round buildings, as a monster does, not along the roads.
+- `#town`'s save budget in the save test went up by 75 characters for the heroes' list and the fête.
+
+### Measurements
+The main line as it stands (`fd44330`, with slices 54, 55 and 56) and this slice's build, measured with the same shortened `measure.mjs` back to back on this machine: headless, software WebGL, with other lines building at the same time (load 22 to 28 on 4 cores). Every time below is noise; only the sizes, triangles and draw calls mean anything.
+
+| What | Before (`fd44330`) | After |
+|---|---|---|
+| Tests | 838 in 63 files on this line before the last merge | 846 in 64 files. In the full run (load 30 to 35) 839 passed and 7 failed on time: three over their own 60 s limits (in `prices`, `routes` and `trade`), two of `lands`' bake-time budgets, `culture`'s "quickly" check, and the treasury's check that no demo leaves wages unpaid while it is set up (it plays all 175 demos' histories). Run alone, `culture`, `prices`, `routes` and `trade` pass; one large land baked in 6.3 s against `lands`' 6 s budget; the treasury's check ran out of its 20 minutes again, so I ran it on the five newest demos (`#hero`, `#slay`, `#sanctuaries`, `#sanctuary`, `#twelve`), which pass, and it passed whole, alone, after the slice 56 merge |
+| Build | 15 min 51 s, every demo's town made (under load) | 17 min 49 s, every demo's town made (under load) |
+| The game itself | 1,054 KB gzipped | 1,071 KB gzipped |
+| Prepared towns | 133 files, 4,819 KB gzipped (largest 82 KB) | 135 files, 4,939 KB gzipped (largest 82 KB): `#hero` and `#slay` |
+| Every earlier demo's town | | identical: all 173, decoded and brought up to this version, key for key |
+| The bare link, ready (page's clock) | 8.1 s | 8.1 s |
+| `#town` / `#richtown` / `#empire` ready | 5.9 / 7.8 / 6.3 s | 6.3 / 6.5 / 11.0 s (the load: the scenes are the same) |
+| Triangles and draw calls in the coast's five views and `#streets`', `#water`'s, `#food`'s, `#town`'s, `#richtown`'s and `#empire`'s | | identical (with no hall, the heroes draw nothing) |
+| `#bestiary` | 1,336,071 triangles, 144 draws | 1,336,239 triangles, 147 draws (the new Medusa and Chimera) |
+| `#hero` | (new) | 1,446,201 triangles, 88 draws |
+| `#slay` | (new) | 1,706,982 triangles, 106 draws |
+| A save of `#town` | 190 KB | 190 KB (194,581 characters; the save test's budget is now 194,700, from 194,625) |
+| A save of `#empire` | 300 KB | 300 KB |
+| A frame's work before drawing | `#empire` 125, `#town-shot` 33, `#richtown-shot` 123, `#monsterraid-shot` 121 ms | `#empire` 55, `#town-shot` 57, `#richtown-shot` 94, `#slay-shot` 249 ms; `#monsterraid-shot` drew no frame in 8 s (0 to 6 frames each: not a measurement) |
+| The smoke (loosened, on this build) | | this slice's checks, slice 54's (`#sanctuaries`, `#sanctuary`, `#twelve`), slice 55's (`#monster`, `#monsterraid`, `#bestiary`) and slice 56's (`#epiphany`, `#pantheon`), and `#town`, `#richtown`, `#battle`, `#order`, `#quarry`, `#empire`, `#streets` and `#epiphany` opening: all pass, no page errors. Before the last merge, slices 50's and 52's checks passed too |
+
+### What the review changed
+- **#slay is framed afresh.** The fight before the cave took place half under the town's lines at the top of the screen, with Theseus hidden behind them and the Minotaur's health bar touching them. The view now stands a little further back and lower, so the cave, the fight and the health bar are all below the lines, and Theseus is still in view as it opens.
+- **The heroes are easier to find.** The gold ring under a hero is a little wider, and while they fight it widens and beats, so Theseus can be picked out beside the Minotaur. Their height is as before (half again a man's); whether they should be bigger is still yours to say.
+- **A hall carries its hero's name.** Its panel is titled "Theseus's hall" (it was "Hero's hall"), and the Mythology tab shows a picture of a hall, as it does for the other buildings.
+- **A hero's worth abroad is said one way.** The hall's panel, the message when they ride out and the expedition's report gave four different numbers. They now all say what the fight counts: fifty men for Heracles, over thirty for the others.
+- **A hero whose hall is pulled down while they walk in now leaves.** Before, they would have stood where it was for good.
+- Checked and unchanged: every one of the 175 demos' towns, `#hero`'s and `#slay`'s among them, is the same as in the builder's build. `#hero`, `#slay` and their other looks open, and the fight, the slaying, the fête and the stele happen as described above. Measured again with the same shortened measure: the download, the prepared towns and every view's triangles and draw calls are the same as the builder's (the game itself 1,071 KB gzipped), except `#slay`'s new framing (1,677,633 triangles and 112 draw calls, from 1,706,982 and 106). 847 tests: in one full run on the loaded machine (load about 30), 818 passed and 29 failed, every one on time (their time limits, or `lands`' bake-time budgets). Rerun with longer limits, all pass but two: `lands`' check that a large land bakes within 6 seconds (a delta took longer at load 18 to 25; the land's baking is untouched here) and the treasury's 20-minute check over every demo's setup, which ran out of time again, as it did for the builder.
+
 ## Slice 53 — The twelve and their tempers (31 Oct)
 
 The twelve gods now have tempers that move: you dedicate shrines to them, hold festivals with a procession through the streets, send offerings, and each god reads your city for what they love and hate, minds when you honour their rival, and slides slowly if you never honour them; Olympus (G) shows all twelve and why. You weren't here while it was built: every choice below is mine, from the spec's defaults.

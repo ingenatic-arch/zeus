@@ -65,6 +65,8 @@ const KIND_COLOUR: Record<BuildingKind, string> = {
   asklepieion: '#f2efe4',
   // Slice 54: a sanctuary's court and temple in gleaming marble, warmer than the asklepieion's.
   sanctuary: '#fff4dc',
+  // Slice 59: a hero's hall in warm stone, its roof tiles red.
+  herohall: '#e0b48a',
 };
 
 /** A home's colour by its level: tents and huts in canvas and straw, cottages and up in terracotta, villas deeper. */

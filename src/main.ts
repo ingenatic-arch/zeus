@@ -137,6 +137,11 @@ import { GodsView, godTriangles } from './render/gods';
 import { GodPanel } from './ui/godpanel';
 import { blessingWords, figureOf, godStatus } from './sim/epiphany';
 import { GODS } from './sim/pantheon';
+// Slice 59: the heroes, drawn; the hall chooser; their tips.
+import { HeroesView } from './render/heroes';
+import { HeroChooser } from './ui/heroes';
+import { hallOf, heroOf, heroTip, legendTip } from './sim/heroes';
+import { HERO_IDS, type HeroId } from './sim/pantheon';
 
 interface Probe {
   ready: boolean;
@@ -391,6 +396,13 @@ interface Probe {
   olympus?: (god?: string | null) => { open: boolean; god: string; text: string };
   /** The gods' worship: each one's mood and weightiest reasons; festivals, processions, offerings out, homes glad, and what the shrines' priestesses wear. (Named `gods` on slice 53's line; renamed at its merge, slice 56's `gods` being the gods in the city.) */
   worship?: () => { moods: Record<string, number>; reasons: Record<string, string[]>; festivals: Array<{ god: string; day: number; walking: boolean }>; processions: number; offerings: number; festive: number; shrines: Array<{ id: number; god: string }> };
+  // Slice 59
+  /** The heroes: each one's state, place and hall; what is drawn; the tip over the first one drawn; a hall's panel (opened on the hall of the hero given). */
+  heroes?: (open?: string) => { list: Array<{ hero: string; state: string; x: number; z: number; hall: number; foe: number }>; drawn: { halls: number; heroes: number; legends: number; dancers: number }; tip: string; panel: string; chooser: boolean };
+  /** Where a hero is on screen (their middle), or null. */
+  heroOnScreen?: (hero: string) => { x: number; y: number } | null;
+  /** For looking: a hero set down at (x, z), facing `face`, as if at home (paused, a look at their figure). */
+  heroStage?: (hero: string, x: number, z: number, face: number) => boolean;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -538,6 +550,9 @@ function start(preparedTown: string | null): void {
   // Slice 55: the monsters, their lairs and Medusa's stone figures.
   const monstersView = new MonstersView(map);
   world.scene.add(monstersView.group);
+  // Slice 59: the heroes' halls, the heroes, the places of legend and the fête.
+  const heroesView = new HeroesView(map);
+  world.scene.add(heroesView.group);
   const selection = new Selection(map);
   world.scene.add(selection.mesh);
   // A demo can ring a tile until a road is laid on it (#warning's cut road), so it is easy to find.
@@ -1266,6 +1281,19 @@ function start(preparedTown: string | null): void {
       const hurt = co ? woundedOf(sim.state, co).length : 0;
       if (co) return showStatus({ title: `The banner of ${companyWords(co)} · ${menOf(sim.state, co).length} of ${co.want} men${hurt ? `, ${hurt} wounded` : ''}`, detail: [doingWords(sim.state, co).replace(/^./, (ch) => ch.toUpperCase()), co.why, 'Click to take its banner in hand, then click a street or open ground to march it there'].filter((l) => l).join('\n') }, sx, sy);
     }
+    // Slice 59: a hero, or a place of legend.
+    {
+      const r = canvas.getBoundingClientRect();
+      const h = heroesView.pick(camera, r, sx, sy);
+      const c = h ? heroOf(sim.state, h) : undefined;
+      if (c) {
+        const st = heroTip(sim.state, c);
+        return showStatus({ title: st.title, detail: `${st.detail}\nClick for ${c.hero === 'atalanta' ? 'her' : 'his'} hall` }, sx, sy);
+      }
+      const li = sim.state.legends.slain.length ? heroesView.pickLegend(camera, r, sx, sy) : -1;
+      const lt = li >= 0 ? legendTip(sim.state, li) : null;
+      if (lt) return showStatus(lt, sx, sy);
+    }
     // Slice 55: a monster, or its lair.
     {
       const bm = beastUnder(sx, sy);
@@ -1461,6 +1489,16 @@ function start(preparedTown: string | null): void {
         takeBanner(army.company);
         return;
       }
+      // Slice 59: a hero: their hall's panel.
+      {
+        const h = heroesView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+        const c = h ? heroOf(sim.state, h) : undefined;
+        const hall = c ? hallOf(sim.state, c) : undefined;
+        if (hall) {
+          buildingPanel.show(hall.id);
+          return hover(w, sx, sy);
+        }
+      }
       // Slice 55: a monster (or its lair): its panel.
       const bm = beastUnder(sx, sy);
       if (bm) {
@@ -1606,6 +1644,8 @@ function start(preparedTown: string | null): void {
       if (k === 'z') t = next(OFFICES, tools.tool, e?.shiftKey);
       // B again: the fountain, then the copper mine, the armoury, the barracks, the wall, the tower and the shipyard.
       if (k === 'b') t = next(['fountain', 'mine', 'armoury', 'barracks', 'wall', 'tower', 'shipyard'], tools.tool, e?.shiftKey);
+      // Slice 59: V again: a hero's hall.
+      if (k === 'v') t = next(['shrine', 'herohall'], tools.tool, e?.shiftKey);
       tools.select(t);
       const p = lastPointer;
       tools.pointer(p.world, p.sx, p.sy);
@@ -1844,6 +1884,58 @@ function start(preparedTown: string | null): void {
       monsterPanel.show(0);
     };
   }
+  // Slice 59: a monster's Send buttons; the hero's hall chooser, opened as the tool is picked up.
+  monsterPanel.send = (c) => {
+    sim.enqueue(c);
+    sim.flush();
+    sound.play('build');
+    startAutosaving();
+  };
+  const heroChooser = new HeroChooser(ui, { state: () => sim.state, choose: (h) => tools.chooseHero(h), dismiss: () => tools.select(null) });
+  tools.onChange((t) => {
+    if (t === 'herohall') {
+      tools.chooseHero(null);
+      heroChooser.show();
+    } else heroChooser.close();
+  });
+  probe.heroes = (open) => {
+    const s = sim.state;
+    if (open && HERO_IDS.includes(open as HeroId)) {
+      const c = heroOf(s, open as HeroId);
+      const hall = c ? hallOf(s, c) : undefined;
+      if (hall) buildingPanel.show(hall.id);
+    }
+    buildingPanel.update(s, map, Infinity);
+    const first = heroesView.shown[0];
+    const c = first ? heroOf(s, first.hero) : undefined;
+    const t = c ? heroTip(s, c) : null;
+    return {
+      list: s.legends.heroes.map((o) => ({ hero: o.hero, state: o.state, x: o.x, z: o.z, hall: o.hall, foe: o.foe })),
+      drawn: heroesView.counts,
+      tip: t ? `${t.title}\n${t.detail}` : '',
+      panel: buildingPanel.text,
+      chooser: heroChooser.open,
+    };
+  };
+  probe.heroStage = (hero, x, z, face) => {
+    const s = sim.state;
+    if (!HERO_IDS.includes(hero as HeroId)) return false;
+    let c = heroOf(s, hero as HeroId);
+    if (!c) {
+      c = { hero: hero as HeroId, hall: 0, state: 'home', word: s.tick, came: s.tick, by: 'road', next: s.tick + 9999, x, z, face, walked: 0, path: [], seg: 0, along: 0, foe: 0, fight: -1, from: 0, swung: 0, wish: s.tick, warned: 0, slain: [], ride: false, away: 0, again: 0 };
+      s.legends.heroes.push(c);
+    }
+    Object.assign(c, { state: 'home', came: s.tick, x, z, face });
+    s.rev++;
+    return true;
+  };
+  probe.heroOnScreen = (hero) => {
+    const o = heroesView.shown.find((x) => x.hero === hero);
+    if (!o) return null;
+    const r = canvas.getBoundingClientRect();
+    const v = new THREE.Vector3(o.x, o.y + o.tall * 0.5, o.z).project(camera);
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
+  };
   probe.monsterSend = (kind, why) => {
     const m = sendMonster(sim.state, kind as MonsterId, why);
     if (m) m.next = sim.state.tick;
@@ -3137,6 +3229,8 @@ function start(preparedTown: string | null): void {
     if (panel.open && monsterPanel.open) monsterPanel.show(0);
     // (Merge of slices 55 and 56: a home's panel puts a god's away too, as it does a monster's.)
     if (panel.open && godPanel.open) godPanel.show(0);
+    // Slice 59.
+    heroesView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time);
     // Slice 51.
     {
       const t = performance.now();

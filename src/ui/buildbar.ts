@@ -35,6 +35,8 @@ import {
 } from '../sim/build';
 import type { OverlayMode } from '../render/overlay';
 import { GATE_COST, WALL_COST } from '../sim/walls';
+// Slice 59.
+import { HEROHALL_COST } from '../sim/build';
 // Slice 35.
 import { COLOSSUS_COST, LIGHTHOUSE_COST, MASONS_COST, STADIUM_COST } from '../sim/monuments';
 // Slice 36.
@@ -202,6 +204,9 @@ export const ICONS: Record<ButtonName, string> = {
     '<svg viewBox="0 0 24 24"><path d="M3.4 11.4h17.2c-.6 4.4-4.2 7.2-8.6 7.2s-8-2.8-8.6-7.2z" class="fill-soft"/><path d="M10 18.4l-1 3h6l-1-3" class="fill-ink"/><path d="M6.4 11.2C5 7.6 8 5.2 10.4 6.6s1.6 4.6 4.8 4.4c2.4-.2 3.4-2.4 2.6-4.4" class="stroke-water"/><circle cx="17.6" cy="6.4" r="1.1" class="fill-ink"/></svg>',
   // An arrow curling back.
   undo: '<svg viewBox="0 0 24 24"><path d="M9 6 3.5 10.5 9 15" class="stroke-ink"/><path d="M4 10.5h9.5a5.5 5.5 0 0 1 0 11H9" class="stroke-ink"/></svg>',
+  // Slice 59: a hero's hall: a megaron's gable on its columns, a laurel wreath on its pediment, a banner by its gate.
+  herohall:
+    '<svg viewBox="0 0 24 24"><path d="M2.4 9 11 4l8.6 5z" class="fill-soft"/><circle cx="11" cy="7.2" r="1.3" class="stroke-ink"/><path d="M4.4 10.2v8.6M8.6 10.2v8.6M13.4 10.2v8.6M17.6 10.2v8.6" class="stroke-ink"/><path d="M2.4 19.2h17.2v2.2H2.4z" class="fill-soft"/><path d="M21.6 21.6V3" class="stroke-ink"/><path d="M21.6 3.4h-4v4h4" class="fill-gold"/></svg>',
 };
 
 export const INFO: Record<ButtonName, { name: string; key: string; cost: string; hint: string }> = {
@@ -464,6 +469,13 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: '',
     cost: `${SANCTUARY_COST} dr`,
     hint: 'Choose a god, then click beside a road (five by five; one to a god). The ox carts haul its marble, timber, copper and the god’s sacred good from the stores, and the masons’ builders raise it in three stages: a year or more with one masons’ yard, longer when the stores are far from it. Its god notices each stage; finished and staffed, it honours them for as long as it stands so, and its priests bless homes far along the roads.',
+  },
+  // Slice 59.
+  herohall: {
+    name: 'Hero’s hall',
+    key: 'V V',
+    cost: `${HEROHALL_COST} dr`,
+    hint: 'Choose a hero, then click beside a road (four by four). Meet their demands and they come to live in it: send them against a monster from its panel and they slay it.',
   },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'Shift O', cost: '', hint: '' }, // (Slice 51: O is the overview.)
