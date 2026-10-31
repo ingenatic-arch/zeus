@@ -78,6 +78,8 @@ import { income } from './treasury';
 import { armiesHome } from './seasons';
 // Slice 34.
 import { boundTo } from './vassals';
+// Slice 55.
+import { monstersAbout } from './monsters';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -1485,6 +1487,8 @@ export function goodsArrive(s: SimState, map: CoastMap, r: Raid): number {
 /** Where the bands on your map stand (x, z pairs); empty with none. */
 export function bandsAt(s: SimState): number[] {
   const out: number[] = [];
+  // Slice 55: and the monsters out of their lairs (walkers run indoors from them as from raiders).
+  if (s.legends.monsters.length) monstersAbout(s, out);
   if (!s.world.raids.some((r) => r.phase === 'raiding')) return out;
   for (const w of s.walkers) {
     if (w.kind !== 'raider') continue;
