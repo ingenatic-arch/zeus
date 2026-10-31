@@ -46,7 +46,7 @@ The starting build (`11f9290`) and this slice's, measured with the same loosened
 
 | What | Before (`11f9290`) | After |
 |---|---|---|
-| Tests | 803: 794 pass, 9 time out under the load (38 min) | 820: under load about 40, 39 time out (92 min); the 23 files with a failure again with longer timeouts, 304 of 308 pass, the four left timings and limits (three of them fail the same at `11f9290`; the fourth passes alone) |
+| Tests | 803: 794 pass, 9 time out under the load (38 min) | 820: under load about 40, 39 time out (92 min); the 23 files with a failure again with longer timeouts, 304 of 308 pass, the four left timings and limits (three of them fail the same at `11f9290`; the fourth passes alone). After the review: 822, 821 pass with longer timeouts (29 min); the one left is the wages test at its own 20-minute limit, as at `11f9290` |
 | Build | 14 s cached | 14 to 20 s cached; 32 min 40 s when the 168 demos bake again (under this load) |
 | The game itself | 3,004 KB, 998 KB gzipped | 3,064 KB, 1,017 KB gzipped |
 | Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 127 files, 4,618 KB gzipped (largest 82 KB) |
@@ -56,7 +56,7 @@ The starting build (`11f9290`) and this slice's, measured with the same loosened
 | `#festival` (Athens' Panathenaia) | 315,318 triangles, 59 draws | the same once the map of Greece is up (one load measured the frame before it: 1.15 M) |
 | `#gods` | (new) | ready at 16.7 s; 1.82 M triangles, 112 draws |
 | `#procession` | (new) | ready at 17.9 s; 1.52 M triangles, 91 draws |
-| Olympus built (page's clock) | (new) | the twelve cards 461 ms the first time, 336 ms after; Athena's page 174 ms |
+| Olympus built (page's clock) | (new) | the twelve cards 461 ms the first time, 336 ms after; Athena's page 174 ms (measured again after the review, under a lighter load: 117 ms, 150 ms; 69 ms) |
 | A frame's work before drawing | | not measurable under this load: one or two frames in eight seconds under software rendering (`#gods` with Olympus open 39 ms, shut 208 ms; `#procession` 148 ms) |
 | Every earlier demo, people, money, levels and state (less the gods) at opening and 900 ticks on | | identical, all 165 |
 | The smoke (loosened timeouts) | | every check passes, run in two parts (3 h 34 min, then 10 min from `#newgame` on): the long run stopped at `#jailbreak`, whose popup fades before a click under this load, at `11f9290` too |
