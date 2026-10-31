@@ -118,4 +118,9 @@ Built as designed above, with these differences and details:
 - New: `src/sim/epiphany.ts`, `src/render/gods.ts`, `src/ui/godpanel.ts`, `src/ui/godpanel.css`, `tests/epiphany.test.ts`, `tests/fixtures/groundwork-town.save.json.gz` (`#town` saved at `11f9290`, version 48).
 
 **Checked:** every one of the 165 earlier demos' prepared towns is identical to the baseline's (`11f9290`) once the version and `gods.walks` are set aside; `#epiphany` and `#pantheon` are the two new ones.
+- `npm test`: 814 tests in 61 files. On the loaded machine (load 35 to 55) 32 timed out; their 21 files run again with long limits all pass, except two of `lands.test`'s bake-time checks, which measure real time (17.5 s against 6 s); `culture.test`'s "quickly" check passes alone; `routes.test`'s, `trade.test`'s and `treasury.test`'s determinism and wages checks pass with their own limits raised (in scratch copies, the files untouched).
+- `npm run build`: passes.
+- The loosened slow smoke, in three parts (a restart and the two-hour limit cut it): no failure; slice 51's `#jailbreak` popup check stops on a popup that has faded before the click, on the starting build too under this load.
+- The measure, shortened and loosened, on both builds back to back: sizes, triangles and draw calls in the check-in; times are noise on this machine.
+- Old saves: a version 48 save (`tests/fixtures/groundwork-town.save.json.gz`) and the same stripped of `gods` (as version 47) load (`tests/epiphany.test.ts`).
 
