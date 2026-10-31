@@ -34,6 +34,8 @@ import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 import { GOD_IDS } from '../sim/pantheon';
 // Slice 55.
 import { MONSTER_IDS } from '../sim/pantheon';
+// Slice 56.
+import { VISIT_WHYS } from '../sim/epiphany';
 // Slice 59.
 import { HERO_IDS } from '../sim/pantheon';
 import { HERO_STATES } from '../sim/heroes';
@@ -440,6 +442,8 @@ export function stateProblem(st: unknown): string {
   if (!godsOk(st.gods)) return damaged('its record of the gods is wrong');
   // Slice 55.
   if (!legendsOk(st.legends)) return damaged('its record of monsters is wrong');
+  // Slice 56.
+  if (!walksOk((st.gods as Record<string, unknown>).walks)) return damaged('its record of the gods in the city is wrong');
   return '';
 }
 
@@ -492,6 +496,29 @@ function godsOk(g: unknown): boolean {
   if (!isObj(g) || typeof g.on !== 'boolean' || !fin(g.noticedAt) || !isObj(g.memories)) return false;
   const mem = g.memories;
   return GOD_IDS.every((id) => Array.isArray(mem[id]) && (mem[id] as unknown[]).every((m) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade)));
+}
+
+/** Slice 56: the gods in the city, the places they blessed, who was loving, when each last came. */
+function walksOk(w: unknown): boolean {
+  if (!isObj(w) || !fin(w.next) || !Array.isArray(w.figures) || !Array.isArray(w.blessed) || !Array.isArray(w.loving) || !isObj(w.last) || !Object.entries(w.last).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
+  const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
+  const states = ['arriving', 'walking', 'blessing', 'leaving', 'posing'];
+  return (
+    (w.loving as unknown[]).every(god) &&
+    (w.blessed as unknown[]).every((b) => isObj(b) && fin(b.id) && fin(b.until) && god(b.god)) &&
+    (w.figures as unknown[]).every(
+      (f) =>
+        isObj(f) &&
+        god(f.god) &&
+        ['id', 'x', 'z', 'px', 'pz', 'heading', 'since', 'at', 'came', 'leaves'].every((k) => fin(f[k])) &&
+        states.includes(f.state as string) &&
+        VISIT_WHYS.includes(f.why as never) &&
+        typeof f.words === 'string' &&
+        nums(f.blessed) &&
+        Array.isArray(f.stops) &&
+        (f.stops as unknown[]).every((p) => isObj(p) && fin(p.id) && fin(p.x) && fin(p.z)),
+    )
+  );
 }
 
 /** Slice 49: health's switch, the sick, plague in Greece and in the city, the fever, the quarantine and the tallies. */

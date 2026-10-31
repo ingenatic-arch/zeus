@@ -52,6 +52,8 @@ import { actionIcon, buildingIcon, messageIcon } from './icons';
 // Merge of slice 50 with slice 49.
 import { walkerFigure } from './icons';
 import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
+// Slice 56: a god's blessing on the building, under its plaque.
+import { blessingWords } from '../sim/epiphany';
 // Slice 59: a hero's hall (its hero, demands, wish, monsters to send them against).
 import { hallSections } from './heroes';
 import type { HeroId } from '../sim/pantheon';
@@ -361,8 +363,11 @@ export function buildingHtml(s: SimState, map: CoastMap, b: Building): string {
   // (A store's rows say what it holds and has room for: its rooms' line goes.)
   const store = isStore(b.kind);
   const detail = st.detail.split('\n').filter((l) => !(store && /^Holds .* each in its own (room|store)$/.test(l)) && !entry?.quiet?.test(l));
+  // (Slice 56.)
+  const blessed = blessingWords(s, b);
   return [
     head,
+    blessed ? `<p class="k-blessed">${esc(blessed)}</p>` : '',
     own,
     staffBlock(s, map, b, entry),
     // (A store's rows first: what it holds, and what it does with each ware.)

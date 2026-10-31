@@ -24,6 +24,8 @@ import { estateStocked } from './estates';
 import { justiceMoods } from './justice';
 // Slice 49
 import { healthMoods } from './health';
+// Slice 56: a home a god blessed.
+import { blessingOn, GODS, goddess } from './pantheon';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -427,6 +429,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   // Slice 39: pride in an ambition achieved (or all three), for a year.
   const pride = prideMood(s);
   if (pride) add(pride.w, pride.text);
+  // Slice 56: a god's blessing on the house, for a season.
+  const boon = b.kind === 'home' ? blessingOn(s, b.id) : undefined;
+  if (boon) add(2, `Blessed by ${GODS[boon.god].name}: ${goddess(boon.god) ? 'her' : 'his'} visit lifts the house`);
   // Slice 59: a monster slain (the fête), and a hero living near.
   for (const m of heroMoods(s, b)) add(m.w, m.text);
   if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);

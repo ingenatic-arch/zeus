@@ -112,10 +112,12 @@ import { lairSpot, sendMonster, STIR, type Beast } from '../sim/monsters';
 import { MONSTER_IDS, type MonsterId } from '../sim/pantheon';
 import { centreOf } from '../sim/buildings';
 import { walkable } from '../sim/wild';
+// Slice 56
+import { GOD_IDS, honour } from '../sim/pantheon';
 // Slice 59
+import type { HeroId } from '../sim/pantheon';
 import { beside as besideTiles } from '../sim/buildings';
 import { HASTE, heroOf, type Champion } from '../sim/heroes';
-import { honour, type HeroId } from '../sim/pantheon';
 import { TILE_ROAD } from '../sim/state';
 
 /**
@@ -3649,6 +3651,11 @@ const SCENES: Record<string, Demo> = {
   monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
   monsterraid: { view: 'monsterraid', setup: monsterRaidTown, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner, unread: 3 * TICKS_PER_DAY },
   bestiary: { view: 'bestiary', speed: 'paused', setup: bestiaryTown, overlay: 'missing' },
+  // Slice 56: the gods walk your streets. #town's farming town (28 months in) with Demeter loving it (staged through the
+  // mood API), the moment she arrives over its fields: she rises, walks to her farms and the granary and blesses each.
+  // All twelve gods posed in a row on the open flood plain of the Bay, to compare (they never walk or leave).
+  epiphany: { view: 'epiphany', setup: epiphanyTown, overlay: 'missing' },
+  pantheon: { view: 'pantheon', setup: pantheonField },
   // Slice 59: heroes answer. #richtown's town with Perseus' hall raised and Athena warm, a sanctuary to her the one demand
   // left, its panel open; #order's town with Theseus come by sea and sent against the Minotaur, walking the last of the way
   // to its cave.
@@ -4558,6 +4565,29 @@ function bestiaryTown(sim: Sim): void {
   // (Their sightings, staged, are not news.)
   s.messages.log = s.messages.log.filter((g) => g.kind !== 'monster');
   s.rev++;
+}
+
+// Slice 56
+/** Why Demeter loves #epiphany's town (staged: slice 53 makes her moods real). */
+export const EPIPHANY_WHY = 'your full granaries and the bread on every table';
+/** #epiphany: #town, Demeter staged loving, and her visit begun (a command, so the opening is the moment she arrives). */
+function epiphanyTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  honour(sim.state, 'demeter', 72, 'staged', EPIPHANY_WHY, 0);
+  sim.enqueue({ type: 'visit', god: 'demeter', why: 'loving' });
+  sim.flush();
+}
+/** #pantheon: where the row of the twelve begins on the Bay's flood plain, and how far apart they stand, along the classic view's level (towards +x and +z). */
+// (Merge of slice 56: 2.8 apart, not 2.2, since the review made them 2.5 tiles tall; the row's start moved so its middle
+// stays at #pantheon's view, 64.6, 54.6.)
+export const PANTHEON_AT = { x: 53.7, z: 43.7 };
+export const PANTHEON_GAP = 2.8;
+function pantheonField(sim: Sim): void {
+  const step = PANTHEON_GAP / Math.SQRT2;
+  // (Zeus first on the left as you look: the row runs from the far end along the screen.)
+  const last = GOD_IDS.length - 1;
+  GOD_IDS.forEach((god, i) => sim.enqueue({ type: 'visit', god, why: 'pose', at: { x: PANTHEON_AT.x + (last - i) * step, z: PANTHEON_AT.z + (last - i) * step } }));
+  sim.flush();
 }
 
 // Slice 59

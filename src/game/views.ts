@@ -214,4 +214,9 @@ export const VIEWS: Record<string, CameraView> = {
   slay: { x: 23, z: 142, yaw: 2.356, dist: 11, tilt: -0.05 },
   // #bestiary: the seven before their lairs in a row on the open ground below #town, facing the camera.
   bestiary: { x: 75.5, z: 58.5, yaw: -0.785, dist: 27, tilt: -0.05 },
+  // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.
+  epiphany: { x: 47.5, z: 44, yaw: 2.356, dist: 14, tilt: -0.05 },
+  // #pantheon: the twelve in a row across the view on the Bay's flood plain, facing the camera.
+  // (Merge of slice 56: from further back, 31 not 21, for the row of gods 2.8 apart, not 2.2.)
+  pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 31, tilt: -0.05 },
 };

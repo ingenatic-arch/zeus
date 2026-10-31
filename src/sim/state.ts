@@ -33,8 +33,9 @@ import type { Legends } from './monsters';
 // (Slice 49: physicians and plague, renumbered 47 at its merge.)
 // (Phase 7 groundwork: the gods' moods, 48.)
 // (Slice 55: monsters at the gates, 49 on its line and at its merge.)
-// (Slice 59: heroes answer, 50 on its line; renumbered at its merge.)
-export const SIM_STATE_VERSION = 50;
+// (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
+// (Slice 59: heroes answer, 50 on its line, 51 after slice 56; renumbered at its merge.)
+export const SIM_STATE_VERSION = 51;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;

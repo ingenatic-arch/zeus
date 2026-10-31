@@ -2,6 +2,76 @@
 
 Notes to Oliver, newest first.
 
+## Slice 56 — The gods walk your streets (31 Oct)
+
+When a god's mood first reaches loving, the god comes to your city: towering over the townhouses, glowing, with a halo, rising at a fitting spot with their own flourish, then walking in straight lines over roofs and rivers to the places they love, blessing each for a season, and leaving as they came. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **State version 49 on this line** (renumbered at the merge). Older saves load: a version 48 save (`#town` saved before this slice, kept as a fixture) and the same with its gods taken out, as a phase 6 save.
+- **Nothing in any earlier demo changes**: every one of the 165 earlier demos' prepared towns is identical to before. No god's mood reaches loving in any of them, so no god comes unless you make one love you (which the Olympus line will let you do).
+- **A blessed place plays differently**: no fire or wear builds up in it, its makers work a quarter faster, and a blessed home's mood is 2 higher, for a season or two.
+
+### What's new
+- **A god's visit.** As a god first reaches loving (at most once a year each, three at most in the city at once), they arrive at a place that fits them: Demeter among the fields, Poseidon on the shore by the quay, Hephaestus by the forges and mines, Artemis in the woods, the others at a shrine of theirs or the agora. Then they walk, at a stately pace and straight over everything, to up to four of the places they love (Demeter's farms and granary, Dionysus's vineyards, winery and theatre, Aphrodite's finest homes, Hera's biggest households...). A god who finds none of theirs walks among your homes instead, and says so. A visit lasts at most 30 days (half a minute at normal speed).
+- **Blessings.** Each place they stop at is blessed until the start of the season after next: no fire risk or wear builds up in it (a fire next door can still spread to it), a maker works a quarter faster, a home is happier. It shows a soft gold shimmer, a gold line at the head of its panel ("Blessed by Demeter until autumn: its crop grows a quarter faster...") and in its hover tip.
+- **The figures.** Each of the twelve in their own dress and attribute (Zeus's bolt, Poseidon's trident, Demeter's sheaf and torch, Athena's helmet and aegis, Apollo's lyre, Artemis's bow, Ares' shield and spear, Aphrodite's dove, Hephaestus's hammer, Hermes's hat and caduceus, Dionysus's thyrsus, Hera's sceptre), lit from within with a rim of their colour, a glow behind them, a halo about the head and one on the ground, and a fading trail of footprints of light.
+- **Flourishes and stings.** Arriving and leaving, each god has their own: Zeus a lightning strike and flash, Poseidon a column of spray, Demeter falling grain and petals, Athena an owl circling, Apollo a shaft of sunlight, Artemis silver arrows of moonlight, Ares bronze sparks and a ring of dust, Aphrodite rose petals and doves, Hephaestus a burst of sparks, Hermes white wings, Dionysus vines and a wine-dark mist, Hera a peacock's fan of light. Each has a short sound, made in code.
+- **Hover and click.** Hovering a god names them and says what they are doing, why they came and when they go. A click opens their panel: their emblem, their mood and why, why they came, what they are doing next, what they have blessed so far, and a Follow button. Esc puts it away.
+- **Messages.** Their coming ("Demeter walks among your fields: she is pleased with your full granaries. She means to visit three farms and a granary."), each blessing, and their going, under a new kind, The gods in the city.
+- **For the other lines:** festivals (slice 53) and finished sanctuaries (slice 54) can send a god with `startVisit` when they merge.
+
+### What to try
+1. #epiphany — Demeter come to `#town`'s fields. Watch her walk from farm to farm and on to the granary, then leave. Hover her, click her, and click a farm she has blessed.
+2. #pantheon — all twelve in a row, Zeus on the left. Hover and click any of them.
+3. #epiphany-modern and #epiphany-plain, #pantheon-modern and #pantheon-plain — the other two looks.
+
+### What I'd like your eye on
+- **Do they read as gods?** Their size (2.5 tiles: they stand clear over a street of two-storey townhouses), the glow, the halo, the pace, and whether each is clear at a glance from their dress and attribute in `#pantheon`.
+- **The visit's length.** The spec says "a few days"; at normal speed a few days is a few seconds, too quick to hover and follow, so a visit lasts up to 30 days. Too long?
+- **The flourishes.** I looked at Demeter's and Zeus's in screenshots; the others I checked only run without errors. Are they too much or too little?
+- **The modern and plain looks.** The figures read whiter and hotter there than in the classic look (their glow is tuned for the classic look's half-resolution pixels), and the coloured glow behind each one meets the ground as a coloured dome.
+- **The sound stings** were never heard: headless, the browser makes no sound before a click.
+
+### Known rough edges
+- A theatre a god visits gets the general blessing (no fire risk or wear) and the shimmer, not a fuller house: that would need the theatre's own rules, which belong to the Olympus line.
+- `#epiphany` opens with Demeter already arriving; on a slow machine she may be at her first farm by the time you see her.
+- `#town`'s save is now one character under the save test's size budget; the next line that adds to the state will need it raised.
+- A god sent by a finished sanctuary arrives at their usual fitting spot (a shrine of theirs, the agora...), not at the new sanctuary itself; letting `startVisit`'s `at` place any visit is a one-line change for slice 54's merge.
+- With twelve gods posed, `#pantheon` costs 118 draw calls (each figure is a body and two legs, three draws).
+
+### Measurements
+The starting build (`11f9290`) and this slice's, measured with the same shortened, loosened `measure.mjs` back to back on this machine: headless, software WebGL, with four lines building at once (load 35 to 55 on 4 cores, and a container restart in the middle), so every time below is noise; only the sizes, triangles and draw calls mean anything.
+
+| What | Before (`11f9290`) | After |
+|---|---|---|
+| Tests | 803 in 60 files (all pass in the groundwork's own run); here 795 passed and 8 timed out, in 30 min | 814 in 61 files; here 782 passed and 32 timed out, in 90 min. The 21 files with a failure, run again with long time limits: all pass but two of `lands.test`'s bake-time checks (17.5 s against a 6 s budget, on the loaded machine); `culture.test`'s "quickly" check passes run alone |
+| Build | 14.6 s with the prepared towns cached | about 21 s cached; 11 to 13 min when the demos bake again (under load) |
+| The game itself | 3,004 KB, 998 KB gzipped | 3,060 KB, 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped (largest 82 KB) | 127 files, 4,573 KB gzipped (largest 82 KB) |
+| The bare link, ready (page's clock) | 9.2 s | 16.9 s (the machine's load, not the slice: the views' scenes are the same) |
+| Triangles and draw calls in the coast's five views, `#town`'s three and `#physicians`' two | | identical (the gods' seven instanced meshes draw nothing with no god in the city) |
+| A save of `#town` | 190 KB | 190 KB (194,499 characters, against the save test's 194,500) |
+| `#epiphany` | (new) | its view 1.41 M triangles and 90 draws; `#town`'s view from it 1.49 M and 107 |
+| `#pantheon` | (new) | 864 K triangles and 118 draws (117 before the review made the gods taller) |
+| Each god | (new) | 500 (Hephaestus) to 748 (Hermes) triangles |
+| The slow smoke (loosened, on this build) | | run in three parts, as the machine's two-hour limit and a restart cut it: no failure anywhere; the one stop was slice 51's `#jailbreak` popup, which faded before a click could reach it, and does the same on the starting build under this load. The new `#epiphany` and `#pantheon` checks pass |
+| A frame's work before drawing | `#town-shot` 56 ms in the full baseline run | `#epiphany-shot` 55 ms, `#pantheon-shot` 63 ms (1 to 3 frames in 8 s: not a measurement) |
+
+### What the review changed
+- **The gods are bigger.** At first they stood 1.8 tiles tall. Beside the farms in `#epiphany` that looked tall enough, but when I sent Aphrodite into `#order`'s streets she came up only to the ridges of its two-storey townhouses, which doesn't match "towering". They now stand 2.5 tiles tall, clear over a street of townhouses. Their stride, footprints, the halo on the ground and the glow behind them grew with them, and Athena's owl now circles above her head again. `#pantheon`'s row is a little more crowded as a result.
+- **The blessing's words were too strong.** A blessed place's line said "no fire or wear can touch it". In fact no fire risk or wear builds up in it, but a fire burning next door can still spread to it. The line now says exactly that.
+- **A god's last stop** used to read "Next: nowhere: then leaving". It now reads "Next: leaving your city".
+- **Following a walker while following a god** no longer leaves the camera torn between the two: the walker wins, and pressing Esc stops the follow cleanly.
+- **What I checked after these changes:** every earlier demo still opens exactly as before (all 165), the slice's own checks and nine older demos pass in the browser, and the older views' triangles and draw calls are unchanged. I heard none of the sound stings, because the browser here plays no sound, but each god's sting does fire as they arrive and as they leave, without errors. I'd still like your eye on the gods' new height, and on how hot they look in the modern and plain looks: in the plain look, the gold burst as Demeter blesses a farm can blow out to white for a moment.
+
+### At the merge
+Slice 55 (the monsters) joined the main line first, so this slice's saves are now version 50, not 49. Every older save still loads: one from before the gods walked gets an empty record of them, as it would of the monsters.
+- **Every earlier town is as it was.** I played all 168 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on.
+- **Gods and monsters together.** I sent the Calydonian Boar into `#pantheon`; it walked in and settled by Dionysus, and both drew with no errors. Where a god and a monster are both under the pointer, the one nearer you (the one drawn in front) now gets the hover and the click; before, a god always won, even standing behind a monster. A god's panel and a monster's now take turns on the left, so Esc always closes the one showing.
+- **`#pantheon` is roomier.** Now that the gods stand 2.5 tiles tall, the row was crowded, so they stand further apart and the view is pulled back to fit all twelve on a 1920 × 1080 screen. Each looks smaller on screen as a result: zoom in to see a god up close.
+- **The save test's size budget for `#town` went up** by the 125 characters the two new empty records add (58 for the monsters, 67 for the gods' visits). Nothing else grew.
+- **Checked on the merged game:** `#epiphany` and `#pantheon` (in all three looks), `#monster`, `#monsterraid`, `#bestiary`, `#town`, `#richtown`, `#order`, `#physicians` and `#battle` open with no errors; the gods', monsters' and building panels' own checks pass. All 827 tests pass. On this busy machine 5 ran out of time or missed a timing budget in the full run, and each of their files passed when run alone.
+
 ## Slice 55 — Monsters at the gates (31 Oct)
 
 The seven monsters are real now: a god can send one, it is seen first, walks in and makes its lair in a cave, a marsh or a rocky den near your town, and every few weeks comes out for its own kind of target, wrecking, burning and killing, while your soldiers can wound it and drive it back but never kill it. Nothing in the game sends one by itself yet (the gods' curses that will are slice 57), so you meet them in three new demos. You weren't here while it was built: every choice below is mine, from the spec's defaults.

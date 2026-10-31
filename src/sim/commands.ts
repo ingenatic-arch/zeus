@@ -99,6 +99,9 @@ export type Command =
   // Phase 7 groundwork
   /** The gods' switch (pantheon.ts): on as a game starts or a demo opens, off while a demo's history is played. */
   | { type: 'gods'; on: boolean }
+  // Slice 56
+  /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
+  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } }
   // Slice 59
   /** Raise a hero's hall (heroes.ts) at the first of these top-left tiles that can take it (one to a hero). */
   | { type: 'herohall'; hero: HeroId; at: number[] }

@@ -261,7 +261,7 @@ describe('abroad', () => {
 });
 
 describe('saves', () => {
-  it('round trip with a hero at a fight, a fête and a place of legend; a version 49 save loads with no hero', () => {
+  it('round trip with a hero at a fight, a fête and a place of legend; a save from the version before loads with no hero', () => {
     const sim = demoSim('order');
     const s = sim.state;
     const c = raise(sim, 'theseus');

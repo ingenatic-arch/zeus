@@ -59,6 +59,9 @@ import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 import { freshGods, setGods, stepGods } from './pantheon';
 // Slice 55: monsters at the gates.
 import { freshLegends, stepMonsters } from './monsters';
+// Slice 56.
+import { GOD_IDS, type GodId } from './pantheon';
+import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
 // Slice 59: heroes answer.
 import { hallRaised, hallRefusal, heroCommand, stepHeroes } from './heroes';
 // Slice 37
@@ -313,6 +316,8 @@ export class Sim {
     stepAmbition(s);
     // Phase 7 groundwork: the gods notice the city, and forget what has faded (nothing with the switch off).
     stepGods(s);
+    // Slice 56: the gods in the city walk on and bless; a god who has just come to love the city comes to see it (nothing with none and the switch off).
+    stepEpiphany(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
@@ -379,6 +384,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Phase 7 groundwork.
     case 'gods':
       setGods(s, c.on === true);
+      break;
+    // Slice 56.
+    case 'visit':
+      if (GOD_IDS.includes(c.god as GodId) && VISIT_WHYS.includes(c.why as VisitWhy)) startVisit(s, c.god as GodId, c.why as VisitWhy, c.at && Number.isFinite(c.at.x) && Number.isFinite(c.at.z) ? { x: c.at.x, z: c.at.z } : undefined);
       break;
     // Slice 33.
     case 'seasons':
