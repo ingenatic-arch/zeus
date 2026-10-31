@@ -335,6 +335,9 @@ for (const [hash, views] of [
   // Slice 49: the hut streets with their infirmary, a physician out and the sick at their doors, the health overlay on; the quay town warned of plague in Athens, the trade panel open.
   ['#physicians-paused-shot', [null, 'town']],
   ['#plague-paused-shot', [null, 'town']],
+  // Slice 56: Demeter come to #town's fields, her flourish and the blessed farms' shimmer; the twelve posed in a row.
+  ['#epiphany-paused-shot', [null, 'town']],
+  ['#pantheon-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
@@ -715,6 +718,24 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
   await page.waitForTimeout(8000);
   const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
   console.log(`#bigwoods-shot      update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames)`);
+}
+// Slice 56: the gods' cost. The main thread's work a frame at normal speed with Demeter walking #town's fields (her trail,
+// motes and the blessed farms' shimmer), and with the twelve standing in #pantheon (twelve figures, halos and glows), at
+// 1920 x 1080; each god's triangles.
+{
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  for (const [hash, label] of [['#epiphany-shot', '#epiphany, Demeter walking'], ['#pantheon-shot', '#pantheon, the twelve']]) {
+    await page.goto('about:blank');
+    await page.goto(url + hash);
+    await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
+    await page.waitForTimeout(6000);
+    const a = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0 }));
+    await page.waitForTimeout(8000);
+    const b = await page.evaluate(() => ({ f: window.__zeus.frames, ms: window.__zeus.updateMs ?? 0, g: window.__zeus.gods(), info: window.__zeus.info() }));
+    console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.g.drawn.gods} gods, ${b.g.drawn.particles} particles; ${b.info.triangles} triangles, ${b.info.calls} draws)`);
+  }
+  const tri = await page.evaluate(() => window.__zeus.gods().triangles);
+  console.log(`each god's triangles: ${Object.entries(tri).map(([g, n]) => `${g} ${n}`).join(', ')}`);
 }
 await browser.close();
 server.close();

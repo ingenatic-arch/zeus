@@ -366,6 +366,7 @@ interface Probe {
   /** The gods in the city: each figure (its god, state, where, what it has blessed), what is drawn, the god's panel's text, the stings played, each figure's triangles. */
   gods?: () => { figures: Array<{ id: number; god: string; state: string; x: number; z: number; blessed: number[]; stops: number }>; blessed: Array<{ id: number; god: string; until: number }>; drawn: { gods: number; particles: number; steps: number; shimmer: number; birds: number }; panel: string; stings: number; triangles: Record<string, number> };
   /** Where a god in the city is on the screen (their middle), if drawn. */
+  visit?: (god: string, why?: string) => void;
   godAt?: (god: string) => { x: number; y: number } | null;
 }
 
@@ -1801,6 +1802,10 @@ function start(preparedTown: string | null): void {
       stings: sound.stings,
       triangles: godTriangles(),
     };
+  };
+  /** Send a god into the city now (the 'visit' command, as a festival or a finished sanctuary would): for looking at the flourishes. */
+  probe.visit = (god, why = 'festival') => {
+    sim.enqueue({ type: 'visit', god, why });
   };
   probe.godAt = (god) => {
     const f = sim.state.gods.walks.figures.find((o) => o.god === god);

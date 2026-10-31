@@ -107,6 +107,8 @@ import type { BuildKind } from '../sim/commands';
 import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
 import { FOUND_WHEAT } from '../sim/colonies';
 import { REFUSE } from '../sim/stores';
+// Slice 56
+import { GOD_IDS, honour } from '../sim/pantheon';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3633,6 +3635,11 @@ const SCENES: Record<string, Demo> = {
   // (see orderTown); a founded large wooded land, the heaviest kind, for the budgets.
   order: { view: 'order', setup: orderTown, overlay: 'missing' },
   bigwoods: { view: 'land', setup: kindTown('woods', 256, 'acorn') },
+  // Slice 56: the gods walk your streets. #town's farming town (28 months in) with Demeter loving it (staged through the
+  // mood API), the moment she arrives over its fields: she rises, walks to her farms and the granary and blesses each.
+  // All twelve gods posed in a row on the open flood plain of the Bay, to compare (they never walk or leave).
+  epiphany: { view: 'epiphany', setup: epiphanyTown, overlay: 'missing' },
+  pantheon: { view: 'pantheon', setup: pantheonField },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4397,3 +4404,24 @@ const ORDER_TRIES = 4;
 const ORDER_KEEP = 300;
 /** #order's law (on the court's panel). */
 const ORDER_LAW: ReadonlyArray<[string, string]> = [['theft', 'prison'], ['vandal', 'prison'], ['arson', 'execution'], ['smuggling', 'fine']];
+
+// Slice 56
+/** Why Demeter loves #epiphany's town (staged: slice 53 makes her moods real). */
+export const EPIPHANY_WHY = 'your full granaries and the bread on every table';
+/** #epiphany: #town, Demeter staged loving, and her visit begun (a command, so the opening is the moment she arrives). */
+function epiphanyTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  honour(sim.state, 'demeter', 72, 'staged', EPIPHANY_WHY, 0);
+  sim.enqueue({ type: 'visit', god: 'demeter', why: 'loving' });
+  sim.flush();
+}
+/** #pantheon: where the row of the twelve begins on the Bay's flood plain, and how far apart they stand, along the classic view's level (towards +x and +z). */
+export const PANTHEON_AT = { x: 56, z: 46 };
+export const PANTHEON_GAP = 2.2;
+function pantheonField(sim: Sim): void {
+  const step = PANTHEON_GAP / Math.SQRT2;
+  // (Zeus first on the left as you look: the row runs from the far end along the screen.)
+  const last = GOD_IDS.length - 1;
+  GOD_IDS.forEach((god, i) => sim.enqueue({ type: 'visit', god, why: 'pose', at: { x: PANTHEON_AT.x + (last - i) * step, z: PANTHEON_AT.z + (last - i) * step } }));
+  sim.flush();
+}

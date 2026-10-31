@@ -204,4 +204,8 @@ export const VIEWS: Record<string, CameraView> = {
   plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
   // Slice 52, #order: the town on the delta from over its south side, the quay and the farms in front, the streets up to the north street behind.
   order: { x: 45, z: 113, yaw: -0.785, dist: 64, tilt: -0.15 },
+  // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.
+  epiphany: { x: 47.5, z: 44, yaw: 2.356, dist: 14, tilt: -0.05 },
+  // #pantheon: the twelve in a row across the view on the Bay's flood plain, facing the camera.
+  pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 21, tilt: -0.05 },
 };

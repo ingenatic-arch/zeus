@@ -31,7 +31,7 @@ import type { SimState } from '../sim/state';
  */
 
 /** A god's height, in tiles (three storeys of a house). */
-export const GOD_HEIGHT = 1.5;
+export const GOD_HEIGHT = 1.8;
 /** The length of a full stride (two steps), in tiles: legs swing with the distance walked. */
 const STRIDE = 1.1;
 
@@ -85,7 +85,7 @@ const DRESS: Record<GodId, Dress> = {
   zeus: { robe: '#f2ead6', mantle: '#4a3a8c', hair: '#e8e4dc', beard: '#e8e4dc' },
   hera: { robe: '#2a5f9e', mantle: '#1d8a7a', hair: '#3a2416' },
   poseidon: { robe: '#2a8a78', hair: '#3c5a6a', beard: '#3c5a6a', bare: true },
-  demeter: { robe: '#d9a640', mantle: '#8a6a2a', hair: '#6a4422' },
+  demeter: { robe: '#efe2bc', mantle: '#c08a2a', hair: '#6a4422' },
   athena: { robe: '#e6e2d4', mantle: '#5e7480', hair: '#4a3020' },
   apollo: { robe: '#fbf3dc', mantle: '#e8b830', hair: '#e8c060', bare: true },
   artemis: { robe: '#c8d6c8', hair: '#8a4a26', short: true },
@@ -354,7 +354,7 @@ function modelOf(g: GodId): Model {
   const legGeo = merge(leg).scale(scale, scale, scale);
   const colour = new THREE.Color(GODS[g].colour);
   const glow = { value: 1 };
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.05, emissive: colour.clone().multiplyScalar(0.28) });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.05, emissive: colour.clone().lerp(new THREE.Color('#ffffff'), 0.5).multiplyScalar(0.16) });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uRim = { value: colour };
     shader.uniforms.uGlow = glow;
@@ -364,7 +364,7 @@ function modelOf(g: GodId): Model {
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         float rimF = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
-        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.15 + 0.85 * rimF * rimF) * 0.9 * uGlow;`,
+        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.04 + 0.96 * rimF * rimF * rimF) * 0.75 * uGlow;`,
       );
   };
   mat.customProgramCacheKey = () => `god-${g}`;
@@ -423,6 +423,27 @@ function ring(): THREE.Texture {
   ringTex = new THREE.CanvasTexture(c);
   ringTex.colorSpace = THREE.SRGBColorSpace;
   return ringTex;
+}
+
+let nimbusTex: THREE.Texture | null = null;
+/** A halo about a head: a thin bright ring round a faint disc. */
+function nimbus(): THREE.Texture {
+  if (nimbusTex) return nimbusTex;
+  const n = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,0.04)');
+  grad.addColorStop(0.7, 'rgba(255,255,255,0.08)');
+  grad.addColorStop(0.84, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.92, 'rgba(255,255,255,0.3)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, n, n);
+  nimbusTex = new THREE.CanvasTexture(c);
+  nimbusTex.colorSpace = THREE.SRGBColorSpace;
+  return nimbusTex;
 }
 
 let shaftTex: THREE.Texture | null = null;
@@ -558,6 +579,7 @@ export class GodsView {
   private readonly particles: Particle[] = [];
   private readonly sparks: THREE.InstancedMesh;
   private readonly halos: THREE.InstancedMesh;
+  private readonly crowns: THREE.InstancedMesh;
   private readonly glows: THREE.InstancedMesh;
   private readonly trail: THREE.InstancedMesh;
   private readonly shimmer: THREE.InstancedMesh;
@@ -571,7 +593,9 @@ export class GodsView {
   private readonly e = new THREE.Euler();
   private readonly p = new THREE.Vector3();
   private readonly sc = new THREE.Vector3();
+  private readonly back = new THREE.Vector3();
   private readonly c = new THREE.Color();
+  private readonly white = new THREE.Color('#ffffff');
   private readonly flat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
   private last = -1;
   private readonly blessedMotes = new Map<number, number>();
@@ -585,6 +609,7 @@ export class GodsView {
     this.sparks = this.instanced(quad, additive(dot()), POOL, 'god-sparks');
     this.glows = this.instanced(quad, additive(dot()), 16, 'god-glows');
     this.halos = this.instanced(quad, additive(ring(), true), 16, 'god-halos');
+    this.crowns = this.instanced(quad, additive(nimbus()), 16, 'god-crowns');
     this.trail = this.instanced(quad, additive(dot(), true), TRAIL_MOST, 'god-trail');
     this.shimmer = this.instanced(quad, additive(ring(), true), 64, 'god-shimmer');
     // A bird: a small body and two wings (a dozen triangles), lit, its colour by instance.
@@ -1033,14 +1058,23 @@ export class GodsView {
       this.halos.setColorAt(n, this.c.copy(colour).multiplyScalar(0.55 * pulse * Math.max(0.3, risen)));
       // The glow behind them, at their middle.
       this.c.set(GODS[f.god].colour);
-      this.sc.set(2.9, 3.4, 1);
-      this.p.set(at.x, at.y + GOD_HEIGHT * 0.55, at.z);
+      this.sc.set(2.5, 3.2, 1).multiplyScalar(GOD_HEIGHT / 1.5);
+      // (Set back from the eye, so it glows behind the figure rather than washing over it.)
+      this.back.set(0, 0, -0.9).applyQuaternion(face);
+      this.p.set(at.x + this.back.x, at.y + GOD_HEIGHT * 0.55 + this.back.y, at.z + this.back.z);
       this.m.compose(this.p, face, this.sc);
       this.glows.setMatrixAt(n, this.m);
-      this.glows.setColorAt(n, this.c.multiplyScalar(0.32 * pulse * Math.max(0.15, risen)));
+      this.glows.setColorAt(n, this.c.multiplyScalar(0.2 * pulse * Math.max(0.15, risen)));
+      // The halo about the head, facing the eye.
+      this.sc.setScalar(0.46 * (GOD_HEIGHT / 1.5));
+      this.back.set(0, 0, -0.25).applyQuaternion(face);
+      this.p.set(at.x + this.back.x, at.y + at.h * 0.93 + this.back.y, at.z + this.back.z);
+      this.m.compose(this.p, face, this.sc);
+      this.crowns.setMatrixAt(n, this.m);
+      this.crowns.setColorAt(n, this.c.set(GODS[f.god].colour).lerp(this.white, 0.55).multiplyScalar(0.95 * pulse * risen));
       n++;
     }
-    for (const mesh of [this.halos, this.glows]) {
+    for (const mesh of [this.halos, this.glows, this.crowns]) {
       mesh.count = n;
       if (n) {
         mesh.instanceMatrix.needsUpdate = true;
