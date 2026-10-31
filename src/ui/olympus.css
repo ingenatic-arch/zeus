@@ -102,7 +102,7 @@
 .ol-months rect.now { stroke: #3a2a10; stroke-width: 1; }
 .ol-shrines { list-style: none; margin: 2px 0 4px; padding: 0; }
 .ol-shrines li { margin: 2px 0; }
-.ol-holy { margin: 6px 0 0; }
+.ol-holy { margin: 2px 0 0; }
 .ol-link { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: var(--lapis-deep); text-decoration: underline; text-decoration-color: rgba(44, 74, 134, 0.4); cursor: pointer; text-shadow: none; }
 .ol-link:hover { color: var(--lapis); }
 .ol-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }

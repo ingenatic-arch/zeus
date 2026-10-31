@@ -268,7 +268,7 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
   const right = [
     ksec(`Why ${they} is ${moodWord(m)}`, why, { icon: 'reach', aside: `<b class="ol-sum">${signed(m)}</b>` }),
     ksec('Two years', `${moodMonths(s, god, 420, 64)}<p class="ol-note">${esc(`Month by month, at the start of each, and now: gold for pleased and better, red for displeased and worse; the dotted lines are watchful’s edges.`)}</p>`, { icon: 'overview' }),
-    ksec('Worship', `${list}${holy}<p class="ol-note">${esc(festivalWords(s, god))}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
+    ksec('Worship', `${holy}${list}<p class="ol-note">${esc(festivalWords(s, god))}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
   ].join('');
   return `<div class="ol-page"><div class="ol-back">${kbtn({ act: 'all', icon: 'go', html: '‹ The twelve', small: true, tone: 'stone' })}</div><div class="ol-cols"><div>${left}</div><div>${right}</div></div></div>`;
 }

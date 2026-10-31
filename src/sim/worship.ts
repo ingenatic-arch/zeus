@@ -52,7 +52,7 @@ import { moodOf } from './folk';
 import { canWorkIn } from './labour';
 import { NEWS, say, WARNING } from './messages';
 import { MONUMENT_KINDS, finished } from './monuments';
-import { FESTIVE_LASTS, forget, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, type Festival, type GodId } from './pantheon';
+import { FESTIVE_LASTS, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, standing, worship, type Festival, type GodId } from './pantheon';
 import { MAKERS } from './production';
 import { door, roadsBeside } from './rounds';
 import { nearestReached, roadSearch, tracePath } from './roads';
@@ -75,8 +75,8 @@ import { startVisit } from './epiphany';
 /** A god's shrines: the first is worth this much, the next these, and each after the last of them. At most SHRINE_MOST in all. */
 export const SHRINE_HONOURS = [5, 3, 2, 1];
 export const SHRINE_MOST = 12;
-/** A rival minds a third as much. */
-export const RIVAL_SHARE = 1 / 3;
+/** A rival minds a third as much (pantheon.ts, with worship and standing). */
+export { RIVAL_SHARE } from './pantheon';
 /** A festival: what it costs, what it honours and how long that lasts, how far ahead it is announced, one a year per god. */
 export const FESTIVAL_COST = 250;
 export const FESTIVAL_HONOUR = 15;
@@ -167,39 +167,10 @@ export function goodsWords(w: Ware, n: number): string {
 // ---------------------------------------------------------------------------
 // Worship and rivalry.
 
-/** A god's rival's grudge, in words: "you honoured Poseidon, her rival". */
-const rivalWhy = (god: GodId, holder: GodId): string => `you honoured ${GODS[god].name}, ${herOf(holder)} rival`;
-
-/**
- * Honour a god for something done once (a festival, an offering, a stage of a
- * sanctuary): see honour in pantheon.ts. While the god's rival is honoured
- * less (their mood is lower), the rival remembers a third as much against you,
- * fading as the honour does.
- */
-export function worship(s: SimState, god: GodId, amount: number, kind: string, why: string, fade: number): void {
-  honour(s, god, amount, kind, why, fade);
-  s.gods.worshipped[god] = s.tick;
-  if (amount <= 0) return;
-  const r = GODS[god].rival;
-  const grudge = Math.round(amount * RIVAL_SHARE);
-  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) honour(s, r, -grudge, 'rival', rivalWhy(god, r), fade);
-}
-
-/**
- * Honour a god for something that counts while it lasts (their shrines, a
- * sanctuary standing): one memory of its kind, replaced (0 forgets it). The
- * rival's standing grudge, a third as much, holds while the rival is honoured
- * less, and is forgotten when not.
- */
-export function standing(s: SimState, god: GodId, kind: string, why: string, amount: number): void {
-  setStanding(s, god, kind, why, amount);
-  if (amount > 0) s.gods.worshipped[god] = s.tick;
-  const r = GODS[god].rival;
-  const k = `rival:${kind}`;
-  const grudge = Math.round(amount * RIVAL_SHARE);
-  if (grudge > 0 && moodOfGod(s, r) < moodOfGod(s, god)) setStanding(s, r, k, `${why}, ${herOf(r)} rival`, -grudge);
-  else forget(s, r, k);
-}
+// (Merge with slice 54: `worship` and `standing` live in pantheon.ts, the mood maths' own module, so sanctuaries.ts can
+// honour its god through them without importing this module, which imports sanctuaries.ts: the cycle changed how a demo's
+// history played under the test runner. They are re-exported here as before.)
+export { standing, worship } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // Shrines.

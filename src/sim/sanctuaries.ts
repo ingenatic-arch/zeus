@@ -49,9 +49,8 @@ import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { say, WARNING } from './messages';
 import { siteName, type Site } from './monuments';
-import { GODS, type GodId } from './pantheon';
+import { GODS, standing, worship, type GodId } from './pantheon';
 // Merge of slice 53: a sanctuary's honours go through worship, so the god's rival minds them and neglect counts them.
-import { standing, worship } from './worship';
 import { CREW_GAP, crewClock, moveRounds, sendOut, type ServiceSpec } from './rounds';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 // Merge with slice 56: the god comes to see their sanctuary finished.
