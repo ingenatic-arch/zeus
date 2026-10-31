@@ -2830,6 +2830,25 @@ function stockSanctuary(sim: Sim, x: Site, from: number, to: number): void {
   }
 }
 
+/**
+ * Review of slice 54: #quarry's town cuts marble but has no loggers' camp and
+ * no copper mine, so a site's timber and copper would never come. What the
+ * sites still to rise will want of them is put in the storehouse (set up for
+ * this demo, noted in the stock book as bought), for the ox carts to haul.
+ * The copper is more than the statues need: the armoury's smiths fetch theirs
+ * from the same storehouse.
+ */
+function supplyStorehouse(sim: Sim, timber: number, copper: number): void {
+  const s = sim.state;
+  const g = s.buildings.find((b) => b.kind === 'storehouse');
+  if (!g) return;
+  for (const [w, n] of [[TIMBER, timber], [COPPER, copper]] as const) {
+    if (n <= 0) continue;
+    setHeld(g, w, held(g, w) + n);
+    note(s, w, 'bought', 'for the sanctuaries (set up for this demo)', n);
+  }
+}
+
 function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void {
   return (sim) => {
     WORKS_QUARRY_TOWN(sim);
@@ -2853,12 +2872,16 @@ function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void
     const yards = which === 'sanctuary' ? 1 : 3;
     // (The sanctuaries' coin and their yards': a gift for the demo, so it opens without years of saving.)
     const gods = which === 'sanctuary' ? (['demeter'] as const) : (['athena', 'poseidon', 'apollo', 'demeter'] as const);
-    income(s, gods.length * SANCTUARY_COST + yards * (MASONS_COST + JOBS.masons * WAGE) + (which === 'sanctuaries' ? COST.armoury + JOBS.armoury * WAGE : 0), 'gifts', 'set up for this demo: the sanctuaries’ coin');
+    income(s, gods.length * SANCTUARY_COST + yards * (MASONS_COST + JOBS.masons * WAGE) + COST.armoury + JOBS.armoury * WAGE, 'gifts', 'set up for this demo: the sanctuaries’ coin');
     if (which === 'sanctuary') {
       send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
       const at = spotNear(sim, 'masons', 2, 104, 70);
       if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+      // (Review of slice 54: an armoury for the statue's bronze, and the timber and copper the town can't make, so it rises when played on.)
+      const smithy = spotNear(sim, 'armoury', 3, 98, 64);
+      if (smithy >= 0) send({ type: 'build', kind: 'armoury', at: [smithy] });
       playOn(2 * TICKS_PER_MONTH, () => rolling('demeter'));
+      supplyStorehouse(sim, 240, 400);
       return;
     }
     for (const god of ['athena', 'poseidon', 'apollo'] as const) send({ type: 'sanctuary', god, at: [SANCT_SPOTS[god]] });
@@ -2884,6 +2907,8 @@ function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void
     // Demeter's marked out last, and played until its first marble is on the road.
     send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
     playOn(TICKS_PER_MONTH, () => rolling('demeter') && s.walkers.some((w) => w.kind === 'priest' && w.origin === athena.id));
+    // (Review of slice 54: Demeter's timber and copper, and Apollo's copper for his statue, so they rise when played on.)
+    supplyStorehouse(sim, 240, 480);
   };
 }
 const SANCTUARIES_TOWN = sanctuariesTown('sanctuaries');

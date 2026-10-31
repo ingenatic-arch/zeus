@@ -257,7 +257,8 @@ export function monumentTownLine(s: SimState): { text: string; at: number } | nu
       const mats = siteMaterials(x);
       const short = mats.filter((w) => needOf(st, w) > held(b, w) + comingTo(s, x.id, w) && !anyStored(s, w));
       // (Slice 54: "no granary has any" when a sanctuary's sacred food is what is short.)
-      const none = short.some((w) => storeFor(w) === 'storehouse') ? 'no storehouse' : 'no granary';
+      // (Review of slice 54: both kinds named when a storehouse's good and a granary's food are short together.)
+      const none = short.every((w) => storeFor(w) === 'storehouse') ? 'no storehouse' : short.every((w) => storeFor(w) === 'granary') ? 'no granary' : 'no storehouse or granary';
       if (short.length) return { text: `${siteName(x, true)} waits for ${short.map((w) => `${fmt(needOf(st, w) - held(b, w) - comingTo(s, x.id, w))} ${materialName(w)}`).join(' and ')} before ${low(st.name)} can start, and ${none} has any.`, at: x.id };
       if (isBronze(x) && !smithsAt(s) && mats.every((w) => held(b, w) >= needOf(st, w))) return { text: `${siteName(x, true)}: the bronze is on site, and waits for the armourers. An armoury with workers casts it.`, at: x.id };
     } else if (buildersTo(s, x.id).length === 0 && !s.buildings.some((y) => y.kind === 'masons' && buildersFor(y) > 0)) {

@@ -131,3 +131,23 @@ Commits on `claude/p7-temples`: `1db4787` (this plan), `d6155c7` (the sim), `d34
 - The demo probe: all 167 earlier demos open identically to `11f9290`. That covers date, money, people, homes, levels, buildings and every count in the probe's city.
 - Version 47 and 48 saves of `#monument` and `#town`, made by the code at `11f9290^` and `11f9290`, load to 49, play a quarter on and save again.
 - The measure: triangles and draw calls identical in every earlier view. The game is 20 KB larger gzipped. There are three more prepared towns (126 KB gzipped). `#twelve` is 1.94 M triangles and 129 draw calls.
+
+**Review** (a fresh reviewer, on the same loaded machine; focused checks, as the brief allowed). Fixed:
+- `#sanctuary` and `#sanctuaries` stalled when played on: `#quarry`'s town has no loggers' camp and no copper mine, so Demeter's foundations waited for timber for ever and Apollo's statue for copper. `supplyStorehouse` in the Slice 54 block of `demos.ts` puts the timber and copper still wanted in the storehouse at the end of each setup (noted as bought, "set up for this demo"), with more copper than the statues need because the armoury's smiths fetch theirs from the same storehouse; `#sanctuary` gains an armoury. Measured in node after the fix: `#sanctuaries` finishes Poseidon's 34 days after opening, Apollo's after 191 and Demeter's after 403 (404 days from marking out). In `#sanctuary` (one yard, the storehouse across town, marble only as the quarry cuts it) the foundations start on day 100, the temple on day 230 and the statue on day 350, which puts the finish at about day 455, about fifteen months, not the year the check-in said. The town's masons' yard burns on about day 440 if nobody builds a watch post (warned first). With a storehouse near the site and two yards (a scratch test on `#quarry`), the foundations start on day 17 and the temple is done by day 180.
+- A sanctuary's stuck-site fact was filed as a `monument` message: `heard.ts` now files it as `sanctuary`. When both a granary's food and a storehouse's good are short, `monumentstatus.ts` says "no storehouse or granary has any", and the `heard.ts` pattern takes that wording too. A monument's wording is unchanged.
+- `fromSlice54` no longer pads the buildings' goods arrays (no new ware, and the parallel rule says it fills only its own field).
+- The sanctuary tool's tip was one line about 1,200 px wide (the tip never wraps). It now gives a line to each stage.
+- The chooser moved down (`top: 112px`) so it no longer covers the Greece button.
+- The build button's hint says "a year or more with one masons' yard, longer when the stores are far from it".
+- The check-in now gives the measured time. It also says `#twelve`'s scroll and memories show every stage, all on one day; it had said they showed only the finishing.
+
+Review checks:
+- Typecheck passes and the build succeeds (the demos re-baked).
+- 14 test files with long timeouts pass, 131 tests: sanctuaries, monuments, saves, determinism, pantheon, purity, kit, categories, messages, loadorder, materials, treasury, stockbook and preparedtowns. The full suite was not rerun.
+- The smoke ran its slice 32, 35, 48 and 54 blocks, and opened `#achieved`, `#empire`, `#estates`, `#colonyworks`, `#town`, `#order`, `#shrine` and `#priestess`. All passed with no page errors.
+- Twelve older demos open identical to `11f9290`'s probe: `#monument`, `#lit`, `#games`, `#achieved`, `#empire`, `#quarry`, `#loggers`, `#estates`, `#colonyworks`, `#town`, `#order` and `#storerules`.
+- The real version 47 and 48 saves of `#monument` and `#town` load to 49, play a quarter on and save again.
+- The check-in's steps were walked at 1920 × 1080 in all three looks. The chooser was opened beside a building panel and was readable. Hermes's sanctuary was marked out: 1,200 dr were taken and his card was greyed afterwards.
+- A shortened measure ran (in the check-in).
+
+**Touched outside the line** (added by the review): none beyond the files already listed (`heard.ts`, `monumentstatus.ts`, `tools.ts`, `buildbar.ts`, `demos.ts`' own block).

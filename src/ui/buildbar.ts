@@ -463,7 +463,7 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     name: 'Sanctuary',
     key: '',
     cost: `${SANCTUARY_COST} dr`,
-    hint: 'Choose a god, then click beside a road (five by five; one to a god). The ox carts haul its marble, timber, copper and the god’s sacred good from the stores, and the masons’ builders raise it in three stages, about a year with one masons’ yard. Its god notices each stage; finished and staffed, it honours them for as long as it stands so, and its priests bless homes far along the roads.',
+    hint: 'Choose a god, then click beside a road (five by five; one to a god). The ox carts haul its marble, timber, copper and the god’s sacred good from the stores, and the masons’ builders raise it in three stages: a year or more with one masons’ yard, longer when the stores are far from it. Its god notices each stage; finished and staffed, it honours them for as long as it stands so, and its priests bless homes far along the roads.',
   },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'Shift O', cost: '', hint: '' }, // (Slice 51: O is the overview.)

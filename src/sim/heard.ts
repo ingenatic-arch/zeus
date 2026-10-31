@@ -278,9 +278,10 @@ export function stepMessages(s: SimState, map: CoastMap): void {
       fact(`${DAILY}loan:${l.id}`, () => `Your loan from ${cityName(l.city)} is due in ${n === 1 ? '1 day' : `${n} days`}: ${Math.round(l.owed).toLocaleString('en-GB')} dr, and the treasury can spend ${Math.round(spendable(s)).toLocaleString('en-GB')} dr now.`, 'loan', WARNING, { city: l.city });
     }
     const stuck = monumentTownLine(s);
-    if (stuck && /waits for .+ no (storehouse|granary) has any|waits for the armourers|no masons’ yard sends builders/.test(stuck.text)) {
+    if (stuck && /waits for .+ no (storehouse|granary)( or granary)? has any|waits for the armourers|no masons’ yard sends builders/.test(stuck.text)) {
       const x = s.monuments.sites.find((y) => y.id === stuck.at);
-      fact(`${DAILY}stuck:${stuck.at}:${x?.stage ?? 0}`, () => stuck.text, 'monument', WARNING, { building: stuck.at });
+      // (Review of slice 54: a sanctuary's stuck site is told under the sanctuaries' kind, as the rest of its news is.)
+      fact(`${DAILY}stuck:${stuck.at}:${x?.stage ?? 0}`, () => stuck.text, x?.kind === 'sanctuary' ? 'sanctuary' : 'monument', WARNING, { building: stuck.at });
     }
   } else for (const k of g.seen) if (k.startsWith(DAILY)) keys.push(k);
   g.seen = keys;

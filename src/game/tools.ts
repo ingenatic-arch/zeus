@@ -1151,10 +1151,13 @@ function straight(n: number, a: number, b: number): number[] {
 function sanctuaryPlaceLines(s: Sim['state'], god: GodId, road: boolean): { lines: string[]; warn: string } {
   const g = GODS[god];
   const probe = { kind: 'sanctuary', god } as Site;
-  const stages = sanctuaryStages(god).map((st) => `${st.name.replace(/^The /, 'the ')} (${siteMaterials(probe).filter((w) => needOf(st, w) > 0).map((w) => `${fmt(needOf(st, w))} ${materialName(w)}`).join(', ')})`);
+  // (Review of slice 54: a line to a stage, so the tip, which never wraps, stays narrow.)
+  const stages = sanctuaryStages(god).map((st) => `  ${st.name}: ${siteMaterials(probe).filter((w) => needOf(st, w) > 0).map((w) => `${fmt(needOf(st, w))} ${materialName(w)}`).join(', ')}`);
   const lines = [
-    `Its stages: ${stages.join('; ')}. The ox carts haul it all from the stores, and the masons’ builders raise each stage`,
-    `${g.name} notices each stage; finished and staffed, it honours ${g.name} for as long as it stands so. Its priests walk up to ${PRIEST_RANGE} tiles of road blessing homes (a shrine’s priestess goes ${PRIESTESS_RANGE})`,
+    'Three stages, hauled by the ox carts from the stores and raised by the masons’ builders:',
+    ...stages,
+    `${g.name} notices each stage; finished and staffed, it honours ${g.name} while it stands so`,
+    `Its priests walk up to ${PRIEST_RANGE} tiles of road blessing homes (a shrine’s priestess goes ${PRIESTESS_RANGE})`,
   ];
   if (!s.buildings.some((b) => b.kind === 'masons')) lines.push('No masons’ yard yet: build one (the Monuments tab) to send its builders');
   if (!s.buildings.some((b) => b.kind === 'armoury')) lines.push('Its statue’s bronze is cast by an armoury’s smiths: the city has no armoury yet');

@@ -10,7 +10,7 @@ What breaks, or moves: **state version 49** on this line (it is renumbered when 
 
 ### What's new
 - **The sanctuary.** A 5 × 5 walled precinct for one of the twelve, one to a god, 1,200 dr to mark out. The Sanctuary button on the Mythology tab opens a card of the twelve, each with their emblem in their colour, what they are god of and the sacred good their sanctuary needs; gods already honoured are greyed out with the reason.
-- **Three stages**, raised by the same ox carts and masons' builders as the monuments: the foundations (160 marble, 80 timber), the temple (320 marble, 160 timber) and the statue and finish (120 marble, 120 copper cast into bronze by an armoury's smiths, and the god's sacred good: 200 measures of a food, 100 of oil, wine, fleece or copper, 16 sets of armour or 8 horses, carted from whichever granary or storehouse has it). With one masons' yard, about a year from marking out to finished.
+- **Three stages**, raised by the same ox carts and masons' builders as the monuments: the foundations (160 marble, 80 timber), the temple (320 marble, 160 timber) and the statue and finish (120 marble, 120 copper cast into bronze by an armoury's smiths, and the god's sacred good: 200 measures of a food, 100 of oil, wine, fleece or copper, 16 sets of armour or 8 horses, carted from whichever granary or storehouse has it). With one masons' yard, a year or more from marking out to finished: about fifteen months in `#sanctuary`, whose storehouse is across town (see What the review changed).
 - **The god notices.** Each stage finished is remembered (+6, +8, +10 to the god's mood, fading over two years). Finished and staffed, the sanctuary is a standing honour (+18) while it stands so. Left without workers for a season it **dims**: its lamps go out, the honour lapses and a message says so; workers bring it back.
 - **Priests.** A finished sanctuary takes 8 workers and sends priests in its god's colour on the religion round, blessing homes as a priestess does but reaching half as far again (48 tiles of road, against a shrine's 32). Priestesses tend its altar.
 - **Its panel**: the god's emblem and name, the three stages with bars and what each still wants, the god's mood word and reasons, and its priests. Two places are left empty for later slices (festivals and offerings, and blessings).
@@ -18,7 +18,7 @@ What breaks, or moves: **state version 49** on this line (it is renumbered when 
 
 ### What to try
 1. #sanctuaries — four sanctuaries at four stages east of #quarry's vineyards. Athena's is finished and staffed, with her panel open (her mood and its reasons) and her priests out. Poseidon's statue is going up, Apollo's temple is rising and Demeter's has just been marked out. Play it on and watch Demeter's ox carts.
-2. #sanctuary — Demeter's site alone, just marked out, its first marble on the road. Play it on to watch the stages come.
+2. #sanctuary — Demeter's site alone, just marked out, its first marble on the road. Play it on to watch the stages come (the foundations start after about three months, the temple after seven or eight).
 3. #twelve — all twelve finished in two rows, to tell apart.
 4. #sanctuaries — open the Mythology tab and press the Sanctuary button for the chooser, pick a god, and mark one out beside a road.
 5. #sanctuaries-modern and #twelve-plain — the other two looks.
@@ -30,7 +30,7 @@ What breaks, or moves: **state version 49** on this line (it is renumbered when 
 - **The priests' reach** (half as far again as a priestess), and dimming after a season without workers.
 
 ### Known rough edges
-- `#twelve` is a demo shortcut: its sanctuaries' stages are completed directly in the setup, so its messages and the gods' memories show only the finishing. `#sanctuaries` and `#sanctuary` play their stages for real, but their coin and materials are put on site "set up for this demo" (in the ledger and the stock book).
+- `#twelve` is a demo shortcut: its sanctuaries' stages are completed directly in the setup, so every stage's message and every god's memory of it fall on the same day (the scroll opens with 48 sanctuary messages). `#sanctuaries` and `#sanctuary` play their stages for real, but their coin and materials are put on site "set up for this demo" (in the ledger and the stock book).
 - From some angles a side court is behind its temple; turn the view to see it.
 - A dimmed sanctuary is drawn greyer and its banners furled; there is no other sign in the city yet.
 - The god's mood shows on the sanctuary's panel only. The Olympus panel is another line's slice.
@@ -52,6 +52,15 @@ The starting build (`11f9290`) and this slice's, measured side by side with the 
 | `#sanctuaries` | (new) | 1.50 M triangles, 91 draw calls |
 | `#twelve` (twelve sanctuaries, finished, in one view) | (new) | 1.94 M triangles, 129 draw calls (`#order`'s view: 2.52 M and 150) |
 | The slow smoke | | passes, with every slice 54 check. It ran in four parts because the whole would not fit in two hours. The one failure is `#jailbreak`'s popup, gone before the smoke could click it (slice 51); that step also fails on `11f9290` run alone under this load |
+
+### What the review changed
+- **`#sanctuary` and `#sanctuaries` now rise when played on.** `#quarry`'s town cuts marble but has no loggers' camp and no copper mine, so Demeter's site waited for its timber for ever, and Apollo's statue for its copper. The storehouse now holds the timber and copper they still need (set up for the demo, in the stock book), and `#sanctuary` has an armoury for the bronze. Played on in my run, `#sanctuaries`' Poseidon finishes a month in, Apollo's about six months in and Demeter's after about thirteen months. In `#sanctuary`, Demeter's foundations started after about three months (the carts are slow across town, and marble comes only as the quarry cuts it), the temple after about seven and a half and the statue after about eleven and a half; with its stages' work, that is about fifteen months in all. Left alone, though, that town's masons' yard catches fire and burns about fourteen months in, and its storehouse on the headland falls down. The town warns you first: it needs a watch post and an architect's office nearer.
+- **A sanctuary's stuck line is under Sanctuaries** in the Messages panel, not Monuments. When it waits for a granary's food and a storehouse's good at once, the line names both.
+- **The chooser sits a little lower**, clear of the Greece button. The Sanctuary button's hint says "a year or more with one masons' yard, longer when the stores are far from it".
+- **Nothing else in an old save is touched** as it loads: the step to version 49 now only gives each site its new field.
+- **Corrected above:** `#twelve`'s scroll and the gods' memories show every stage, all dated the same day, not only the finishing. The time a sanctuary takes is now given as I measured it.
+
+Still for your eye: whether fifteen months in `#sanctuary` feels right for a centrepiece, and whether the roofs' colours are too loud in the classic look (in `#twelve`).
 
 ## Slice 52 — A city in order (26 Oct)
 
