@@ -10,6 +10,8 @@ import { LAUREL } from './ambition';
 // Merge of slice 50 with slice 51: the overview's button carries the kit's drawing of it (the overview's tablets).
 import { actionIcon } from './icons';
 const OVERVIEW_ICON = actionIcon('overview');
+// Slice 53
+const OLYMPUS_ICON = actionIcon('gods');
 
 const ICONS: Record<Speed, string> = {
   paused: '<svg viewBox="0 0 16 16"><rect x="3" y="2.5" width="3.6" height="11" rx="1"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1"/></svg>',
@@ -58,6 +60,7 @@ export class TopBar {
         </div>
         <button class="scroll-btn" title="Messages: what the town has heard · the key left of 1 (\u0060)" aria-label="Messages"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sheet" d="M5 4.2h10v11.6H5z"/><path class="lines" d="M7.2 7.6h5.6M7.2 10h5.6M7.2 12.4h3.6"/><rect class="roll" x="3" y="2" width="14" height="3.6" rx="1.8"/><rect class="roll" x="3" y="14.4" width="14" height="3.6" rx="1.8"/></svg><span class="seal" hidden></span></button>
         <button class="scroll-btn overview-btn" title="The overview: the whole city on one page · O" aria-label="Overview">${OVERVIEW_ICON}</button>
+        <button class="scroll-btn olympus-btn" title="Olympus: the twelve gods and their tempers · G" aria-label="Olympus">${OLYMPUS_ICON}</button>
         <div class="divider"></div>
         <div class="speeds"></div>
         <div class="divider"></div>
@@ -384,6 +387,20 @@ export class TopBar {
   /** Whether the overview is open. */
   showOverview(open: boolean): void {
     const el = this.bar.querySelector('.overview-btn') as HTMLElement;
+    if (el.classList.contains('open') === open) return;
+    el.classList.toggle('open', open);
+    el.setAttribute('aria-pressed', String(open));
+  }
+
+  // Slice 53: Olympus's button, beside the overview's.
+  /** Clicking it. */
+  onOlympus(f: () => void): void {
+    (this.bar.querySelector('.olympus-btn') as HTMLElement).addEventListener('click', f);
+  }
+
+  /** Whether Olympus is open. */
+  showOlympus(open: boolean): void {
+    const el = this.bar.querySelector('.olympus-btn') as HTMLElement;
     if (el.classList.contains('open') === open) return;
     el.classList.toggle('open', open);
     el.setAttribute('aria-pressed', String(open));

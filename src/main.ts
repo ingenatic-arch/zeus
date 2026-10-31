@@ -118,6 +118,9 @@ import { storeCartsOf } from './sim/storerules';
 import { WARES } from './sim/foods';
 // Slice 51: the overview.
 import { Overview, type OverviewPage } from './ui/overview';
+// Slice 53: the Olympus panel.
+import { olympusHooks, OlympusPanel } from './ui/olympus';
+import { GOD_IDS, moodOfGod, reasonsOf, type GodId } from './sim/pantheon';
 // Slice 50: the panels' kit (one tip for every panel, held steppers).
 import { installKit, tipShowing } from './ui/kit';
 // Merge of slice 50 with slice 49: the health legend's rod.
@@ -357,6 +360,11 @@ interface Probe {
   // Slice 50
   /** The kit's tip showing ('' when none). */
   kitTip?: () => string;
+  // Slice 53
+  /** The Olympus panel: opened on a god's page (a god's id), on the twelve ('all') or closed (null) first if given; whether it is open, the god showing, and what it says. */
+  olympus?: (god?: string | null) => { open: boolean; god: string; text: string };
+  /** The gods: each one's mood and weightiest reasons; festivals, processions, offerings out, homes glad, and what the shrines' priestesses wear. */
+  gods?: () => { moods: Record<string, number>; reasons: Record<string, string[]>; festivals: Array<{ god: string; day: number; walking: boolean }>; processions: number; offerings: number; festive: number; shrines: Array<{ id: number; god: string }> };
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -1328,6 +1336,8 @@ function start(preparedTown: string | null): void {
       else if (msgPanel.open) msgPanel.toggle(false);
       // Slice 51.
       else if (overview.open) overview.toggle(false);
+      // Slice 53.
+      else if (olympus.open) olympus.toggle(false);
       else if (saveMenu.open) saveMenu.toggle(false);
       else if (corner.helpOpen) corner.toggleHelp(false);
       else if (greece && greeceOpen()) {
@@ -1425,6 +1435,11 @@ function start(preparedTown: string | null): void {
       // Slice 44: the Messages panel (every letter is taken: the key left of 1, as a game's log often is).
       if (k === '\u0060') {
         msgPanel.toggle();
+        return true;
+      }
+      // Slice 53: the Olympus panel (G, by its place on the keyboard; Shift+G the stores' tools), over the city.
+      if (k === 'olympus') {
+        toggleOlympus();
         return true;
       }
       // Slice 51: the overview (O, by its place on the keyboard), over the city.
@@ -1797,6 +1812,76 @@ function start(preparedTown: string | null): void {
     else if (page) overview.toggle(true, page as OverviewPage);
     overview.update(sim.state, map, Infinity);
     return { open: overview.open, page: overview.pageNow, text: overview.text };
+  };
+
+  // Slice 53: the Olympus panel (G, or the top bar's thunderbolt), over the city as the overview is; a shrine just placed
+  // opens its panel, asking which god it is for.
+  const olympus = new OlympusPanel(ui, {
+    send: (c) => {
+      sim.enqueue(c);
+      sim.flush();
+      sound.play('build');
+      startAutosaving();
+      linesAt = -Infinity;
+    },
+    openBuilding: (id) => {
+      const b = findBuilding(sim.state, id);
+      if (!b) return;
+      flyOver(...centreOf(b));
+      buildingPanel.show(id);
+    },
+  });
+  olympus.onOpen = () => {
+    if (greeceOpen()) toggleGreece(false);
+    overview.toggle(false);
+    panel.show(0);
+    tradePanel.toggle(false);
+    shipyardPanel.toggle(false);
+    msgPanel.toggle(false);
+    buildingPanel.show(0);
+    ledger.toggle(false);
+    tools.select(null);
+    ambitionPanel.toggle(false);
+    if (saveMenu.open) saveMenu.toggle(false);
+    corner.toggleHelp(false);
+  };
+  olympusHooks.open = (god) => olympus.toggle(true, god);
+  const toggleOlympus = (): void => olympus.toggle();
+  topbar.onOlympus(toggleOlympus);
+  {
+    const placed = tools.onAct;
+    tools.onAct = (c) => {
+      placed?.(c);
+      if (c?.type !== 'build' || c.kind !== 'shrine' || !c.at.length) return;
+      const id = sim.state.tiles[c.at[c.at.length - 1]];
+      const b = id > 0 ? findBuilding(sim.state, id) : undefined;
+      if (b?.kind === 'shrine' && !b.god) buildingPanel.show(b.id);
+    };
+  }
+  if (demo?.olympus) olympus.toggle(true, demo.olympus === 'all' ? null : demo.olympus);
+  probe.olympus = (god) => {
+    if (god === null) olympus.toggle(false);
+    else if (god) olympus.toggle(true, god === 'all' ? null : (god as GodId));
+    olympus.update(sim.state, map, Infinity);
+    return { open: olympus.open, god: olympus.showing ?? '', text: olympus.text };
+  };
+  probe.gods = () => {
+    const s = sim.state;
+    const moods: Record<string, number> = {};
+    const reasons: Record<string, string[]> = {};
+    for (const g of GOD_IDS) {
+      moods[g] = moodOfGod(s, g);
+      reasons[g] = reasonsOf(s, g).map((r) => `${r.worth} ${r.why}`);
+    }
+    return {
+      moods,
+      reasons,
+      festivals: s.gods.festivals.map((f) => ({ god: f.god, day: f.day, walking: f.walker > 0 })),
+      processions: s.walkers.filter((w) => w.kind === 'procession').length,
+      offerings: s.walkers.filter((w) => w.kind === 'offering').length,
+      festive: Object.keys(s.gods.festive).length,
+      shrines: s.buildings.filter((b) => b.kind === 'shrine').map((b) => ({ id: b.id, god: b.god ?? '' })),
+    };
   };
 
   /** "water", "water or bread", "water, bread or blessings". */
@@ -2823,6 +2908,10 @@ function start(preparedTown: string | null): void {
       if (overview.open && (msgPanel.open || ledger.open || ambitionPanel.open || tradePanel.open || shipyardPanel.open || panel.open || buildingPanel.open || saveMenu.open || corner.helpOpen || tools.tool)) overview.toggle(false);
       overview.update(s, map, time);
       topbar.showOverview(overview.open);
+      // Slice 53: the Olympus panel steps aside the same way.
+      if (olympus.open && (overview.open || msgPanel.open || ledger.open || ambitionPanel.open || tradePanel.open || shipyardPanel.open || panel.open || buildingPanel.open || saveMenu.open || corner.helpOpen || tools.tool)) olympus.toggle(false);
+      olympus.update(s, map, time);
+      topbar.showOlympus(olympus.open);
       probe.overviewMs = (probe.overviewMs ?? 0) + performance.now() - t;
     }
     ledger.update(s, map, time);

@@ -22,6 +22,8 @@ import { estateStocked } from './estates';
 import { justiceMoods } from './justice';
 // Slice 49
 import { healthMoods } from './health';
+// Slice 53: a festival's procession passing the door (pantheon.ts, a leaf).
+import { festiveMood } from './pantheon';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -425,6 +427,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   // Slice 39: pride in an ambition achieved (or all three), for a year.
   const pride = prideMood(s);
   if (pride) add(pride.w, pride.text);
+  // Slice 53: a festival's procession passed their door this season.
+  const fest = festiveMood(s, b.id);
+  if (fest) add(fest.w, fest.text);
   if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');

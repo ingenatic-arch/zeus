@@ -57,6 +57,8 @@ import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from '.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
 // Phase 7 groundwork.
 import { freshGods, setGods, stepGods } from './pantheon';
+// Slice 53
+import { dedicate, holdFestival, moveOffering, moveProcession, sendOffering, stepWorship } from './worship';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -303,6 +305,8 @@ export class Sim {
     stepAmbition(s);
     // Phase 7 groundwork: the gods notice the city, and forget what has faded (nothing with the switch off).
     stepGods(s);
+    // Slice 53: worship (festivals beginning, each god's day of the month, the month's record; nothing with the switch off).
+    stepWorship(s, map);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
@@ -369,6 +373,16 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Phase 7 groundwork.
     case 'gods':
       setGods(s, c.on === true);
+      break;
+    // Slice 53: worship.
+    case 'dedicate':
+      dedicate(s, Number(c.id), typeof c.god === 'string' ? c.god : '');
+      break;
+    case 'festival':
+      holdFestival(s, map, Number(c.id));
+      break;
+    case 'offer':
+      sendOffering(s, map, Number(c.id));
       break;
     // Slice 33.
     case 'seasons':
@@ -1126,6 +1140,11 @@ function stepWalkers(s: SimState, map: CoastMap): void {
                 ? movePhysician(s, map, w)
               : w.kind === 'bearer'
                 ? moveBearer(s, map, w)
+              // Slice 53: a festival's procession, and a porter carrying an offering to a shrine.
+              : w.kind === 'procession'
+                ? moveProcession(s, map, w)
+              : w.kind === 'offering'
+                ? moveOffering(s, map, w)
                 : moveGroup(s, map, w);
     if (on) keep.push(w);
   }

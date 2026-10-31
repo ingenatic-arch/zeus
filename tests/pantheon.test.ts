@@ -270,7 +270,8 @@ describe('the gods in a town', () => {
     const a = on.state;
     const b = off.state;
     expect([a.population, a.money, a.buildings.map((x) => x.level)]).toEqual([b.population, b.money, b.buildings.map((x) => x.level)]);
-    const city = (s: SimState): string => JSON.stringify({ ...s, gods: null });
+    // (Slice 53: the gods' own news, of a mood crossing a word, is all the messages differ by.)
+    const city = (s: SimState): string => JSON.stringify({ ...s, gods: null, messages: s.messages.log.filter((m) => m.kind !== 'gods').map((m) => [m.tick, m.kind, m.words]) });
     expect(city(a)).toBe(city(b));
   });
 

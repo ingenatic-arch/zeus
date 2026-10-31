@@ -40,7 +40,7 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>H</dt><dd>Housing plots: click or drag; again for an estate’s plot (4 by 4, click beside a road: a noble house comes once the city has a villa)</dd>
       <dt>B</dt><dd>Fountain: click beside a road; again for a copper mine (on the green-streaked rock it shows), an armoury, a barracks, a wall (drag it like a road: a gate where it crosses one), a tower (on or beside a wall) and a shipyard (on the bay shore)</dd>
       <dt>M</dt><dd>Farms and workshops, again for the next: wheat farm (on the green land by the river), hunting lodge (near the deer or the boar), dairy and sheep pasture (on green grass), olive grove and olive press, vineyard (on the sunny slopes) and winery, marble quarry (on the pale rock of the headland), loggers’ camp (at a wood’s edge) and horse farm (on green grass)</dd>
-      <dt>G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece, wine, copper, armour, marble, timber and horses), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd>
+      <dt>Shift G</dt><dd>Granary (wheat, meat and cheese), again for a storehouse (oil, fleece, wine, copper, armour, marble, timber and horses), again for the trading post (on the bay shore), and again for the caravan yard (on a road, for the caravans from Greece)</dd><!-- (Slice 53: G is Olympus.) -->
       <dt>K</dt><dd>Agora: its food vendor sells bread, meat and cheese; again for an oil, a fleece or a wine stall, clicked onto an agora</dd>
       <dt>V</dt><dd>Shrine: its priestess blesses homes; townhouses need her blessing</dd>
       <dt>P</dt><dd>Theatre: its actor brings the plays; fine houses need them</dd>
@@ -76,6 +76,8 @@ export function buildCorner(root: HTMLElement, showHint: boolean, classic = fals
       <dt>&#96;</dt><dd>Messages, or the small scroll beside the date (its seal counts what you haven’t read): everything the town has heard, by month, with filters, pins and a link to where each happened, and what the rulers wait on you for at its top. Only alarms pop up, at the bottom left; you choose which</dd>
       <!-- Slice 51 -->
       <dt>O</dt><dd>The overview, or the tablet beside the scroll: the whole city on one page for each of the advisers (the city, goods, treasury, distribution, crime, health, the army and fleet, the empire), with two years of each in small charts and why each stands where it does. Its links fly you to the place, with the overlay that shows it</dd>
+      <!-- Slice 53 -->
+      <dt>G</dt><dd>Olympus, or the thunderbolt beside the tablet: the twelve gods, each with their mood and why, what they love and hate in a city, the rival who grows jealous when you honour the other, and their shrines. Dedicate a shrine from its panel; hold a festival there (coin and a sacred good) or send an offering from the stores</dd>
     </dl>
     <h2 style="margin-top:12px">Time</h2>
     <dl>

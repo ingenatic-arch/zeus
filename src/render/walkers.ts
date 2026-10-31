@@ -25,6 +25,9 @@ import { CONVICT_ROPE, CONVICT_TUNIC } from './justice';
 import { BEARER_SPEED } from '../sim/health';
 import { CARRIER_SPEED } from '../sim/walk';
 import { BEARER_TUNIC, BLANKET, LITTER_CLOTH, PHYSICIAN_ROBE, PHYSICIAN_SASH, type HealthFigures } from './health';
+// Slice 53: the gods' colours (a dedicated shrine's priestess, a procession, an offering's porter).
+import { GOD_IDS, GODS } from '../sim/pantheon';
+import { findBuilding } from '../sim/buildings';
 
 /** Slice 49: how far behind one of the caught his watchman walks. */
 const ESCORT_STEP = 0.34;
@@ -986,7 +989,10 @@ export type ServiceKind = 'water' | 'food' | 'cart' | 'porter' | 'priestess' | '
   | 'convict'
   // Slice 49: an infirmary's physician, and an asklepieion's stretcher-bearers.
   | 'physician'
-  | 'bearer';
+  | 'bearer'
+  // Slice 53: a festival's procession (by its first), and a porter with an offering.
+  | 'procession'
+  | 'offering';
 
 /** Settler and leaver groups, water carriers, food and oil vendors, priestesses, actors, tax collectors, ox carts and porters walking the roads, redrawn every frame (into the folk's merged meshes: the city view begins and ends the frame). */
 export class Walkers {
@@ -1193,7 +1199,7 @@ export class Walkers {
           continue;
         }
       }
-      if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist') {
+      if (w.kind !== 'settler' && w.kind !== 'leaver' && w.kind !== 'colonist' && w.kind !== 'procession') {
         // (Slice 49, slice 45's finding: a watchman walking one of the caught is drawn a step behind him, on his way.)
         const behind = w.kind === 'watchman' && w.meat > 0 ? this.behind(state, w, alpha) : null;
         const [x, z, dx, dz] = behind ?? this.at(w, cum, lead);
@@ -1222,7 +1228,16 @@ export class Walkers {
           const kill = w.back && w.load > 0 ? (state.herds[w.food]?.kind === 'boar' ? 2 : 1) : 0;
           this.hunters[kill].push(this.m, still(this.c.copy(olive)));
         }
-        else if (w.kind === 'priestess') this.priestesses.push(this.m, still(this.c.copy(robe)));
+        // (Slice 53: a dedicated shrine's priestess wears her god's colour.)
+        else if (w.kind === 'priestess') {
+          const god = findBuilding(state, w.origin)?.god;
+          this.priestesses.push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(robe)));
+        }
+        // Slice 53: a porter carrying an offering to a shrine, in the god's colour, the sacred good on his shoulder.
+        else if (w.kind === 'offering') {
+          const god = GOD_IDS[w.steps];
+          this.porters[w.load > 0 ? (PORTER_LOOK[w.food] ?? DOCKER_LOOK[w.food] ?? 1) : 0].push(this.m, still(god ? this.c.setHex(GODS[god].colour) : this.c.copy(dockerTunic)));
+        }
         else if (w.kind === 'actor') this.actors.push(this.m, still(this.c.copy(rose)));
         // (Slice 45: walking one of the caught to the court, he walks, not runs.)
         else if (w.kind === 'watchman') this.watchmen[w.target > 0 || (w.meat > 0 && !state.walkers.some((o) => o.id === w.meat && o.kind === 'convict')) ? 1 : 0].push(this.m, still(this.c.copy(watchTunic)));
@@ -1287,6 +1302,20 @@ export class Walkers {
         this.p.set(x, this.ground(x, z) + 0.03 + bob, z);
         this.s.set(sc, sc, sc);
         this.m.compose(this.p, this.q, this.s);
+        // Slice 53: a procession walks in long robes, in the god's colour and white by turns.
+        if (w.kind === 'procession') {
+          const god = GOD_IDS[w.steps];
+          if (god && k % 2 === 0) this.c.setHex(GODS[god].colour);
+          else this.c.copy(robe);
+          if (!moving) this.c.multiplyScalar(-1);
+          this.priestesses.push(this.m, this.c);
+          if (k === 0) {
+            const v = this.serviceAt.get(w.id);
+            if (v) v.pos.copy(this.p);
+            else this.serviceAt.set(w.id, { pos: this.p.clone(), kind: 'procession' });
+          }
+          continue;
+        }
         this.c.copy(col(TUNICS[Math.floor(hash2(seed, 2, 62) * TUNICS.length)]));
         if (!moving) this.c.multiplyScalar(-1);
         this.kinds[k === 0 ? 0 : 1].push(this.m, this.c);

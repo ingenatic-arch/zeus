@@ -95,7 +95,14 @@ export type Command =
   | { type: 'quarantine'; on: boolean }
   // Phase 7 groundwork
   /** The gods' switch (pantheon.ts): on as a game starts or a demo opens, off while a demo's history is played. */
-  | { type: 'gods'; on: boolean };
+  | { type: 'gods'; on: boolean }
+  // Slice 53 (worship.ts; an act it refuses does nothing)
+  /** Dedicate a shrine (its id) to a god (one of the twelve's ids), or to all the gods (''). */
+  | { type: 'dedicate'; id: number; god: string }
+  /** Hold a festival to a shrine's god (the shrine's id): announced now, its procession in a month. */
+  | { type: 'festival'; id: number }
+  /** Send an offering of its god's sacred good to a shrine (its id), carried from the stores. */
+  | { type: 'offer'; id: number };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

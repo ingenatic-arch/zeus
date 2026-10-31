@@ -107,6 +107,8 @@ import type { BuildKind } from '../sim/commands';
 import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
 import { FOUND_WHEAT } from '../sim/colonies';
 import { REFUSE } from '../sim/stores';
+// Slice 53
+import type { GodId } from '../sim/pantheon';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -238,6 +240,9 @@ export interface Demo {
   // Slice 51
   /** Open the overview from the start, on this page (as if O had been pressed). */
   overview?: OverviewPage;
+  // Slice 53
+  /** Open Olympus from the start, on a god's page or on the twelve ('all'). */
+  olympus?: GodId | 'all';
 }
 
 const T = (x: number, z: number): number => z * BAY.size + x;

@@ -12,6 +12,8 @@ import { col, PAL } from './palette';
 import { lumpy } from './trees';
 import { leg, mergeTinted, type TPart } from './walkers';
 import { ARM_Z, arms, body, mallet, rod, SHOULDER, type V3 } from './workfolk';
+// Slice 53: the gods' colours.
+import { GODS } from '../sim/pantheon';
 
 /**
  * The people at work in the city's buildings (25 Oct, Oliver's ask: in the
@@ -409,7 +411,8 @@ export class Jobfolk {
       case 'granary':
         return [at(1.25, 0.15, W, P.sack, 64, t(0), { to: [-0.12, 0.05] }), at(0.05, -0.5, E, P.scribe, 9, d(1)), at(1.25, -0.2, W, P.sack, 64, t(2), { to: [-0.12, -0.12] })];
       case 'shrine':
-        return [at(0.6, 0.0, E, P.priestess, 30, col(PAL.priestessRobe), { y: 0.06 })];
+        // (Slice 53: at a dedicated shrine she wears her god's colour.)
+        return [at(0.6, 0.0, E, P.priestess, 30, b.god ? new THREE.Color(GODS[b.god].colour) : col(PAL.priestessRobe), { y: 0.06 })];
       case 'theatre':
         return [at(0.88, -0.35, W, P.actorA, 30, col(PAL.actorTunic), { y: 0.2 }), at(0.88, 0.35, W, P.actorB, 36, col(PAL.tunicBlue), { y: 0.2 })];
       case 'taxoffice':

@@ -339,6 +339,8 @@ LEDGER_KINDS.push('colonies');
 LEDGER_KINDS.push('repairs', 'skimmed');
 // Slice 47: your share of your colonies' and free allies' trade.
 LEDGER_KINDS.push('colonytrade');
+// Slice 53: festivals to the gods.
+LEDGER_KINDS.push('worship');
 // Slice 49: a home's health and the physician's last call.
 BUILDING_NUMBERS.push('health', 'physician');
 /** A building's goods: one number per good. */
@@ -431,7 +433,20 @@ export function stateProblem(st: unknown): string {
   if (!healthOk(st.health)) return damaged('its record of health and plague is wrong');
   // Phase 7 groundwork.
   if (!godsOk(st.gods)) return damaged('its record of the gods is wrong');
+  // Slice 53: worship's record (festivals, the last of each, the months of moods, homes glad from a procession).
+  if (!worshipOk(st.gods)) return damaged('its record of the gods’ worship is wrong');
   return '';
+}
+
+/** Slice 53: worship's record on the gods. */
+function worshipOk(g: unknown): boolean {
+  if (!isObj(g) || !Array.isArray(g.festivals) || !isObj(g.worshipped) || !isObj(g.lastFestival) || !isObj(g.months) || !fin(g.month) || !isObj(g.festive)) return false;
+  const { worshipped, lastFestival, months, festive } = g;
+  return (
+    g.festivals.every((f) => isObj(f) && (GOD_IDS as readonly unknown[]).includes(f.god) && ['shrine', 'at', 'day', 'walker'].every((k) => fin(f[k]))) &&
+    GOD_IDS.every((id) => (worshipped[id] === undefined || fin(worshipped[id])) && (lastFestival[id] === undefined || fin(lastFestival[id])) && (months[id] === undefined || (Array.isArray(months[id]) && (months[id] as unknown[]).every(fin)))) &&
+    Object.values(festive).every((v) => Array.isArray(v) && v.length === 2 && v.every(fin))
+  );
 }
 
 /** Phase 7 groundwork: the gods' switch, when the city was noticed, and each of the twelve's memories. */

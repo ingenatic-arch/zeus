@@ -106,6 +106,8 @@ import {
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 // Slice 36: the bread line at this season's pace.
 import { SEASON_NAMES, seasonAt } from './seasons';
+// Slice 53
+import { worshipWalkerStatus } from './worship';
 
 export interface Status {
   title: string;
@@ -796,6 +798,8 @@ export function walkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'convict') return convictStatus(s, w);
   // Slice 49: a physician, a pair of stretcher-bearers.
   if (w.kind === 'physician' || w.kind === 'bearer') return healthWalkerStatus(s, w);
+  // Slice 53: a festival's procession, and a porter carrying an offering to a shrine.
+  if (w.kind === 'procession' || w.kind === 'offering') return worshipWalkerStatus(s, w);
   if (w.kind === 'watchman' && w.meat > 0 && escorting(s, w)) {
     const c = escorting(s, w)!;
     const home = findBuilding(s, c.home);

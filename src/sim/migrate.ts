@@ -206,6 +206,12 @@
  * the save was made, a smaller one when it grows to that. Every shrine is
  * "to all the gods", as it always was. Nothing in the city changes.
  *
+ * Slice 53 (The twelve and their tempers): worship's record is there now,
+ * empty: no festival announced or held, no god worshipped yet (so neglect
+ * waits a year from when the city was noticed), no months of moods kept, and
+ * no home glad from a procession. Every shrine stays "to all the gods" until
+ * it is dedicated. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -250,6 +256,7 @@ import { freshAnnals } from './annals';
 import { freshHealth } from './health';
 // Phase 7 groundwork.
 import { freshGods, NOTICE_PEOPLE } from './pantheon';
+// Slice 53
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -316,6 +323,7 @@ export function migrate(st: unknown): number {
   if (st.version === 45) fromSlice51(st);
   if (st.version === 46) fromSlice49(st);
   if (st.version === 47) fromSlice53g(st);
+  if (st.version === 48) fromSlice53(st);
   return from;
 }
 
@@ -1194,6 +1202,23 @@ function fromSlice53g(st: Record<string, unknown>): void {
     const tick = typeof st.tick === 'number' ? st.tick : 0;
     const people = typeof st.population === 'number' ? st.population : 0;
     st.gods = freshGods(true, people >= NOTICE_PEOPLE ? tick : -1);
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 53 (The twelve and their tempers): see the note above. Only its own
+ * fields on `gods`, each only if it is missing.
+ */
+function fromSlice53(st: Record<string, unknown>): void {
+  if (isObj(st.gods)) {
+    const g = st.gods;
+    if (!Array.isArray(g.festivals)) g.festivals = [];
+    if (!isObj(g.worshipped)) g.worshipped = {};
+    if (!isObj(g.lastFestival)) g.lastFestival = {};
+    if (!isObj(g.months)) g.months = {};
+    if (typeof g.month !== 'number') g.month = -1;
+    if (!isObj(g.festive)) g.festive = {};
   }
   st.version = (st.version as number) + 1;
 }

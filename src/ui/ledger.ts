@@ -111,6 +111,8 @@ function label(l: { kind: LedgerKind; what: string }, n: number): [string, strin
   if (l.kind === 'colonies') return [l.what, ''];
   // Slice 47: your share of a colony's (or free ally's) trade, in coin with its ships.
   if (l.kind === 'colonytrade') return [`Colonies’ trade · ${l.what.replace(/^from /, '')}`, n > 1 ? count(n, 'ship', 'ships') : ''];
+  // Slice 53: a festival to a god.
+  if (l.kind === 'worship') return [l.what.replace(/^./, (c) => c.toUpperCase()), n > 1 ? count(n, 'festival', 'festivals') : ''];
   if (l.kind === 'wages') return [`Wages · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'worker', 'workers') : ''];
   if (l.kind === 'clearing') return [`Clearing rubble · ${PLURAL[l.what as BuildingKind] ?? l.what}`, n ? count(n, 'heap', 'heaps') : ''];
   if (l.kind === 'fire') return [`Burnt down · ${PLURAL[l.what as BuildingKind] ?? l.what}`, ''];
@@ -141,6 +143,8 @@ ORDER.splice(ORDER.indexOf('clearing') + 1, 0, 'repairs');
 ORDER.push('skimmed');
 // Slice 47: your share of the colonies' trade comes in after the vassals' tribute.
 ORDER.splice(ORDER.indexOf('vassals') + 1, 0, 'colonytrade');
+// Slice 53: festivals to the gods go out after the colonies.
+ORDER.splice(ORDER.indexOf('colonies') + 1, 0, 'worship');
 
 interface Row {
   kind: LedgerKind;
