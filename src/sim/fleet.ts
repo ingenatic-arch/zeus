@@ -55,6 +55,8 @@ import { BAY_TICKS, blockadeOf, stepBlockades, stepWarships, type Blockade } fro
 import { expeditionOnMap } from './expeditions';
 import { regainAtSea } from './raids';
 import { change } from './growth';
+// Slice 60: a ship sunk by a god (godwar.ts).
+import { godSank, GODS } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The numbers (tuned by eye).
@@ -945,7 +947,9 @@ function sinkEnemy(s: SimState, e: EnemyShip): void {
     const left = shipsOf(s, r).length;
     const what = men > 0 ? `, and ${men} of their men with her` : e.laden ? (back ? `, with what she carried off: ${back} hauled out of the shallows and taken back` : ', with what she carried off') : ' on the beach';
     // (The army's line only: the news of Greece hears the whole of it when the raid is over. Review of slice 26: the two said the same.)
-    armyNews(s, `Your triremes have sunk one of ${name} ships${what}${left ? ` (${left} left)` : ''}`, 0);
+    // (Slice 60: or a god's wave or bolt sank her: godwar.ts.)
+    const god = godSank(s, e.id);
+    armyNews(s, `${god ? `${GODS[god].name} has sunk` : 'Your triremes have sunk'} one of ${name} ships${what}${left ? ` (${left} left)` : ''}`, 0);
   }
   // Slice 38: one of a blockade's ships: counted towards breaking it, and its city's fleet the smaller.
   const b = e.blockade ? blockadeOf(s, e.blockade) : undefined;

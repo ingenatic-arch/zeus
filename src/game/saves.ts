@@ -36,6 +36,8 @@ import { GOD_IDS } from '../sim/pantheon';
 import { MONSTER_IDS } from '../sim/pantheon';
 // Slice 56.
 import { VISIT_WHYS } from '../sim/epiphany';
+// Slice 60.
+import { WAR_WHYS } from '../sim/epiphany';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -439,6 +441,8 @@ export function stateProblem(st: unknown): string {
   if (!legendsOk(st.legends)) return damaged('its record of monsters is wrong');
   // Slice 56.
   if (!walksOk((st.gods as Record<string, unknown>).walks)) return damaged('its record of the gods in the city is wrong');
+  // Slice 60.
+  if (!godWarOk((st.gods as Record<string, unknown>).war)) return damaged('its record of the gods in war is wrong');
   return '';
 }
 
@@ -475,11 +479,25 @@ function godsOk(g: unknown): boolean {
   return GOD_IDS.every((id) => Array.isArray(mem[id]) && (mem[id] as unknown[]).every((m) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade)));
 }
 
+/** Slice 60: gods in war: the gods marching with bands, those called, a duel, the blows struck, when each was last called. */
+function godWarOk(w: unknown): boolean {
+  if (!isObj(w) || !fin(w.next) || !Array.isArray(w.marches) || !Array.isArray(w.champions) || !Array.isArray(w.strikes) || !isObj(w.called) || !Object.entries(w.called).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
+  const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
+  const kinds = ['spear', 'bolt', 'wave', 'arrow', 'fire', 'light', 'earth', 'madness', 'nerve', 'clash', 'burn'];
+  return (
+    (w.duel === null || (isObj(w.duel) && ['a', 'b', 'since', 'ends'].every((k) => fin((w.duel as Record<string, unknown>)[k])))) &&
+    (w.marches as unknown[]).every((m) => isObj(m) && god(m.god) && ['raid', 'figure', 'since', 'cool', 'lastFire', 'fires', 'felled'].every((k) => fin(m[k]))) &&
+    (w.champions as unknown[]).every((c) => isObj(c) && god(c.god) && ['figure', 'cool', 'felled', 'ships', 'nerve'].every((k) => fin(c[k]))) &&
+    (w.strikes as unknown[]).every((k) => isObj(k) && god(k.god) && kinds.includes(k.kind as string) && ['id', 't', 'x0', 'z0', 'x1', 'z1', 'ship'].every((n) => fin(k[n])) && nums(k.men))
+  );
+}
+
 /** Slice 56: the gods in the city, the places they blessed, who was loving, when each last came. */
 function walksOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.next) || !Array.isArray(w.figures) || !Array.isArray(w.blessed) || !Array.isArray(w.loving) || !isObj(w.last) || !Object.entries(w.last).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
   const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
-  const states = ['arriving', 'walking', 'blessing', 'leaving', 'posing'];
+  // (Slice 60: and fighting.)
+  const states = ['arriving', 'walking', 'blessing', 'leaving', 'posing', 'fighting'];
   return (
     (w.loving as unknown[]).every(god) &&
     (w.blessed as unknown[]).every((b) => isObj(b) && fin(b.id) && fin(b.until) && god(b.god)) &&
@@ -489,7 +507,7 @@ function walksOk(w: unknown): boolean {
         god(f.god) &&
         ['id', 'x', 'z', 'px', 'pz', 'heading', 'since', 'at', 'came', 'leaves'].every((k) => fin(f[k])) &&
         states.includes(f.state as string) &&
-        VISIT_WHYS.includes(f.why as never) &&
+        (VISIT_WHYS.includes(f.why as never) || WAR_WHYS.includes(f.why as never)) &&
         typeof f.words === 'string' &&
         nums(f.blessed) &&
         Array.isArray(f.stops) &&

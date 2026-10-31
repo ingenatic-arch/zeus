@@ -314,6 +314,8 @@ export const MESSAGE_ICONS: Partial<Record<MessageKind, string>> = {
   monster: MONSTER_ICON,
   // Slice 56: a god in the city: a tall figure in white under a gold halo.
   epiphany: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="3.2" rx="3.6" ry="1.3" fill="none" stroke="#e8b830" stroke-width="1.1"/><circle cx="8" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M5.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M3 15h10" stroke="#c8963c" stroke-width="1" stroke-linecap="round"/></svg>',
+  // Slice 60: gods in war: a god's figure under a red halo, a spear crossing it.
+  godwar: '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="7" cy="3.2" rx="3.4" ry="1.2" fill="none" stroke="#c83a2a" stroke-width="1.1"/><circle cx="7" cy="4.6" r="1.5" fill="#f2e6cc" stroke="#8a6c3c" stroke-width=".7"/><path d="M4.6 15l1-8.4h2.8l1 8.4z" fill="#f6f0e2" stroke="#8a6c3c" stroke-width=".7" stroke-linejoin="round"/><path d="M14.4 1.6 9.4 15" stroke="#6e4e30" stroke-width="1.1" stroke-linecap="round"/><path d="m14.6 1 .2 2.6-1.8-.8z" fill="#b8823a" stroke="#6e4e30" stroke-width=".5"/></svg>',
 };
 
 /** A message with no kind of its own: a small scroll. */

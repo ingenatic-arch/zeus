@@ -62,6 +62,8 @@ import { freshLegends, stepMonsters } from './monsters';
 // Slice 56.
 import { GOD_IDS, type GodId } from './pantheon';
 import { startVisit, stepEpiphany, VISIT_WHYS, type VisitWhy } from './epiphany';
+// Slice 60: gods in war.
+import { callGod, stepGodWar } from './godwar';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -303,6 +305,8 @@ export class Sim {
     stepExpeditions(s, map);
     // Slice 55: the monsters on your land: coming in, their lairs, raids, healing, leaving (nothing with no monster sent and no stone standing).
     stepMonsters(s, map, (b, how) => toRubble(s, map, b, how));
+    // Slice 60: gods in war, before the battle (a raider a god strikes down falls this tick): a rival's patron joining its band, gods called, their blows, a duel (nothing with none and no threat).
+    stepGodWar(s, map);
     // Battles in the streets: raiders man by man, blows and arrows, the fallen (nothing while no raiders are on your map).
     stepBattle(s, map);
     // The fleet: the shipyards' work, rowers and their pay, ships in the bay and the fights there, triremes on the lanes, pirates (nothing with no shipyard, no raid from the sea and no sea route).
@@ -384,6 +388,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 56.
     case 'visit':
       if (GOD_IDS.includes(c.god as GodId) && VISIT_WHYS.includes(c.why as VisitWhy)) startVisit(s, c.god as GodId, c.why as VisitWhy, c.at && Number.isFinite(c.at.x) && Number.isFinite(c.at.z) ? { x: c.at.x, z: c.at.z } : undefined);
+      break;
+    // Slice 60.
+    case 'callgod':
+      if (GOD_IDS.includes(c.god as GodId)) callGod(s, c.god as GodId);
       break;
     // Slice 33.
     case 'seasons':

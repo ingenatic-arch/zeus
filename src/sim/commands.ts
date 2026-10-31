@@ -98,7 +98,10 @@ export type Command =
   | { type: 'gods'; on: boolean }
   // Slice 56
   /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
-  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } };
+  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } }
+  // Slice 60
+  /** Call a god who loves you to fight the invaders on your map (godwar.ts; refused, nothing happens, unless they love you, their sanctuary stands, invaders are on your land and they haven't fought for you within a year). */
+  | { type: 'callgod'; god: string };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

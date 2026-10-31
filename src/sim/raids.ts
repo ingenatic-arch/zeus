@@ -80,6 +80,8 @@ import { armiesHome } from './seasons';
 import { boundTo } from './vassals';
 // Slice 55.
 import { monstersAbout } from './monsters';
+// Slice 60: the god who marches with a band.
+import { marchWords } from './godwar';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -1263,7 +1265,7 @@ export function lootWords(r: Raid): string {
  * edge from where it stands, with what it still carries, and sets nothing
  * more alight. Its men no longer stand to fight.
  */
-export function breakBand(s: SimState, map: CoastMap, r: Raid): void {
+export function breakBand(s: SimState, map: CoastMap, r: Raid, why = 'half their men have fallen'): void {
   if (r.broke) return;
   r.broke = true;
   const w = raidersOf(s, r);
@@ -1274,7 +1276,8 @@ export function breakBand(s: SimState, map: CoastMap, r: Raid): void {
   }
   // (No count here: towers and archers often bring down more as they run. The whole fight's count comes when they have gone. Slice 25's review.)
   // (A lender's army is an army, in the singular: review of phase 4.)
-  news(s.world, s.tick, r.city, `${whose(r.city)} ${r.loan ? 'army breaks and runs' : 'raiders break and run'} for ${runFor(r)}: half their men have fallen`, true);
+  // (Slice 60: or a god has broken them: `why` says how.)
+  news(s.world, s.tick, r.city, `${whose(r.city)} ${r.loan ? 'army breaks and runs' : 'raiders break and run'} for ${runFor(r)}: ${why}`, true);
   s.rev++;
 }
 
@@ -1534,6 +1537,13 @@ function wallWhere(map: CoastMap | undefined, t: number): string {
 
 /** A live raid in a few words, for the top bar's chip: "Sparta's raiders · 12 days", "Raiders in the city"; '' for a threat (it has its line) or a band settled. */
 export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; line: string } | null {
+  // Slice 60: and the god who marches with the band, if any: "Ares with them".
+  const out = bandChip(s, r, map);
+  const god = out ? marchWords(s, r) : null;
+  return out && god ? { chip: `${out.chip} · ${god.chip}`, line: `${out.line}. ${god.line}` } : out;
+}
+
+function bandChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; line: string } | null {
   if (!live(r) && !(r.phase === 'raiding' && raidersOf(s, r))) return null;
   const name = cityName(r.city);
   if (r.phase === 'threat') return null;
@@ -1582,6 +1592,13 @@ export function raidChip(s: SimState, r: Raid, map?: CoastMap): { chip: string; 
 
 /** The standing line under the top bar for a live threat or band (the most pressing thing a ruler waits on you for). */
 export function raidLine(s: SimState, map: CoastMap, r: Raid): string {
+  // Slice 60: a threat's line names the god who will march with the band, too (the band's chip does, once it sets out).
+  const line = threatLine(s, map, r);
+  const god = r.phase === 'threat' && line ? marchWords(s, r) : null;
+  return god ? `${line}. ${god.line}` : line;
+}
+
+function threatLine(s: SimState, map: CoastMap, r: Raid): string {
   const c = cityOf(s.world, r.city);
   const d = dealOf(s.world, r.deal);
   const name = cityName(r.city);

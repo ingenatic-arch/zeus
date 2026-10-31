@@ -74,6 +74,8 @@ export const KINDS = {
   monster: { cat: 'war', name: 'Monsters', pop: true },
   // Slice 56: a god in the city: come, blessing a place, gone.
   epiphany: { cat: 'city', name: 'The gods in the city' },
+  // Slice 60: a god marching with a rival's band, a god called to fight for you, two gods fighting, a band broken by a god (an alarm may pop up).
+  godwar: { cat: 'war', name: 'Gods in war', pop: true },
 } as const satisfies Record<string, { cat: MessageCat; name: string; pop?: boolean }>;
 export type MessageKind = keyof typeof KINDS;
 

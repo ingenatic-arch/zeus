@@ -46,10 +46,19 @@ import type { Building, BuildingKind, SimState } from './state';
 // The state (in `gods.walks`: see pantheon.ts).
 
 /** Where a god is in their visit. `posing`: standing for #pantheon, never moving or leaving. */
-export type WalkState = 'arriving' | 'walking' | 'blessing' | 'leaving' | 'posing';
+export type WalkState = 'arriving' | 'walking' | 'blessing' | 'leaving' | 'posing' | 'fighting';
 /** Why a god came: loving the city, a festival to them, their sanctuary finished; or posed for #pantheon. */
-export type VisitWhy = 'loving' | 'festival' | 'sanctuary' | 'pose';
+export type VisitWhy = 'loving' | 'festival' | 'sanctuary' | 'pose' | 'champion' | 'foe';
 export const VISIT_WHYS: readonly VisitWhy[] = ['loving', 'festival', 'sanctuary', 'pose'];
+/** Slice 60: a god at war in your city (godwar.ts moves them): your champion, called; or a rival city's patron, come with its band. */
+export const WAR_WHYS: readonly VisitWhy[] = ['champion', 'foe'];
+export const atWar = (f: Pick<GodFigure, 'why'>): boolean => f.why === 'champion' || f.why === 'foe';
+/** Slice 60: a god at war comes and goes quicker than a visit (a day, not three): the battle won't wait. */
+export const WAR_ARRIVE = TICKS_PER_DAY;
+export const WAR_LEAVE = 2 * TICKS_PER_DAY;
+/** How long a god's arrival and leaving take (the renderer's rising and sinking). */
+export const arriveTicks = (f: Pick<GodFigure, 'why'>): number => (atWar(f) ? WAR_ARRIVE : ARRIVE_TICKS);
+export const leaveTicks = (f: Pick<GodFigure, 'why'>): number => (atWar(f) ? WAR_LEAVE : LEAVE_TICKS);
 
 /** A place a god means to visit: a building (by id), and its middle. */
 export interface Stop {
@@ -251,6 +260,9 @@ export function doingWords(s: SimState, f: GodFigure): string {
       return 'leaving your city';
     case 'posing':
       return 'standing for you to see';
+    // (Slice 60: godwar.ts has a god at war's own words.)
+    case 'fighting':
+      return 'fighting';
   }
 }
 
@@ -276,7 +288,7 @@ function tally(kinds: BuildingKind[]): string {
 // Where they arrive and where they go.
 
 /** The middle of the town: its lived-in homes', else every building's, else the land's. */
-function middleOf(s: SimState, map: CoastMap): [number, number] {
+export function middleOf(s: SimState, map: CoastMap): [number, number] {
   let x = 0;
   let z = 0;
   let n = 0;
@@ -330,7 +342,7 @@ const isWater = (map: CoastMap, x: number, z: number): boolean => {
 };
 
 /** The spot itself, or the nearest land to it (rings outwards), kept on the map. */
-function onLand(map: CoastMap, x: number, z: number): [number, number] {
+export function onLand(map: CoastMap, x: number, z: number): [number, number] {
   const n = map.size;
   x = Math.max(1, Math.min(n - 1, x));
   z = Math.max(1, Math.min(n - 1, z));
@@ -356,7 +368,7 @@ function onLand(map: CoastMap, x: number, z: number): [number, number] {
 }
 
 /** Poseidon's shore: the land tile beside the sea nearest a spot, or null on a land with no sea shore. */
-function shoreNear(map: CoastMap, x: number, z: number): [number, number] | null {
+export function shoreNear(map: CoastMap, x: number, z: number): [number, number] | null {
   const n = map.size;
   let best: [number, number] | null = null;
   let bd = Infinity;
@@ -617,6 +629,8 @@ function gone(s: SimState, f: GodFigure): void {
 
 /** One god's tick. */
 function stepFigure(s: SimState, f: GodFigure): void {
+  // (Slice 60: a god at war is moved by godwar.ts.)
+  if (atWar(f)) return;
   f.px = f.x;
   f.pz = f.z;
   const age = s.tick - f.since;
