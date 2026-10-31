@@ -247,7 +247,7 @@ function card(s: SimState, god: GodId): string {
   const shrines = n ? plural(n, 'shrine', 'shrines') : 'no shrine';
   const fest = f ? (f.walker ? ' · festival under way' : ` · festival on ${dayWords(f.day)}`) : '';
   const holy = sanctuaryWords(s, god).short;
-  return `<button class="ol-card${cardClass(s, god)}" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}${cardMark(s, god)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
+  return `<button class="ol-card${cardClass(s, god)}" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}${cardMark(s, god)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${cap(BLESSINGS[god].does)}`)}"><b>Blessing</b> ${esc(cap(BLESSINGS[god].does))}</span><span class="cu" title="${esc(`In wrath: ${wrathList(god)}`)}"><b>Wrath</b> ${esc(wrathList(god))}</span></span></button>`; // (Slice 57: what they really do.)
 }
 
 /** A god's page. */
@@ -438,6 +438,12 @@ function cardMark(s: SimState, god: GodId): string {
   return '';
 }
 
+/** A god's curses in a line, for their card: "Medusa, or the olives failing". */
+const wrathList = (god: GodId): string => {
+  const ns = GOD_CURSES[god].map((c) => CURSES[c].name);
+  return cap(ns.length > 1 ? `${ns.slice(0, -1).join(', ')} or ${ns[ns.length - 1]}` : (ns[0] ?? ''));
+};
+
 /** "until 3 June". */
 const untilWords = (tick: number): string => `until ${dayWords(tick)}`;
 
@@ -474,7 +480,7 @@ function threat(s: SimState, map: CoastMap, god: GodId): string {
     const off = shrineFor(s, god);
     return ksec(
       `Omens: ${C.name}`,
-      `<div class="ol-omen"><p class="ol-omen-big"><b>${d}</b><span>${d === 1 ? 'day' : 'days'} left</span></p><div><p class="ol-lh">${esc(`${C.signs}. On ${dayWords(o.day)}, ${G.name} will ${C.verb}${C.local ? ` ${placeAt(s, map, o)}` : ''}: ${C.does}.`)}</p><span class="ol-count" role="img" aria-label="${esc(`${d} days left of the month’s warning`)}"><i style="width:${(gone * 100).toFixed(1)}%"></i></span></div></div><p class="ol-lh"><b>Why</b> ${esc(o.why)}.</p><p class="ol-lh"><b>To turn it</b> ${esc(turnWords(s, god))}</p>${off ? '' : `<p class="ol-note">${esc(`No shrine or sanctuary to ${G.name} for an offering or a festival: dedicate a shrine to ${herOf(god) === 'her' ? 'her' : 'him'} (it honours at once).`)}</p>`}`,
+      `<div class="ol-omen"><p class="ol-omen-big"><b>${d}</b><span>${d === 1 ? 'day' : 'days'} left</span></p><div><p class="ol-lh">${esc(`${C.signs}. ${G.name} will ${C.verb}${C.local ? ` ${placeAt(s, map, o)}` : ''} on ${dayWords(o.day)}.`)}</p><span class="ol-count" role="img" aria-label="${esc(`${d} days left of the month’s warning`)}"><i style="width:${(gone * 100).toFixed(1)}%"></i></span></div></div><p class="ol-lh"><b>Why</b> ${esc(o.why)}.</p><p class="ol-lh"><b>To turn it</b> ${esc(turnWords(s, god))}</p>${off ? '' : `<p class="ol-note">${esc(`No shrine or sanctuary to ${G.name} for an offering or a festival: dedicate a shrine to ${herOf(god) === 'her' ? 'her' : 'him'} (it honours at once).`)}</p>`}`,
       { icon: 'warn', cls: 'ol-threat', aside: `<b class="ol-sum">${esc(dayWords(o.day))}</b>` },
     );
   }

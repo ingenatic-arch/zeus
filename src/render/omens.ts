@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CoastMap } from '../map/bake';
-import { centreOf, footSide } from '../sim/buildings';
+import { centreOf, footSide, livedIn } from '../sim/buildings';
 import { curseNow, GODS } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { CURSES, QUAKE_REACH, RIOT_REACH } from '../sim/wrath';
@@ -23,14 +23,14 @@ import { CURSES, QUAKE_REACH, RIOT_REACH } from '../sim/wrath';
  */
 
 /** The most clouds' puffs, rings, birds and blighted patches drawn. */
-const PUFFS = 96;
+const PUFFS = 160;
 const RINGS = 4;
 const BIRDS = 24;
 const PATCHES = 96;
 /** A cloud's height over the ground, and its puffs at the omen's start and its end. */
 const CLOUD_HIGH = 7.5;
-const PUFFS_FROM = 8;
-const PUFFS_TO = 18;
+const PUFFS_FROM = 14;
+const PUFFS_TO = 30;
 
 let glowTex: THREE.Texture | null = null;
 /** A soft round glow (the lightning in the cloud, the ring). */
@@ -94,13 +94,15 @@ export class OmensView {
   private readonly sc = new THREE.Vector3();
   private readonly c = new THREE.Color();
   private readonly flat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+  /** Where the storm gathers for a curse that comes from outside (a monster): over the town's middle, kept per omen. */
+  private readonly hearts = new Map<number, [number, number]>();
   /** What was drawn last frame (for the probes). */
   drawn = { clouds: 0, puffs: 0, rings: 0, birds: 0, patches: 0, flashes: 0 };
 
-  constructor(map: CoastMap) {
+  constructor(private readonly map: CoastMap) {
     this.group.name = 'omens';
     this.ground = (x, z) => map.heightAt(x, z);
-    const cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, flatShading: true });
+    const cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.82, flatShading: true, emissive: '#06040a' });
     this.puffs = this.instanced(new THREE.IcosahedronGeometry(1, 1), cloudMat, PUFFS, 'omen-cloud');
     this.puffs.castShadow = true;
     const add = (map: THREE.Texture, side: THREE.Side): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side, fog: false, toneMapped: false });
@@ -138,8 +140,10 @@ export class OmensView {
       const span = Math.max(1, o.day - o.at);
       const near = Math.max(0, Math.min(1, (s.tick - o.at) / span));
       const C = CURSES[o.curse];
-      const gy = this.ground(o.x, o.z);
-      this.cloud(d, o.x, gy + CLOUD_HIGH, o.z, 2.2 + 2.6 * near, Math.round(PUFFS_FROM + (PUFFS_TO - PUFFS_FROM) * near), 0.55 - 0.3 * near, o.at, time, face, 0.35 + 0.65 * near);
+      // (A curse on a place gathers over it; one that comes from outside, a monster, over the town's middle.)
+      const [cx, cz] = C.local ? [o.x, o.z] : this.heart(s, o.at);
+      const gy = this.ground(cx, cz);
+      this.cloud(d, cx, gy + CLOUD_HIGH, cz, 2 + 2.4 * near, Math.round(PUFFS_FROM + (PUFFS_TO - PUFFS_FROM) * near), 0.24 - 0.12 * near, o.at, time, face, 0.35 + 0.65 * near);
       if (C.local && d.rings < RINGS) {
         const reach = o.curse === 'earthquake' ? QUAKE_REACH : o.curse === 'riot' ? RIOT_REACH : 3;
         const beat = 0.55 + 0.45 * Math.sin(time * (1.2 + 3 * near));
@@ -155,8 +159,9 @@ export class OmensView {
       for (let i = 0; i < many; i++) {
         const a = hash(o.at, i) * Math.PI * 2;
         const r = 0.8 + hash(o.at + 1, i) * 3.2;
-        const bx = o.x + Math.cos(a) * r;
-        const bz = o.z + Math.sin(a) * r;
+        const bx = cx + Math.cos(a) * r;
+        const bz = cz + Math.sin(a) * r;
+        if (this.wet(bx, bz)) continue;
         this.e.set(0, hash(o.at + 2, i) * Math.PI * 2, 0);
         this.q.setFromEuler(this.e);
         this.sc.setScalar(1.3);
@@ -172,7 +177,7 @@ export class OmensView {
     // A god come in wrath: a small storm cloud over their head.
     for (const f of s.gods.walks.figures) {
       if (f.why !== 'wrath') continue;
-      this.cloud(d, f.x, this.ground(f.x, f.z) + 5.2, f.z, 1.6, 9, 0.35, f.id * 97, time, face, 1);
+      this.cloud(d, f.x, this.ground(f.x, f.z) + 5.4, f.z, 1.3, 12, 0.16, f.id * 97, time, face, 1);
     }
     // Blight on the fields or groves: grey-brown patches, more of each footprint as the day nears.
     if (blight > 0 || olives > 0) {
@@ -211,6 +216,34 @@ export class OmensView {
     this.drawn = d;
   }
 
+  /** Is a spot on water (no dead bird lies there)? */
+  private wet(x: number, z: number): boolean {
+    const n = this.map.size;
+    const tx = Math.floor(x);
+    const tz = Math.floor(z);
+    return tx < 0 || tz < 0 || tx >= n || tz >= n || this.map.tileWater[tz * n + tx] !== 0;
+  }
+
+  /** The middle of the town's lived-in homes (kept per omen, by when it began). */
+  private heart(s: SimState, key: number): [number, number] {
+    let h = this.hearts.get(key);
+    if (h) return h;
+    let x = 0;
+    let z = 0;
+    let k = 0;
+    for (const b of s.buildings) {
+      if (!livedIn(b)) continue;
+      const [bx, bz] = centreOf(b);
+      x += bx;
+      z += bz;
+      k++;
+    }
+    h = k ? [x / k, z / k] : [s.gods.wrath.omens[0]?.x ?? 0, s.gods.wrath.omens[0]?.z ?? 0];
+    if (this.hearts.size > 8) this.hearts.clear();
+    this.hearts.set(key, h);
+    return h;
+  }
+
   /** A storm cloud of `n` puffs about a point, `r` wide, `grey` light (0 black), churning slowly, lightning flickering inside at `flicker` (0 to 1) the most. */
   private cloud(d: typeof this.drawn, x: number, y: number, z: number, r: number, n: number, grey: number, seed: number, time: number, face: THREE.Quaternion, flicker: number): void {
     d.clouds++;
@@ -220,8 +253,8 @@ export class OmensView {
       const px = x + Math.cos(a) * rr;
       const pz = z + Math.sin(a) * rr;
       const py = y + (hash(seed + 5, i) - 0.5) * r * 0.35 + Math.sin(time * 0.6 + i) * 0.08;
-      const size = (0.9 + hash(seed + 7, i) * 0.9) * (0.55 + r * 0.22);
-      this.sc.set(size * 1.25, size * 0.8, size * 1.25);
+      const size = (0.6 + hash(seed + 7, i) * 0.7) * (0.45 + r * 0.14);
+      this.sc.set(size * 1.3, size * 0.75, size * 1.3);
       this.p.set(px, py, pz);
       this.e.set(0, a, 0);
       this.q.setFromEuler(this.e);

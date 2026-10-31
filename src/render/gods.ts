@@ -399,7 +399,7 @@ function wrathModelOf(g: GodId): Model {
     if (col) {
       const c = new THREE.Color();
       for (let i = 0; i < col.count; i++) {
-        c.setRGB(col.getX(i), col.getY(i), col.getZ(i)).lerp(STORM, 0.6);
+        c.setRGB(col.getX(i), col.getY(i), col.getZ(i)).lerp(STORM, 0.72);
         col.setXYZ(i, c.r, c.g, c.b);
       }
     }
@@ -417,7 +417,7 @@ function wrathModelOf(g: GodId): Model {
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         float rimF = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
-        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.02 + 0.98 * rimF * rimF) * 0.9 * uGlow;`,
+        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.01 + 0.99 * rimF * rimF * rimF * rimF) * 0.8 * uGlow;`,
       );
   };
   mat.customProgramCacheKey = () => `god-wrath-${g}`;
@@ -1157,7 +1157,7 @@ export class GodsView {
       this.p.set(at.x, hy, at.z);
       this.m.compose(this.p, this.flat, this.sc);
       this.halos.setMatrixAt(n, this.m);
-      this.halos.setColorAt(n, this.c.copy(colour).multiplyScalar(0.55 * pulse * Math.max(0.3, risen)));
+      this.halos.setColorAt(n, this.c.copy(colour).multiplyScalar((f.why === 'wrath' ? 0.3 : 0.55) * pulse * Math.max(0.3, risen)));
       // The glow behind them, at their middle.
       this.c.set(lightOf(f));
       this.sc.set(2.5, 3.2, 1).multiplyScalar(GOD_HEIGHT / 1.5);
@@ -1166,7 +1166,7 @@ export class GodsView {
       this.p.set(at.x + this.back.x, at.y + GOD_HEIGHT * 0.55 + this.back.y, at.z + this.back.z);
       this.m.compose(this.p, face, this.sc);
       this.glows.setMatrixAt(n, this.m);
-      this.glows.setColorAt(n, this.c.multiplyScalar(0.2 * pulse * Math.max(0.15, risen)));
+      this.glows.setColorAt(n, this.c.multiplyScalar((f.why === 'wrath' ? 0.05 : 0.2) * pulse * Math.max(0.15, risen)));
       // The halo about the head, facing the eye.
       this.sc.setScalar(0.46 * (GOD_HEIGHT / 1.5));
       this.back.set(0, 0, -0.25).applyQuaternion(face);

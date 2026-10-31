@@ -223,7 +223,7 @@ export const VIEWS: Record<string, CameraView> = {
   procession: { x: 66, z: 41, yaw: -0.3, dist: 22, tilt: -0.05 },
   // Slice 57, #omen: #richtown from over its south side, the storm gathering over Medusa's cave (tuned by eye); #blessing: #town's
   // fields and Demeter's sanctuary beside them; #wrath: the shore below the trading post, Poseidon standing over the harbour.
-  omen: { x: 66, z: 52, yaw: -0.3, dist: 52, tilt: -0.15 },
+  omen: { x: 68, z: 40, yaw: -0.3, dist: 44, tilt: -0.12 },
   blessing: { x: 48, z: 42, yaw: 2.356, dist: 26, tilt: -0.08 },
-  wrath: { x: 63, z: 64, yaw: -0.785, dist: 30, tilt: -0.08 },
+  wrath: { x: 71, z: 67, yaw: -0.785, dist: 26, tilt: -0.08 },
 };
