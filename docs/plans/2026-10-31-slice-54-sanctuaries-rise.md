@@ -92,4 +92,42 @@ The demo probe: every earlier demo opens exactly as at `11f9290` (date, people, 
 
 ## As built
 
-(Filled in when the slice is done.)
+Commits on `claude/p7-temples`: `1db4787` (this plan), `d6155c7` (the sim), `d349ee5` (render, UI and demos), `cfc0b6f` (the look tuned, smoke and measure), `52d379f` (the sanctuaries' message icon, which the kit's test asks for), and the check-in.
+
+**As planned:** the `sanctuary` kind (5 × 5, 1,200 dr, 8 jobs once finished and none while it rises), one per god; the three stages and their materials and builders; the ox carts hauling the sacred good from whichever store keeps it; the god's notice of each stage (+6, +8, +10, fading over two years), the standing honour (+18, asserted when finished and on the first of each month while staffed), dimming after 90 days without workers and the honour forgotten until workers return; priests (a crew of up to three, 48 tiles of reach and 96 of road a round against the priestess's 32 and 64) in their god's colour; the messages; the chooser, the tool's tip, the panel with its two named empty slots; `fromSlice54` and state version 49.
+
+**Changed from the plan, by eye:**
+- **The twelve told apart by their roofs and forms.** The first look (a white temple and a red-tiled roof for every god, the god's colour only in the frieze, pediment, banners and statue) made all twelve read the same at the classic zoom. Each roof is now glazed in a tone of its god's (Zeus's in marble tiles), Aphrodite's and Hermes's temples are round tholoi under a cone of tiles, and each god has a side court beside the temple, wide enough to read from afar: Zeus's oak, Hera's irises, Poseidon's pool, Demeter's wheat, Athena's olives, Apollo's laurels, Artemis's wild grove, Ares' yard of arms, Aphrodite's roses, Hephaestus's smoking forge, Hermes's herms, Dionysus's vines. The banners are larger.
+- **The chooser opens beside the side panel** (by its button), not over an open building panel.
+- **A mood of 0 shows in a neutral tone** on the panel's bar.
+- The Mythology tab's tip names the sanctuaries (in the Slice 54 block of `categories.ts`).
+
+**The demos:** `#sanctuaries` (#quarry's town, a year on, with masons' yards and an armoury added, and coin and materials put on site as "set up for this demo" in the ledger and the stock book: Athena's finished and staffed with her priests out, Poseidon's statue going up, Apollo's temple rising, Demeter's just marked out, Athena's panel open); `#sanctuary` (the same town, only Demeter's marked out and the first ox cart on its way, its panel open); `#twelve` (#quarry's town with a new road east of its streets, its coin given as "set up for this demo", and all twelve finished in two rows of six; their stages are completed directly in the setup, a demo shortcut, so its messages and the gods' memories show only the finishing).
+
+**Exported for other lines** (`src/sim/sanctuaries.ts` unless named):
+- `sanctuaryOf(s, god)`: the god's site record, or undefined.
+- `sanctuaryDone(s, god)`: finished and standing.
+- `sanctuaryFinished(s, site)`: the "sanctuary finished" hook, called by `monumentworks.ts`'s `finish` for a sanctuary; slice 56 calls the god's visit from here at merge.
+- `sanctuaries(s)`, `sanctuaryName(god)`, `sanctuaryRefusal(s, god)`, `dimmed(s, site)`, `STANDING_HONOUR`, `PRIEST_RANGE`.
+- `SANCTUARY_COST` (`build.ts`); `stagesOf`, `siteMaterials`, `isSiteKind`, `sacredMeasure` (`monuments.ts`).
+- `SANCTUARY_SLOTS` (`src/ui/sanctuarypanel.ts`): `offerings` for slice 53's festival and offering buttons, `blessing` for slice 57's.
+- `godEmblem(god)` and `godColourCss(god)` (`src/ui/godemblems.ts`): the twelve emblems drawn in code, for the gods' other cards.
+
+**Touched outside the line** (beyond the shared files the plan names):
+- `src/sim/monuments.ts`, `monumentworks.ts`, `monumentstatus.ts`: generalised to sites of either kind (`stagesOf`, `siteMaterials`, the store predicate for the ox carts, "no granary has any"). The monuments' stages, materials, order and words are unchanged; every monument demo opens identically (below).
+- `src/sim/heard.ts`: the stuck-site regex also matches "no granary has any"; a sanctuary's news is its own.
+- `src/render/monuments.ts`: `stagesOf` in place of `STAGES[x.kind]`.
+- `src/sim/buildings.ts` (the name, the jobs, `isGrand`, `sideOf`), `build.ts`, `hazards.ts`, `messages.ts`, `status.ts`: the new kind's entries.
+- `src/game/saves.ts`: a site may be a sanctuary to a known god, and has a finite `idle`.
+- `src/game/tools.ts`: the sanctuary tool (the god chosen, its refusal and tip, the command).
+- `src/render/city.ts`, `jobfolk.ts`, `walkers.ts`, `pictures.ts`; `src/ui/buildbar.ts`, `buildingpanel.ts`, `ledger.ts`, `minimap.ts`: the new kind's and walker's entries.
+- `src/ui/icons.ts`: the sanctuary message kind's icon (a small temple), in a Slice 54 block after `MESSAGE_ICONS`.
+- `tests/monuments.test.ts`: its helper reads a site's stages through `stagesOf` (`STAGES[x.kind]` no longer types for a site that may be a sanctuary).
+
+**Checks** (on a machine with three other lines building: load average 30 to 50 on 4 cores; see the check-in's Measurements for the table):
+- `npm test`: 809 tests in 61 files. Under the load, 768 pass, 37 time out and 4 fail. One failure was real and is fixed: the kit's test wanted an icon for the new message kind (`52d379f`). The other three time themselves on the clock. Rerun with long timeouts on 2 workers, 283 of the 288 tests in the 21 affected files pass. Of the 5 left: the two land-bake times and the routes replay fail the same way on `11f9290` run beside them; the routes and trade replays pass in a scratch copy with longer timeouts; the every-demo wages test ran out of its 20 minutes, and the three new demos pass it alone.
+- `npm run build` succeeds.
+- The slow smoke passes with every slice 54 check. It ran in four parts, because the whole would not fit in the two-hour limit. The one failure is `#jailbreak`'s popup, gone before the smoke could click it (slice 51); that step also fails on `11f9290` run alone under this load.
+- The demo probe: all 167 earlier demos open identically to `11f9290`. That covers date, money, people, homes, levels, buildings and every count in the probe's city.
+- Version 47 and 48 saves of `#monument` and `#town`, made by the code at `11f9290^` and `11f9290`, load to 49, play a quarter on and save again.
+- The measure: triangles and draw calls identical in every earlier view. The game is 20 KB larger gzipped. There are three more prepared towns (126 KB gzipped). `#twelve` is 1.94 M triangles and 129 draw calls.
