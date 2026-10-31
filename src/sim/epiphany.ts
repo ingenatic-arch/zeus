@@ -12,8 +12,9 @@
  *   the shore, Demeter among the fields, Hephaestus by the forge, Artemis in
  *   the woods, the others at a shrine dedicated to them, else the agora,
  *   else the middle of the town. Never on water.
- * - **Where they go.** Up to MOST_STOPS of the places they love (LOVED), the
- *   nearest of each kind first, in a tour from where they arrived; a god
+ * - **Where they go.** Their own sanctuary first, if it stands finished
+ *   (merge with slice 54); then, up to MOST_STOPS in all, the places they
+ *   love (LOVED), the nearest of each kind first, in a tour from where they arrived; a god
  *   with none of theirs walks among the homes in the middle of the town.
  * - **How they move.** Arriving (the flourish) for ARRIVE_TICKS; then in
  *   straight lines over everything, never blocked by buildings or water, at
@@ -41,6 +42,8 @@ import { say } from './messages';
 import { blessingOn, GOD_IDS, GODS, goddess, moodAtLeast, moodOfGod, reasonsOf, type GodId } from './pantheon';
 import { nextSeasonAt, SEASON_NAMES, seasonAt, TICKS_PER_SEASON } from './seasons';
 import type { Building, BuildingKind, SimState } from './state';
+// Merge of slices 54 and 56: a god's own sanctuary, the first place they visit.
+import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
 
 // ---------------------------------------------------------------------------
 // The state (in `gods.walks`: see pantheon.ts).
@@ -466,12 +469,16 @@ export function placesFor(s: SimState, map: CoastMap, g: GodId, x: number, z: nu
   const kinds = LOVED[g];
   let picks: Building[] = [];
   let own = true;
+  // (Merge of slices 54 and 56: their own sanctuary, finished and standing, is the first place they go; the places they love fill the rest.)
+  const site = sanctuaryDone(s, g) ? sanctuaryOf(s, g) : undefined;
+  const sanctuary = site ? findBuilding(s, site.id) : undefined;
+  const most = sanctuary ? MOST_STOPS - 1 : MOST_STOPS;
   if (kinds.includes('home')) {
     const homes = s.buildings.filter((b) => b.kind === 'home' && b.people > 0);
     // Aphrodite the finest homes, Hera the biggest households; the nearer of equals.
     const worth = (b: Building): number => (g === 'aphrodite' ? b.level : b.people);
     const d = (b: Building): number => dist(...centreOf(b), x, z);
-    picks = homes.sort((a, b) => worth(b) - worth(a) || d(a) - d(b) || a.id - b.id).slice(0, MOST_STOPS);
+    picks = homes.sort((a, b) => worth(b) - worth(a) || d(a) - d(b) || a.id - b.id).slice(0, most);
   } else {
     const all = standing(s, kinds);
     for (const k of kinds) {
@@ -480,9 +487,9 @@ export function placesFor(s: SimState, map: CoastMap, g: GodId, x: number, z: nu
         x,
         z,
       );
-      if (b && picks.length < MOST_STOPS) picks.push(b);
+      if (b && picks.length < most) picks.push(b);
     }
-    while (picks.length < MOST_STOPS) {
+    while (picks.length < most) {
       const b = nearest(
         all.filter((o) => !picks.includes(o)),
         x,
@@ -506,9 +513,14 @@ export function placesFor(s: SimState, map: CoastMap, g: GodId, x: number, z: nu
       picks.push(b);
     }
   }
-  // A tour: the nearest next, from where they are.
+  // A tour: the nearest next, from where they are (from their sanctuary, if they go there first).
   const stops: Stop[] = [];
   let [ax, az] = [x, z];
+  if (sanctuary) {
+    const [cx, cz] = centreOf(sanctuary);
+    stops.push({ id: sanctuary.id, x: cx, z: cz });
+    [ax, az] = [cx, cz];
+  }
   const left = [...picks];
   while (left.length) {
     const b = nearest(left, ax, az) as Building;
@@ -548,7 +560,8 @@ export function startVisit(s: SimState, god: GodId, why: VisitWhy, at?: { x: num
   const map = mapOf(s);
   const w = s.gods.walks;
   const posed = why === 'pose';
-  const [x, z] = posed && at ? [at.x, at.z] : arrivalOf(s, map, god);
+  // (Merge of slices 54 and 56: a god come to see their new sanctuary rises at its altar, `at`.)
+  const [x, z] = (posed || why === 'sanctuary') && at ? [at.x, at.z] : arrivalOf(s, map, god);
   const plan = posed ? { stops: [], own: true } : placesFor(s, map, god, x, z);
   const first = plan.stops[0];
   const f: GodFigure = {
@@ -575,8 +588,18 @@ export function startVisit(s: SimState, god: GodId, why: VisitWhy, at?: { x: num
   w.last[god] = s.tick;
   const name = GODS[god].name;
   const where = plan.stops.map((p) => findBuilding(s, p.id)).filter((b): b is Building => !!b);
-  const going = where.length ? (plan.own ? ` ${cap(she(god))} means to visit ${tally(where.map((b) => b.kind))}.` : ` ${cap(she(god))} finds no ${nounOf(LOVED[god][0], true)} in your city, and walks among your homes instead.`) : '';
-  say(s, { kind: 'epiphany', words: `${name} ${ARRIVES[god]}: ${f.words}.${going}`, title: `${name} has come to your city`, at: { tile: Math.floor(z) * map.size + Math.floor(x) } });
+  // (Merge of slices 54 and 56: their own sanctuary, first of all, named as theirs; come to see it new, they rise at its altar.)
+  const shrine = where[0]?.kind === 'sanctuary' ? where.shift() : undefined;
+  const atAltar = !!shrine && why === 'sanctuary' && !!at;
+  const She = cap(she(god));
+  const lead = atAltar ? `${She} blesses it first` : shrine ? `${She} means to visit ${her(god)} sanctuary` : '';
+  const going = !where.length
+    ? lead ? ` ${lead}.` : ''
+    : plan.own
+      ? lead ? ` ${lead}, then ${atAltar ? 'means to visit ' : ''}${tally(where.map((b) => b.kind))}.` : ` ${She} means to visit ${tally(where.map((b) => b.kind))}.`
+      : ` ${lead ? `${lead}; ${she(god)}` : She} finds no ${nounOf(LOVED[god][0], true)} in your city, and walks among your homes ${lead ? 'after' : 'instead'}.`;
+  const arrives = atAltar ? `rises at the altar of ${her(god)} new sanctuary, come to see it` : `${ARRIVES[god]}: ${f.words}`;
+  say(s, { kind: 'epiphany', words: `${name} ${arrives}.${going}`, title: `${name} has come to your city`, at: { tile: Math.floor(z) * map.size + Math.floor(x) } });
   return f;
 }
 

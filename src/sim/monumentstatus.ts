@@ -10,7 +10,7 @@
 import type { CoastMap } from '../map/bake';
 import { findBuilding } from './buildings';
 import { dateOfTick, TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
-import { COPPER, held, MARBLE, TIMBER, type Ware } from './foods';
+import { COPPER, held, MARBLE, TIMBER, WARE_NAMES, type Ware } from './foods';
 import { spanWords } from './materialstatus';
 import {
   LIT_EVERY,
@@ -21,14 +21,18 @@ import {
   progressOf,
   siteOf,
   STAGE_COUNT,
-  STAGES,
   stageNow,
   workOf,
   COLOSSUS_MOOD,
-  MATERIALS,
   type MonumentKind,
   type Site,
+  // Slice 54: sites that are sanctuaries.
+  siteMaterials,
+  siteName,
+  stagesOf,
 } from './monuments';
+// Slice 54.
+import { isStore, roomOf } from './stores';
 import { buildersAt, buildersFor, buildersTo, cartsTo, comingTo, gamesSoon, gathering, isBronze, MAX_BUILDERS, siteBuilding, smithsAt, VISITOR_PAYS } from './monumentworks';
 import { roadsBeside } from './rounds';
 import type { Building, SimState, Walker } from './state';
@@ -49,7 +53,7 @@ const dayOf = (tick: number): string => {
 };
 
 /** What a material is called on a site: the copper the armourers cast into bronze is named as copper, so it plainly is the copper from the mines and stores (review of slice 35). */
-export const materialName = (w: Ware): string => (w === COPPER ? 'copper for the bronze' : w === MARBLE ? 'marble' : w === TIMBER ? 'timber' : 'goods');
+export const materialName = (w: Ware): string => (w === COPPER ? 'copper for the bronze' : w === MARBLE ? 'marble' : w === TIMBER ? 'timber' : (WARE_NAMES[w] ?? 'goods'));
 /** What would bring a material the stores have none of. */
 const BRINGS: Record<number, string> = {
   [MARBLE]: 'a marble quarry on the headland cuts it, or buy it from Greece on the Trade tab',
@@ -60,6 +64,11 @@ const BRINGS: Record<number, string> = {
 /** "the tower", lower-cased, for the middle of a sentence. */
 const low = (name: string): string => name.charAt(0).toLowerCase() + name.slice(1);
 
+/** Slice 54: the store an ox cart fetches a ware from: the storehouse (the monuments' materials, and most goods), or for a food the granary. */
+const storeFor = (w: Ware): 'storehouse' | 'granary' => (roomOf('storehouse', w) > 0 || roomOf('granary', w) <= 0 ? 'storehouse' : 'granary');
+/** Slice 54: does any store hold some of a ware (the monuments' materials: a storehouse)? */
+const anyStored = (s: SimState, w: Ware): boolean => s.buildings.some((g) => isStore(g.kind) && roomOf(g.kind, w) > 0 && held(g, w) > 0);
+
 /** One material's line for the stage a site gathers for: "40 of 400 marble on site, 50 on the way". */
 function materialLine(s: SimState, x: Site, b: Building, w: Ware, need: number): string {
   const here = Math.min(need, held(b, w));
@@ -67,19 +76,23 @@ function materialLine(s: SimState, x: Site, b: Building, w: Ware, need: number):
   const name = materialName(w);
   let why = '';
   if (here + coming < need) {
-    const stored = s.buildings.reduce((a, g) => a + (g.kind === 'storehouse' ? held(g, w) : 0), 0);
-    if (stored > 0) why = ` · ${fmt(stored)} in the storehouses, the next ox cart sets out soon`;
-    else if (!s.buildings.some((g) => g.kind === 'storehouse')) why = ' · build a storehouse: the ox carts haul from the storehouses';
-    else why = ` · no storehouse has any: ${BRINGS[w]}`;
+    // (Slice 54: a sanctuary's sacred food is hauled from the granaries.)
+    const store = storeFor(w);
+    const stored = s.buildings.reduce((a, g) => a + (g.kind === store ? held(g, w) : 0), 0);
+    if (stored > 0) why = ` · ${fmt(stored)} in the ${store}s, the next ox cart sets out soon`;
+    else if (!s.buildings.some((g) => g.kind === store)) why = ` · build a ${store}: the ox carts haul from the ${store}s`;
+    else why = ` · no ${store} has any: ${BRINGS[w] ?? 'your makers make it, or buy it from Greece on the Trade tab'}`;
   }
   return `${fmt(here)} of ${fmt(need)} ${name} on site${coming ? `, ${fmt(coming)} on the way` : ''}${why}`;
 }
 
 /** What a site waits for to start the stage it gathers for, a line each ('' for what it has). */
 function waitsFor(s: SimState, x: Site, b: Building, stage: number): string[] {
-  const st = STAGES[x.kind][stage];
+  const st = stagesOf(x)[stage];
   if (!st) return [];
-  return MATERIALS.filter((w) => needOf(st, w) > 0).map((w) => materialLine(s, x, b, w, needOf(st, w)));
+  return siteMaterials(x)
+    .filter((w) => needOf(st, w) > 0)
+    .map((w) => materialLine(s, x, b, w, needOf(st, w)));
 }
 
 /** The builders line for a stage under way: "6 builders of 8 at work", and why not more. */
@@ -128,7 +141,8 @@ export function effectLine(s: SimState, kind: MonumentKind): string {
 export function siteStatus(s: SimState, map: CoastMap, b: Building): Status {
   const kind = b.kind as MonumentKind;
   const x = siteOf(s, b.id);
-  const Name = monumentName(kind, true);
+  // (Slice 54: a sanctuary's site says whose it is; finished, it says what it does.)
+  const Name = x ? siteName(x, true) : b.kind === 'sanctuary' ? 'A sanctuary' : monumentName(kind, true);
   if (!x) return { title: Name, detail: 'Marked out' };
   if (x.finished) {
     return { title: `${Name} · finished`, detail: lines(effectLine(s, kind), `Finished on ${dayOf(x.finished)}, ${spanWords(x.finished - x.marked)} after it was marked out`) };
@@ -138,7 +152,7 @@ export function siteStatus(s: SimState, map: CoastMap, b: Building): Status {
   const stageWord = `${st.name} (stage ${x.stage + 1} of ${STAGE_COUNT}: ${st.what})`;
   if (roadsBeside(s, map.size, b).length === 0) return { title, detail: lines(`${stageWord} waits for a road beside the site, for the ox carts and the builders`, ...waitsFor(s, x, b, x.stage)) };
   if (x.building) {
-    const next = STAGES[x.kind][gathering(x)];
+    const next = stagesOf(x)[gathering(x)];
     return {
       title,
       detail: lines(
@@ -150,9 +164,15 @@ export function siteStatus(s: SimState, map: CoastMap, b: Building): Status {
     };
   }
   const bronze = isBronze(x) && !smithsAt(s) ? 'And for the armourers: an armoury with workers casts the bronze on site' : '';
-  const begun = x.done.length ? `${low(STAGES[x.kind][x.stage - 1].name)} finished on ${dayOf(x.done[x.done.length - 1])}` : `marked out on ${dayOf(x.marked)}`;
+  const begun = x.done.length ? `${low(stagesOf(x)[x.stage - 1].name)} finished on ${dayOf(x.done[x.done.length - 1])}` : `marked out on ${dayOf(x.marked)}`;
   return { title, detail: lines(`${stageWord} waits for its materials, all on site before it starts:`, ...waitsFor(s, x, b, x.stage), bronze, `Then it needs ${st.builders} builders for about ${spanWords(st.days * TICKS_PER_DAY)} · ${begun}`) };
 }
+
+/** Slice 54: what the site on a building is called ("the Lighthouse", "the sanctuary to Demeter"). */
+const nameAt = (s: SimState, g: Building): string => {
+  const x = siteOf(s, g.id);
+  return x ? siteName(x) : monumentName(g.kind as MonumentKind);
+};
 
 /** A masons' yard: its builders, and where they are. */
 export function masonsStatus(s: SimState, b: Building, workers: string): Status {
@@ -164,7 +184,7 @@ export function masonsStatus(s: SimState, b: Building, workers: string): Status 
   if (most === 0) doing = b.paused ? 'No builders go out while it is paused' : 'No builders go out with nobody working here'; // (Slice 51: the pause named.)
   else if (mine.length) {
     const at = [...new Set(mine.map((w) => w.target))].map((id) => findBuilding(s, id)).filter((g): g is Building => !!g);
-    doing = `Its builders are at ${at.map((g) => monumentName(g.kind as MonumentKind)).join(' and ')}`;
+    doing = `Its builders are at ${at.map((g) => nameAt(s, g)).join(' and ')}`;
   } else if (sites.length === 0) doing = 'No monument is being built: mark one out on the Monuments tab, and its builders will go to it';
   else if (!sites.some((x) => x.building)) doing = 'The builders wait in the yard: no stage is under way yet (each waits for its materials on site)';
   else doing = 'Its builders set out for the site soon';
@@ -175,7 +195,7 @@ export function masonsStatus(s: SimState, b: Building, workers: string): Status 
 export function monumentWalkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'builder') {
     const site = findBuilding(s, w.target);
-    const name = site ? monumentName(site.kind as MonumentKind) : 'the site';
+    const name = site ? nameAt(s, site) : 'the site';
     const x = site ? siteOf(s, site.id) : undefined;
     const stage = x ? stageNow(x) : undefined;
     if (w.back) return { title: 'Builder', detail: 'Walking home to the masons’ yard' };
@@ -185,7 +205,7 @@ export function monumentWalkerStatus(s: SimState, w: Walker): Status | null {
   if (w.kind === 'oxcart') {
     const name = materialName(w.food as Ware);
     const site = findBuilding(s, w.target);
-    const to = site ? monumentName(site.kind as MonumentKind) : 'the site';
+    const to = site ? nameAt(s, site) : 'the site';
     if (w.back) return { title: 'Ox cart', detail: w.load > 0 ? `Taking its ${name} back to the storehouse: the site is gone` : 'Heading back to the storehouse empty' };
     if (w.wait > 0) return { title: 'Ox cart', detail: `Unloading ${fmt(w.load)} ${name} at ${to}` };
     return { title: 'Ox cart', detail: `Hauling ${fmt(w.load)} ${name} from the storehouse to ${to} (slow: about a tile of road a day)` };
@@ -217,11 +237,13 @@ export function monumentTownLine(s: SimState): { text: string; at: number } | nu
   if (stadium?.finished && g.until > s.tick) return { text: `The games are on at the Stadium: ${fmt(g.visitors)} visitors so far have paid ${fmt(g.takings)} dr for their seats, and every home is in a festival mood.`, at: stadium.id };
   if (stadium?.finished && gamesSoon(s)) return { text: `The games at the Stadium open in ${spanWords(g.next - s.tick)}: visitors are on the roads in, and athletes from cities friendly to you${s.empire.vassals.length || s.empire.allies.length ? ` and from your ${s.empire.vassals.length && s.empire.allies.length ? 'vassals and allies' : s.empire.vassals.length ? 'vassals' : 'allies'}` : ''} will come.`, at: stadium.id };
   for (const x of sites) {
+    // (Slice 54: a sanctuary's stages and its finish are its own news: sanctuaries.ts.)
+    if (x.kind === 'sanctuary') continue;
     if (x.finished && s.tick - x.finished < NEWS_DAYS * TICKS_PER_DAY) return { text: `${monumentName(x.kind, true)} is finished. ${effectLine(s, x.kind)}.`, at: x.id };
     const last = x.done[x.done.length - 1];
     if (!x.finished && last !== undefined && s.tick - last < NEWS_DAYS * TICKS_PER_DAY) {
       const next = stageNow(x)!;
-      return { text: `${monumentName(x.kind, true)}: ${low(STAGES[x.kind][x.stage - 1].name)} ${/s$/.test(STAGES[x.kind][x.stage - 1].name) ? 'are' : 'is'} finished · ${x.building ? `${low(next.name)} is under way` : `${low(next.name)} waits for its materials`}.`, at: x.id };
+      return { text: `${monumentName(x.kind, true)}: ${low(stagesOf(x)[x.stage - 1].name)} ${/s$/.test(stagesOf(x)[x.stage - 1].name) ? 'are' : 'is'} finished · ${x.building ? `${low(next.name)} is under way` : `${low(next.name)} waits for its materials`}.`, at: x.id };
     }
   }
   for (const x of sites) {
@@ -232,11 +254,15 @@ export function monumentTownLine(s: SimState): { text: string; at: number } | nu
     if (s.tick - since < 30 * TICKS_PER_DAY) continue;
     if (!x.building) {
       const st = stageNow(x)!;
-      const short = MATERIALS.filter((w) => needOf(st, w) > held(b, w) + comingTo(s, x.id, w) && !s.buildings.some((g) => g.kind === 'storehouse' && held(g, w) > 0));
-      if (short.length) return { text: `${monumentName(x.kind, true)} waits for ${short.map((w) => `${fmt(needOf(st, w) - held(b, w) - comingTo(s, x.id, w))} ${materialName(w)}`).join(' and ')} before ${low(st.name)} can start, and no storehouse has any.`, at: x.id };
-      if (isBronze(x) && !smithsAt(s) && MATERIALS.every((w) => held(b, w) >= needOf(st, w))) return { text: `${monumentName(x.kind, true)}: the bronze is on site, and waits for the armourers. An armoury with workers casts it.`, at: x.id };
+      const mats = siteMaterials(x);
+      const short = mats.filter((w) => needOf(st, w) > held(b, w) + comingTo(s, x.id, w) && !anyStored(s, w));
+      // (Slice 54: "no granary has any" when a sanctuary's sacred food is what is short.)
+      // (Review of slice 54: both kinds named when a storehouse's good and a granary's food are short together.)
+      const none = short.every((w) => storeFor(w) === 'storehouse') ? 'no storehouse' : short.every((w) => storeFor(w) === 'granary') ? 'no granary' : 'no storehouse or granary';
+      if (short.length) return { text: `${siteName(x, true)} waits for ${short.map((w) => `${fmt(needOf(st, w) - held(b, w) - comingTo(s, x.id, w))} ${materialName(w)}`).join(' and ')} before ${low(st.name)} can start, and ${none} has any.`, at: x.id };
+      if (isBronze(x) && !smithsAt(s) && mats.every((w) => held(b, w) >= needOf(st, w))) return { text: `${siteName(x, true)}: the bronze is on site, and waits for the armourers. An armoury with workers casts it.`, at: x.id };
     } else if (buildersTo(s, x.id).length === 0 && !s.buildings.some((y) => y.kind === 'masons' && buildersFor(y) > 0)) {
-      return { text: `${monumentName(x.kind, true)}: ${low(stageNow(x)!.name)} is ready to build, but no masons’ yard sends builders.`, at: x.id };
+      return { text: `${siteName(x, true)}: ${low(stageNow(x)!.name)} is ready to build, but no masons’ yard sends builders.`, at: x.id };
     }
   }
   return null;

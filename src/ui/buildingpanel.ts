@@ -54,6 +54,9 @@ import { walkerFigure } from './icons';
 import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
 // Slice 56: a god's blessing on the building, under its plaque.
 import { blessingWords } from '../sim/epiphany';
+// Slice 54: a sanctuary's sections.
+import { SANCTUARY_QUIET, sanctuarySections } from './sanctuarypanel';
+import { GODS } from '../sim/pantheon';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -90,6 +93,8 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   // Slice 49: the infirmary (its physicians, the city's health, the quarantine) and the asklepieion (its beds, the city's health, the quarantine), src/ui/health.ts.
   infirmary: { more: infirmarySections, quiet: HEALTH_QUIET },
   asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
+  // Slice 54: a sanctuary (its god, its stages, the god's mood, its priests), src/ui/sanctuarypanel.ts.
+  sanctuary: { more: sanctuarySections, quiet: SANCTUARY_QUIET },
 };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
@@ -125,6 +130,8 @@ const WALKER_WORDS: Partial<Record<Walker['kind'], [string, string]>> = {
   // Slice 49.
   physician: ['physician', 'physicians'],
   bearer: ['pair of stretcher-bearers', 'pairs of stretcher-bearers'],
+  // Slice 54.
+  priest: ['priest', 'priests'],
 };
 const walkerWords = (k: Walker['kind'], n: number): string => {
   const w = WALKER_WORDS[k] ?? [k, `${k}s`];
@@ -134,6 +141,8 @@ const walkerWords = (k: Walker['kind'], n: number): string => {
 /** A building's name without its article: "Olive press". */
 export function nameOf(b: Building): string {
   if (b.kind === 'home') return HOME_NAMES[Math.min(b.level, HOME_NAMES.length - 1)].replace(/^(A|An) /, '').replace(/^./, (c) => c.toUpperCase());
+  // Slice 54: whose sanctuary it is.
+  if (b.kind === 'sanctuary' && b.god) return `Sanctuary to ${GODS[b.god].name}`;
   return cap((BUILDING_NAMES[b.kind] ?? b.kind).replace(/^(A|An|The) /, ''));
 }
 
@@ -458,6 +467,8 @@ export class BuildingPanel {
     else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
     // (Slice 49: the quarantine, ordered or lifted from the infirmary's or the asklepieion's panel.)
     else if (act === 'quarantine') this.deps.send({ type: 'quarantine', on: t.dataset.on === '1' });
+    // (Slice 60: a sanctuary's god called to war.)
+    else if (act === 'callgod') this.deps.send({ type: 'callgod', god: t.dataset.god ?? '' });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;

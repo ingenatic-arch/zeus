@@ -114,8 +114,13 @@ import { centreOf } from '../sim/buildings';
 import { walkable } from '../sim/wild';
 // Slice 56
 import { GOD_IDS, honour } from '../sim/pantheon';
-// Slice 60.
-import type { GodId } from '../sim/pantheon';
+// Slice 54: sanctuaries.
+import { SANCTUARY_COST } from '../sim/build';
+import { needOf, siteMaterials, stagesOf, workOf, type Site } from '../sim/monuments';
+import { type GodId } from '../sim/pantheon';
+import { sanctuaryOf } from '../sim/sanctuaries';
+import { income } from '../sim/treasury';
+import { TILE_ROAD } from '../sim/state';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -2773,6 +2778,199 @@ const MONUMENT_TOWN = monumentTown('monument');
 const LIT_TOWN = monumentTown('lit');
 
 // ---------------------------------------------------------------------------
+// Slice 54: sanctuaries.
+
+/**
+ * #sanctuaries: #quarry's town (the headland's quarry, the storehouse by the
+ * bay road) with four sanctuaries east of its vineyards, beside the roads
+ * there: Athena's finished and staffed, her priests out; Poseidon's with its
+ * statue going up in its scaffold; Apollo's with its temple's columns rising;
+ * Demeter's just marked out, the ox carts bringing its marble. Three masons'
+ * yards and an armoury (for the bronze) are built for them, and the
+ * materials for the stages each is to reach are put on its site (set up for
+ * this demo, noted in the stock book as bought), so it opens in months, not
+ * years; the builders, the carts and the stages are played as they come.
+ * #sanctuary: the same town with only Demeter's marked out, one masons'
+ * yard, and the first ox carts on the road to it with marble.
+ */
+const SANCT_SPOTS: Record<'athena' | 'poseidon' | 'apollo' | 'demeter', number> = { athena: T(109, 66), poseidon: T(97, 69), apollo: T(103, 75), demeter: T(101, 63) };
+/** How long each may play on, at most, to its moment. */
+const SANCT_MOST = 2 * TICKS_PER_YEAR;
+/** #sanctuaries opens with Poseidon's statue about this far through its stage's work. */
+const SANCT_STATUE = 0.5;
+
+/** The nearest spot by a road for a building of this side and kind to a point (the nearest first, ties by row then column), or -1. */
+function spotNear(sim: Sim, kind: BuildKind, side: number, cx: number, cz: number, reach = 16): number {
+  const s = sim.state;
+  const n = sim.map.size;
+  let best = -1;
+  let bd = Infinity;
+  for (let tz = cz - reach; tz <= cz + reach; tz++) {
+    for (let tx = cx - reach; tx <= cx + reach; tx++) {
+      if (tx < 1 || tz < 1 || tx + side >= n || tz + side >= n) continue;
+      const d = Math.abs(tx - cx) + Math.abs(tz - cz);
+      if (d >= bd || buildingRefusal(sim.map, s, kind, tx, tz) !== '') continue;
+      let road = false;
+      for (let k = 0; k < side && !road; k++) road = [(tz - 1) * n + tx + k, (tz + side) * n + tx + k, (tz + k) * n + tx - 1, (tz + k) * n + tx + side].some((t) => s.tiles[t] === TILE_ROAD);
+      if (!road) continue;
+      best = tz * n + tx;
+      bd = d;
+    }
+  }
+  return best;
+}
+
+/** Put on a sanctuary's site what its stages from `from` to `to` (not including) need, noted as bought for the demo. */
+function stockSanctuary(sim: Sim, x: Site, from: number, to: number): void {
+  const s = sim.state;
+  const b = s.buildings.find((g) => g.id === x.id);
+  if (!b) return;
+  for (let k = from; k < to; k++) {
+    const st = stagesOf(x)[k];
+    if (!st) continue;
+    for (const w of siteMaterials(x)) {
+      const n = needOf(st, w);
+      if (n <= 0) continue;
+      setHeld(b, w, held(b, w) + n);
+      note(s, w, 'bought', 'for a sanctuary (set up for this demo)', n);
+    }
+  }
+}
+
+/**
+ * Review of slice 54: #quarry's town cuts marble but has no loggers' camp and
+ * no copper mine, so a site's timber and copper would never come. What the
+ * sites still to rise will want of them is put in the storehouse (set up for
+ * this demo, noted in the stock book as bought), for the ox carts to haul.
+ * The copper is more than the statues need: the armoury's smiths fetch theirs
+ * from the same storehouse.
+ */
+function supplyStorehouse(sim: Sim, timber: number, copper: number): void {
+  const s = sim.state;
+  const g = s.buildings.find((b) => b.kind === 'storehouse');
+  if (!g) return;
+  for (const [w, n] of [[TIMBER, timber], [COPPER, copper]] as const) {
+    if (n <= 0) continue;
+    setHeld(g, w, held(g, w) + n);
+    note(s, w, 'bought', 'for the sanctuaries (set up for this demo)', n);
+  }
+}
+
+function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void {
+  return (sim) => {
+    WORKS_QUARRY_TOWN(sim);
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const rolling = (god: GodId): boolean => {
+      const x = sanctuaryOf(s, god);
+      return !!x && cartsTo(s, x.id).some((k) => k.wait <= 0 && k.load > 0 && k.food === MARBLE);
+    };
+    const yards = which === 'sanctuary' ? 1 : 3;
+    // (The sanctuaries' coin and their yards': a gift for the demo, so it opens without years of saving.)
+    const gods = which === 'sanctuary' ? (['demeter'] as const) : (['athena', 'poseidon', 'apollo', 'demeter'] as const);
+    income(s, gods.length * SANCTUARY_COST + yards * (MASONS_COST + JOBS.masons * WAGE) + COST.armoury + JOBS.armoury * WAGE, 'gifts', 'set up for this demo: the sanctuaries’ coin');
+    if (which === 'sanctuary') {
+      send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+      const at = spotNear(sim, 'masons', 2, 104, 70);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+      // (Review of slice 54: an armoury for the statue's bronze, and the timber and copper the town can't make, so it rises when played on.)
+      const smithy = spotNear(sim, 'armoury', 3, 98, 64);
+      if (smithy >= 0) send({ type: 'build', kind: 'armoury', at: [smithy] });
+      playOn(2 * TICKS_PER_MONTH, () => rolling('demeter'));
+      supplyStorehouse(sim, 240, 400);
+      return;
+    }
+    for (const god of ['athena', 'poseidon', 'apollo'] as const) send({ type: 'sanctuary', god, at: [SANCT_SPOTS[god]] });
+    for (const [cx, cz] of [[104, 70], [100, 74], [108, 72]]) {
+      const at = spotNear(sim, 'masons', 2, cx, cz);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+    }
+    const forge = spotNear(sim, 'armoury', 3, 98, 64);
+    if (forge >= 0) send({ type: 'build', kind: 'armoury', at: [forge] });
+    const athena = sanctuaryOf(s, 'athena');
+    const poseidon = sanctuaryOf(s, 'poseidon');
+    const apollo = sanctuaryOf(s, 'apollo');
+    if (!athena || !poseidon || !apollo) return;
+    // Athena's all three stages, Poseidon's two, Apollo's one: each goes as far as its materials let it.
+    stockSanctuary(sim, athena, 0, 3);
+    stockSanctuary(sim, poseidon, 0, 2);
+    stockSanctuary(sim, apollo, 0, 1);
+    playOn(SANCT_MOST, () => !!athena.finished && poseidon.stage >= 2 && apollo.stage >= 1);
+    // Then Poseidon's statue and Apollo's temple, played until the statue is about half up.
+    stockSanctuary(sim, poseidon, 2, 3);
+    stockSanctuary(sim, apollo, 1, 2);
+    playOn(SANCT_MOST, () => poseidon.stage >= 2 && poseidon.building && poseidon.work >= SANCT_STATUE * workOf(stagesOf(poseidon)[2]));
+    // Demeter's marked out last, and played until its first marble is on the road.
+    send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+    playOn(TICKS_PER_MONTH, () => rolling('demeter') && s.walkers.some((w) => w.kind === 'priest' && w.origin === athena.id));
+    // (Review of slice 54: Demeter's timber and copper, and Apollo's copper for his statue, so they rise when played on.)
+    supplyStorehouse(sim, 240, 480);
+  };
+}
+const SANCTUARIES_TOWN = sanctuariesTown('sanctuaries');
+const SANCTUARY_TOWN = sanctuariesTown('sanctuary');
+
+/**
+ * #twelve: all twelve sanctuaries finished in two rows of six facing each
+ * other across a new road south of #quarry's town (the gods in their order,
+ * Zeus to Ares on the north side, Aphrodite to Dionysus on the south), to
+ * compare them. They are raised at once for the comparison, stage by stage
+ * as if their builders had just finished each (set up for this demo: no
+ * materials are hauled or used), so each god notices each stage as it would.
+ */
+const TWELVE_ROW = { x: 69, z: 50 };
+function twelveTown(sim: Sim): void {
+  WORKS_QUARRY_TOWN(sim);
+  const s = sim.state;
+  const n = sim.map.size;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  income(s, GOD_IDS.length * SANCTUARY_COST + 40 * ROAD_COST, 'gifts', 'set up for this demo: the sanctuaries’ coin');
+  const { x, z } = TWELVE_ROW;
+  const row: number[] = [];
+  for (let k = 0; k < 36; k++) row.push(z * n + x + k);
+  send({ type: 'road', tiles: row });
+  // Joined to the town's streets at its west end.
+  let near = -1;
+  let bd = Infinity;
+  for (let t = 0; t < n * n; t++) {
+    if (s.tiles[t] !== TILE_ROAD || row.includes(t)) continue;
+    const d = Math.abs((t % n) - x) + Math.abs(Math.floor(t / n) - z);
+    if (d < bd) {
+      bd = d;
+      near = t;
+    }
+  }
+  if (near >= 0) send({ type: 'road', tiles: roadRoute(sim.map, s, z * n + x, near) ?? [] });
+  GOD_IDS.forEach((god, i) => send({ type: 'sanctuary', god, at: [T(x + (i % 6) * 6, i < 6 ? z - 5 : z + 1)] }));
+  // (No ox carts called for materials they won't need.)
+  for (const b of s.buildings) if (b.kind === 'sanctuary') b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3; stage++) {
+    for (const god of GOD_IDS) {
+      const site = sanctuaryOf(s, god);
+      if (!site || site.finished) continue;
+      site.building = true;
+      site.work = workOf(stagesOf(site)[site.stage]);
+    }
+    sim.step();
+  }
+  sim.run(3 * TICKS_PER_DAY);
+}
+
+// ---------------------------------------------------------------------------
 // Slice 38: contested seas.
 
 /**
@@ -3653,8 +3851,14 @@ const SCENES: Record<string, Demo> = {
   // All twelve gods posed in a row on the open flood plain of the Bay, to compare (they never walk or leave).
   epiphany: { view: 'epiphany', setup: epiphanyTown, overlay: 'missing' },
   pantheon: { view: 'pantheon', setup: pantheonField },
+  // Slice 54: sanctuaries rise. #quarry's town with four sanctuaries at four stages (Athena's finished and staffed, Poseidon's
+  // statue going up, Apollo's temple rising, Demeter's just marked out); Demeter's alone, its first marble on the road; and
+  // all twelve finished in two rows, to compare.
+  sanctuaries: { view: 'sanctuaries', setup: SANCTUARIES_TOWN, overlay: 'religion', building: (s) => sanctuaryOf(s, 'athena')?.id ?? 0 },
+  sanctuary: { view: 'sanctuary', setup: SANCTUARY_TOWN, overlay: 'religion', building: (s) => s.buildings.find((b) => b.kind === 'sanctuary')?.id ?? 0 },
+  twelve: { view: 'twelve', setup: twelveTown, overlay: 'religion' },
   // Slice 60: gods in war. #battle's town, the gods on, Ares (Sparta's patron) furious with it and Athena loving it (staged
-  // through the mood API), her sanctuary finished: Sparta's band on the land with Ares towering among it, the Army tab open
+  // through the mood API), her sanctuary finished (slice 54's, its stages done at once): Sparta's band on the land with Ares towering among it, the Army tab open
   // on the call; and the same played on after calling on Athena, the two gods fighting.
   godwar: { view: 'godwar', speed: 'paused', setup: godWarTown, overlay: 'missing', side: { tab: 'army' }, unread: 3 * TICKS_PER_DAY },
   godduel: { view: 'godduel', speed: 'paused', setup: godDuelTown, overlay: 'missing', unread: 3 * TICKS_PER_DAY },
@@ -4593,13 +4797,24 @@ export const GODWAR_ANGER = 'you paid tribute to Athens';
 export const GODWAR_LOVE = 'the city keeps her festivals';
 /** Where #godwar's companies are marched to meet the band: the west road by the bridge (hoplites), the archers behind. */
 const GODWAR_HOLD = { hoplite: { x: 41, z: 41 }, archer: { x: 44, z: 43 } };
-/** A finished sanctuary to a god (slice 54's), standing in a site record until that line merges here. */
+/** Where #godwar's sanctuary to Athena stands: on open ground north-east of the bridge, in sight of the fight. */
+const GODWAR_SANCTUARY = { x: 44, z: 34 };
+/** A finished sanctuary to a god (slice 54's), marked out and its three stages done at once (its coin given, and noted so). */
 function godWarSanctuary(sim: Sim, god: GodId): void {
   const s = sim.state;
-  const sites = s.monuments.sites as unknown as Array<Record<string, unknown>>;
-  if (sites.some((x) => x.kind === 'sanctuary' && x.god === god)) return;
-  const b = s.buildings.find((x) => x.kind === 'shrine') ?? s.buildings[0];
-  sites.push({ id: b.id, kind: 'sanctuary', stage: 3, building: false, work: 0, marked: 1, done: [1, 2, 3], finished: 3, god });
+  income(s, SANCTUARY_COST, 'gifts', 'set up for this demo: the sanctuary’s coin');
+  sim.enqueue({ type: 'sanctuary', god, at: [T(GODWAR_SANCTUARY.x, GODWAR_SANCTUARY.z)] });
+  sim.flush();
+  const site = sanctuaryOf(s, god);
+  const b = site ? s.buildings.find((x) => x.id === site.id) : undefined;
+  if (!site || !b) return;
+  // (No ox carts called for materials it won't need.)
+  b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3 && !site.finished; stage++) {
+    site.building = true;
+    site.work = workOf(stagesOf(site)[site.stage]);
+    sim.step();
+  }
 }
 /** #godwar: #battle's band on the land with Ares among it, Athena ready to be called. */
 function godWarTown(sim: Sim): void {
@@ -4608,6 +4823,7 @@ function godWarTown(sim: Sim): void {
   gods(sim, true);
   honour(s, 'ares', -75, 'staged', GODWAR_ANGER, 0);
   honour(s, 'athena', 80, 'staged', GODWAR_LOVE, 0);
+  godWarSanctuary(sim, 'athena');
   const until = s.tick + 3 * TICKS_PER_MONTH;
   const risen = (): boolean => s.gods.war.marches.some((m) => m.figure > 0);
   while (s.tick < until && !risen()) sim.step();
@@ -4618,7 +4834,6 @@ function godWarTown(sim: Sim): void {
   }
   sim.flush();
   while (s.tick < until && !s.gods.war.marches.some((m) => m.felled > 0)) sim.step();
-  godWarSanctuary(sim, 'athena');
 }
 /** #godduel: #godwar played on after calling on Athena, until she and Ares have fought about a day. */
 function godDuelTown(sim: Sim): void {

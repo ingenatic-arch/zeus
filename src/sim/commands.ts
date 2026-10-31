@@ -7,6 +7,9 @@
  * Commands carry exactly what to build (tile lists), not how the tool chose
  * it, so a replay never depends on the route-finding of the day.
  */
+// Slice 54.
+import type { GodId } from './pantheon';
+
 export type Command =
   /** Lay road on these tiles (tile indices), in order; a run of wet tiles is a bridge, laid whole or not at all. */
   | { type: 'road'; tiles: number[] }
@@ -99,6 +102,9 @@ export type Command =
   // Slice 56
   /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
   | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } }
+  // Slice 54
+  /** Mark out a sanctuary to a god (sanctuaries.ts) at these top-left tiles (the first that can take it; one to a god). */
+  | { type: 'sanctuary'; god: GodId; at: number[] }
   // Slice 60
   /** Call a god who loves you to fight the invaders on your map (godwar.ts; refused, nothing happens, unless they love you, their sanctuary stands, invaders are on your land and they haven't fought for you within a year). */
   | { type: 'callgod'; god: string };

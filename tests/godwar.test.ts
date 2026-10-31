@@ -8,9 +8,9 @@
  *
  * Every fight here is #battle's: #companies' town with Sparta's band (Ares is
  * Sparta's patron) on the road to the west edge. Moods are staged through
- * the groundwork's API (slice 53 makes them real). Slice 54's sanctuaries are
- * not on this line yet: `stageSanctuary` stands in a finished site record
- * (for the integrator: build a real finished sanctuary there instead).
+ * the groundwork's API (slice 53 makes them real). A god's sanctuary is slice
+ * 54's, marked out north-east of the bridge and its stages done at once, as
+ * #godwar's is; its stages' honours are let go, so a test's mood is exact.
  */
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
@@ -19,7 +19,11 @@ import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_YEAR } from '../src/sim/clock';
 import { callRefusal, DUEL_TICKS, invaders, marchOf, sanctuaryStands, STYLES, warStatus, type Champion } from '../src/sim/godwar';
 import { migrate } from '../src/sim/migrate';
-import { freshWars, GOD_IDS, honour, type GodId } from '../src/sim/pantheon';
+import { freshWars, GOD_IDS, honour, moodOfGod, type GodId } from '../src/sim/pantheon';
+import { SANCTUARY_COST } from '../src/sim/build';
+import { stagesOf, workOf } from '../src/sim/monuments';
+import { sanctuaryDone, sanctuaryOf } from '../src/sim/sanctuaries';
+import { income } from '../src/sim/treasury';
 import { raidChip, raidersOf } from '../src/sim/raids';
 import { deserialize, serialize, Sim } from '../src/sim/sim';
 import { SIM_STATE_VERSION, type Raid, type SimState } from '../src/sim/state';
@@ -44,12 +48,24 @@ const send = (sim: Sim, c: Parameters<Sim['enqueue']>[0]): void => {
 /** A god's mood set for a test (staged, never fading). */
 const mood = (s: SimState, g: GodId, n: number, why: string): void => honour(s, g, n, 'staged', why, 0);
 
-/** A finished sanctuary to a god, as slice 54 records one (its site), standing in for the real one until it merges. */
-function stageSanctuary(s: SimState, god: GodId): void {
-  // (The monuments' daily sync forgets a site whose building isn't a monument: staged again just before each call.)
-  if ((s.monuments.sites as unknown as Array<Record<string, unknown>>).some((x) => x.kind === 'sanctuary' && x.god === god)) return;
-  const b = s.buildings.find((x) => x.kind === 'shrine') ?? s.buildings[0];
-  (s.monuments.sites as unknown as Array<Record<string, unknown>>).push({ id: b.id, kind: 'sanctuary', stage: 3, building: false, work: 0, marked: 1, done: [1, 2, 3], finished: 3, god });
+/** A god's mood set to exactly `n` for a test (the staged memory makes up the difference). */
+const moodTo = (s: SimState, g: GodId, n: number, why: string): void => honour(s, g, n - moodOfGod(s, g), 'staged', why, 0);
+
+/** A finished sanctuary to a god in #battle's town (slice 54's, its stages done at once); its stages' honours let go. */
+function sanctuaryFor(sim: Sim, god: GodId): void {
+  const s = sim.state;
+  income(s, SANCTUARY_COST, 'gifts', 'for the test');
+  send(sim, { type: 'sanctuary', god, at: [34 * sim.map.size + 44] });
+  const site = sanctuaryOf(s, god)!;
+  const b = s.buildings.find((x) => x.id === site.id)!;
+  b.clock = TICKS_PER_DAY * 30;
+  for (let stage = 0; stage < 3 && !site.finished; stage++) {
+    site.building = true;
+    site.work = workOf(stagesOf(site)[site.stage]);
+    sim.step();
+  }
+  expect(sanctuaryDone(s, god)).toBe(true);
+  s.gods.memories[god] = s.gods.memories[god].filter((m) => m.kind !== 'sanctuary-stage');
 }
 
 /** #battle's town, the gods on, Ares (Sparta's patron) as angry as given; its band, and its hoplites and archers. */
@@ -133,13 +149,11 @@ describe('gods in war (slice 60)', () => {
     expect(callRefusal(s, 'athena')).toMatch(/^Athena is only watchful towards you/);
     mood(s, 'athena', 80, 'your olive groves and your court');
     expect(callRefusal(s, 'athena')).toMatch(/no finished sanctuary/);
-    stageSanctuary(s, 'athena');
+    sanctuaryFor(sim, 'athena');
     expect(sanctuaryStands(s, 'athena')).toBe(true);
     expect(callRefusal(s, 'athena')).toBe('No invaders are on your land to fight');
     inMap(sim, r);
-    stageSanctuary(s, 'athena');
     expect(callRefusal(s, 'athena')).toBe('');
-    stageSanctuary(s, 'athena');
     send(sim, { type: 'callgod', god: 'athena' });
     const f = s.gods.walks.figures.find((o) => o.god === 'athena')!;
     expect(f.why).toBe('champion');
@@ -164,12 +178,11 @@ describe('gods in war (slice 60)', () => {
   it('the same town, the same call and the same duel play out the same', () => {
     const play = (): string => {
       const { sim, s, r } = battle(-70);
-      mood(s, 'athena', 80, 'your olive groves');
-      stageSanctuary(s, 'athena');
+      sanctuaryFor(sim, 'athena');
+      moodTo(s, 'athena', 80, 'your olive groves');
       inMap(sim, r);
       until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY);
-      stageSanctuary(s, 'athena');
-    send(sim, { type: 'callgod', god: 'athena' });
+      send(sim, { type: 'callgod', god: 'athena' });
       sim.run(8 * TICKS_PER_DAY);
       return serialize(s);
     };
@@ -183,12 +196,11 @@ describe('gods in war (slice 60)', () => {
       [75, -75, 'athena'],
     ] as Array<[number, number, GodId]>) {
       const { sim, s, r } = battle(anger);
-      mood(s, 'athena', love, 'your olive groves');
-      stageSanctuary(s, 'athena');
+      sanctuaryFor(sim, 'athena');
+      moodTo(s, 'athena', love, 'your olive groves');
       inMap(sim, r);
       expect(until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY)).toBe(true);
-      stageSanctuary(s, 'athena');
-    send(sim, { type: 'callgod', god: 'athena' });
+      send(sim, { type: 'callgod', god: 'athena' });
       expect(until(sim, () => !!s.gods.war.duel, 10 * TICKS_PER_DAY)).toBe(true);
       const d = s.gods.war.duel!;
       const a = s.gods.walks.figures.find((o) => o.id === d.a)!;
@@ -208,10 +220,9 @@ describe('gods in war (slice 60)', () => {
 
   it('Aphrodite doesn’t fight: she breaks the band’s nerve, and it runs without a man struck by her', () => {
     const { sim, s, r } = battle(0);
-    mood(s, 'aphrodite', 80, 'your happy homes');
-    stageSanctuary(s, 'aphrodite');
+    sanctuaryFor(sim, 'aphrodite');
+    moodTo(s, 'aphrodite', 80, 'your happy homes');
     inMap(sim, r);
-    stageSanctuary(s, 'aphrodite');
     send(sim, { type: 'callgod', god: 'aphrodite' });
     expect(STYLES.aphrodite.hurt).toBe(0);
     expect(until(sim, () => r.broke, 30 * TICKS_PER_DAY)).toBe(true);
@@ -222,11 +233,10 @@ describe('gods in war (slice 60)', () => {
 
   it('a save mid-duel opens again the same town; the migration step fills only the war, only where it is missing', () => {
     const { sim, s, r } = battle(-70);
-    mood(s, 'athena', 80, 'your olive groves');
-    stageSanctuary(s, 'athena');
+    sanctuaryFor(sim, 'athena');
+    moodTo(s, 'athena', 80, 'your olive groves');
     inMap(sim, r);
     until(sim, () => enemyRisen(sim, r), 10 * TICKS_PER_DAY);
-    stageSanctuary(s, 'athena');
     send(sim, { type: 'callgod', god: 'athena' });
     until(sim, () => !!s.gods.war.duel, 10 * TICKS_PER_DAY);
     sim.run(3);

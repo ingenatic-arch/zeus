@@ -3,7 +3,7 @@ import type { CoastMap } from '../map/bake';
 import { hash2 } from '../map/noise';
 import { footSide } from '../sim/buildings';
 import { COPPER, held, MARBLE, TIMBER } from '../sim/foods';
-import { gamesOn, isMonument, siteOf, STAGES, workOf, type Site } from '../sim/monuments';
+import { gamesOn, isMonument, siteOf, stagesOf, workOf, type Site } from '../sim/monuments';
 import type { Building, SimState } from '../sim/state';
 import { berthOf } from '../sim/trade';
 import { facingOf } from './homes';
@@ -140,7 +140,7 @@ export class MonumentsView {
   /** How far through its stage a site is (0 before its work began), in drawn steps. */
   private static stepOf(x: Site): number {
     if (x.finished || !x.building) return 0;
-    const st = STAGES[x.kind][x.stage];
+    const st = stagesOf(x)[x.stage];
     return st ? Math.min(WORK_STEPS, Math.floor((x.work / workOf(st)) * WORK_STEPS)) : 0;
   }
 

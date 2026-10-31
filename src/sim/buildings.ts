@@ -71,10 +71,12 @@ export const BUILDING_NAMES: Record<Exclude<BuildingKind, 'home'>, string> = {
   // Slice 49.
   infirmary: 'An infirmary',
   asklepieion: 'The asklepieion',
+  // Slice 54.
+  sanctuary: 'A sanctuary',
 };
 
 /** Workers each kind of building needs (homes need none). */
-export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4, masons: 8, lighthouse: 0, colossus: 0, stadium: 0, horsefarm: 6, court: 5, prison: 6, infirmary: 4, asklepieion: 12 };
+export const JOBS: Record<BuildingKind, number> = { home: 0, fountain: 2, farm: 10, granary: 6, agora: 6, shrine: 2, theatre: 5, taxoffice: 3, lodge: 6, dairy: 8, grove: 4, press: 4, storehouse: 3, pasture: 4, vineyard: 4, winery: 4, watchpost: 3, architect: 3, rubble: 0, trading: 6, yard: 4, mine: 6, armoury: 6, barracks: 4, tower: 4, shipyard: 8, quarry: 8, loggers: 4, masons: 8, lighthouse: 0, colossus: 0, stadium: 0, horsefarm: 6, court: 5, prison: 6, infirmary: 4, asklepieion: 12, sanctuary: 8 };
 
 /** More workers an agora needs for each stall it has for goods (the stall keeper and its vendor). */
 export const STALL_JOBS = 1;
@@ -87,7 +89,7 @@ export const stallCount = (b: Building): number => {
 };
 
 /** Jobs a building offers: its kind's, and an agora's stalls'. */
-export const jobsAt = (b: Building): number => JOBS[b.kind] + (b.stalls ? stallCount(b) * STALL_JOBS : 0);
+export const jobsAt = (b: Building): number => (b.kind === 'sanctuary' && b.level === 0 ? 0 : JOBS[b.kind] + (b.stalls ? stallCount(b) * STALL_JOBS : 0));
 
 /** Buildings drawn on a two-by-two footprint (the rest take three by three, the barracks four by four; rubble takes what stood there). */
 export const isSmall = (kind: BuildingKind): boolean =>
@@ -101,9 +103,15 @@ export const isLarge = (kind: BuildingKind): boolean => kind === 'barracks' || k
 /** Slice 35: the Stadium takes six by six (its track and banks). */
 export const isHuge = (kind: BuildingKind): boolean => kind === 'stadium';
 
+// Slice 54: the sanctuary.
+/** Slice 54: a sanctuary takes five by five (its walled court, its temple and its statue). */
+export const isGrand = (kind: BuildingKind): boolean => kind === 'sanctuary';
+/** Slice 54: the workers a finished sanctuary takes (its priests and temple servants); none while it rises (its building's level is 0 until it is finished: sanctuaries.ts). */
+export const SANCTUARY_JOBS = 8; // (= JOBS.sanctuary)
+
 /** The side of a kind of building's square footprint, in tiles (for rubble, see footSide). */
 export function sideOf(kind: BuildingKind): number {
-  return isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : 3;
+  return isSmall(kind) ? 2 : isLarge(kind) ? 4 : isHuge(kind) ? 6 : isGrand(kind) ? 5 : 3;
 }
 
 /** The side of this building's footprint: its kind's, or for rubble, that of what stood there. */

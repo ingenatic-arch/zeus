@@ -13,11 +13,11 @@
 import { PLACES } from '../map/greece';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { figureOf } from '../sim/epiphany';
-import { angerWords, callable, duelLine, invaders, loving, sanctuaryStands, STYLES, warDoing } from '../sim/godwar';
-import { GODS, goddess, moodOfGod, moodWord } from '../sim/pantheon';
+import { angerWords, callable, callRefusal, duelLine, invaders, loving, sanctuaryStands, STYLES, warDoing } from '../sim/godwar';
+import { GODS, goddess, moodOfGod, moodWord, type GodId } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { emblemIcon } from './godpanel';
-import { esc, kbtn, kcard, kh, kwhy } from './kit';
+import { esc, kbtn, kcard, kh, ksec, kwhy } from './kit';
 import './godwarcard.css';
 
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
@@ -86,4 +86,16 @@ export function godWarCard(s: SimState): string {
   if (dim.length) answer.push(`<div class="gw-rest"><small>Won’t come:</small>${dim.join('')}</div>`);
   out.push(answer.join(''));
   return kcard(`${kh('Call on the gods', { icon: emblemIcon(ready[0]?.god ?? 'zeus') })}${out.join('')}`, 'k-godwar');
+}
+
+/** A finished sanctuary's call (its panel): while invaders are on your land or a god marches against you, the god's button, or why they can't come; '' otherwise. */
+export function sanctuaryCall(s: SimState, god: GodId): string {
+  if (!s.gods.on || (!invaders(s).length && !s.gods.war.marches.length)) return '';
+  const why = callRefusal(s, god);
+  const st = STYLES[god];
+  return ksec(
+    'Call to war',
+    `<div class="gw-call">${kbtn({ act: 'callgod', data: { god }, icon: emblemIcon(god), html: `Call on ${esc(GODS[god].name)}`, why, tip: `${GODS[god].name} rises beside the invaders and ${st.words}. Once a year.`, cls: 'k-wide' })}${why ? kwhy(why) : `<p class="k-why">${esc(cap(goddess(god) ? 'she' : 'he'))} ${esc(st.words)}.</p>`}</div>`,
+    { cls: 'k-godwar' },
+  );
 }

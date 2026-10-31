@@ -48,7 +48,7 @@ import { datan2, dhypot } from '../map/dmath';
 import { districtAt, districtTitle } from '../map/districts';
 import { PLACES, type CityId } from '../map/greece';
 import { breakNow } from './battle';
-import { centreOf, findBuilding } from './buildings';
+import { centreOf } from './buildings';
 import { dateOfTick, formatYear, TICKS_PER_DAY, TICKS_PER_YEAR } from './clock';
 import { atWar, middleOf, onLand, shoreNear, WAR_ARRIVE, WAR_LEAVE, type GodFigure, type WalkState } from './epiphany';
 import { burnable, FIRE_BURNING, ignite } from './hazards';
@@ -58,6 +58,7 @@ import { GODS, goddess, GOD_IDS, moodOfGod, moodRank, moodWord, noticed, patronO
 import { bandMen, live, raidersOf } from './raids';
 import type { Building, Raid, SimState } from './state';
 import { position } from './walk';
+import { sanctuaryDone } from './sanctuaries';
 
 // ---------------------------------------------------------------------------
 // The state (in `gods.war`: see pantheon.ts).
@@ -259,17 +260,9 @@ export function invaders(s: SimState): Raid[] {
 /** Ships of a band sailing in for your beach, not landed yet. */
 const sailingIn = (s: SimState, r: Raid): boolean => r.shore >= 0 && r.landed === 0 && s.fleet.ships.some((e) => e.raid === r.id && e.state === 'sailing' && e.hp > 0);
 
-/**
- * Is this god's sanctuary finished and standing? Slice 54's `sanctuaryDone`
- * once it merges; until then the same test on its records: a site of kind
- * 'sanctuary' to the god, finished, its building standing. (For the
- * integrator: replace the body with `return sanctuaryDone(s, god);`.)
- */
+/** Is this god's sanctuary finished and standing? (Slice 54's `sanctuaryDone`, merged into this line before this slice's check-in.) */
 export function sanctuaryStands(s: SimState, god: GodId): boolean {
-  for (const x of s.monuments.sites as ReadonlyArray<{ id: number; kind: string; finished: number; god?: GodId }>) {
-    if (x.kind === 'sanctuary' && x.god === god && x.finished) return !!findBuilding(s, x.id);
-  }
-  return false;
+  return sanctuaryDone(s, god);
 }
 
 /** Why a god can't be called to fight for you now, or '' if they can. */
