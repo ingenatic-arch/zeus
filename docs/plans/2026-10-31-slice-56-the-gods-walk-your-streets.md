@@ -91,4 +91,31 @@ At `11f9290`, on a loaded machine (four lines building at once on 4 cores; load 
 
 ## As built
 
-(To be filled in.)
+Built as designed above, with these differences and details:
+
+- **Figures 1.8 tiles tall**, not 1.5: at 1.5 Demeter stood barely a roof's height over the farms in `#epiphany`'s view. 500 to 750 triangles each (Hephaestus 500, Hermes 748), counted by `godTriangles()`; a handful at once (at most three walk, plus the twelve of a pose).
+- **The look, tuned by eye:** the emissive rim is now cooler and narrower (a cubed rim term, the base glow mixed half with white), because at first every god glowed their own colour all over and Demeter, gold on gold fields, read as a bright statue; Demeter's robe is cream with an ochre mantle. The soft glow sprite sits 0.9 behind the figure (away from the eye), so it lights them from behind rather than washing over them. Each head has a thin halo (its own texture, a ring round a faint disc) set just behind it, besides the halo on the ground.
+- **`last`** is a sparse record by god (`{}` when no god has come), not twelve `-1`s: the twelve cost 35 characters, and `#town`'s save had come to 194,534 against the save test's budget of 194,500. It is now 194,499: one character under. Any line that adds to the state will need that budget raised at its merge.
+- **`at` on `startVisit`** is used only for a pose. A festival's or a sanctuary's visit arrives at its god's fitting spot (a shrine of theirs, the agora, the fields, the shore...). If slice 54 wants its god to rise at the new sanctuary itself, the smallest change is to let `at` place any visit (one line in `startVisit`).
+- **A theatre visited** gets the generic effect (no fire or wear) and the shimmer. A theatre "filling" for Dionysus or Apollo would need `culture.ts`, which is Olympus's.
+- **Leaving** happens where the god stands after the last place, as the brief says (not by walking off the map).
+- **Sound:** a sting for each god, at most one each half second, quieter as they leave. Headless, the probe's sting count stays 0 (no sound before a click), so only the code paths were checked, not the sound.
+- **A probe, `visit(god, why)`**, sends a god in through the `visit` command, to look at the flourishes; `gods()` and `godAt(god)` report the figures, what is drawn, the panel and the triangles.
+- **A message icon** for the new kind (a figure under a gold halo), because the kit's test asks that every kind of message have its own.
+
+**Exported hooks for the other lines:**
+- `startVisit(s, god, why, at?)` in `src/sim/epiphany.ts`: `why` is `'festival'` (slice 53) or `'sanctuary'` (slice 54); returns the figure, or `null` if refused (the same god already in the city, or three walking). `visitRefusal(s, god, why)` says why in words.
+- `blessingOn(s, id)`, `boonOf(s, b)` and `BOON` in `src/sim/pantheon.ts` (the blessing lookups live there to avoid a load-order cycle), `blessingWords(s, b)` in `epiphany.ts` for a panel's line.
+- `walking(s)`, `figureOf(s, id)`, `godStatus(s, f)`; the `visit` command; the `epiphany` message kind.
+
+**Touched outside the line** (each in a "Slice 56" block, kinds and commands appended):
+- `src/sim/pantheon.ts`: `walks` in `Gods`, one line in `freshGods`, and the blessing lookups and `freshWalks` at the end.
+- `src/sim/state.ts` (version 49), `src/sim/migrate.ts` (`fromSlice56`), `src/game/saves.ts` (`walksOk`).
+- `src/sim/sim.ts` (the step and the `visit` command), `src/sim/commands.ts` (`visit`, appended), `src/sim/messages.ts` (`epiphany`, appended).
+- The blessing's effects: `src/sim/production.ts` (a maker's pace), `src/sim/hazards.ts` (no risk or wear), `src/sim/folk.ts` (a home's mood).
+- `src/main.ts` (the view, hover, click, Esc, follow, the panel, the stings, the probes), `src/ui/buildingpanel.ts` (the gold line), `src/ui/icons.ts` (the message icon), `src/audio/sound.ts` (the stings).
+- `src/game/demos.ts`, `src/game/views.ts` (`#epiphany`, `#pantheon`), `scripts/smoke.mjs`, `scripts/measure.mjs`.
+- New: `src/sim/epiphany.ts`, `src/render/gods.ts`, `src/ui/godpanel.ts`, `src/ui/godpanel.css`, `tests/epiphany.test.ts`, `tests/fixtures/groundwork-town.save.json.gz` (`#town` saved at `11f9290`, version 48).
+
+**Checked:** every one of the 165 earlier demos' prepared towns is identical to the baseline's (`11f9290`) once the version and `gods.walks` are set aside; `#epiphany` and `#pantheon` are the two new ones.
+
