@@ -101,8 +101,9 @@ export function feastGodOn(city: CityId, tick: number): GodId | null {
 
 /**
  * An expedition has fought at its city (expeditions.ts' fight): its patron
- * remembers the war (`cause` as the rulers judge it) and any plunder, Ares a
- * win, Athena a war won well or a foolish one. The report's sentence ('' with
+ * remembers the war (`cause` as the rulers judge it, or, since the merge, a
+ * vassal's rising crushed) and any plunder, Ares a win, Athena a war won
+ * well or a foolish one. The report's sentence ('' with
  * the gods off, or nothing to say).
  */
 export function expeditionDeeds(s: SimState, e: Expedition, cause: boolean): string {

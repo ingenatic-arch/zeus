@@ -8,10 +8,11 @@
  *   Athens", her mood towards you with its bar and the reasons, and what a
  *   pious ruler makes of it.
  * - **Olympus**: the mountain's label, its hover card and its page, the
- *   twelve as kit cards (emblem, the city each watches over, mood word and
- *   bar, the weightiest reasons). Slice 53's Olympus panel was not on this
- *   line when this was written: these cards are this line's own, for the
- *   integrator to unify with that panel's.
+ *   twelve as cards (emblem, the city each watches over, mood word and bar,
+ *   the weightiest reasons). (Merge with slice 53: the cards are the Olympus
+ *   panel's own drawing and emblems, `godCardMini` and `godRowMini` in
+ *   olympus.ts, and a click on one, or on a city's god, opens that god's page
+ *   on the Olympus panel.)
  *
  * It only reads the state (moods through the groundwork's API).
  */
@@ -21,9 +22,10 @@ import { moodWith, pietyOf } from '../sim/greecegods';
 import { GOD_IDS, GODS, goddess, moodOfGod, moodRank, moodWord, PATRONS, patronOf, reasonsOf, type GodId, type GodReason } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { cityOf } from '../sim/world';
-// (Merge with slice 53: the one drawing of the twelve's emblems, emblems.ts; slice 54's godemblems.ts is gone.)
+// (Merge with slice 53: the one drawing of the twelve's emblems, and the Olympus panel's cards.)
 import { emblemSvg as godEmblem, godColour as godColourCss } from './emblems';
-import { esc, kbar, kcard } from './kit';
+import { esc } from './kit';
+import { godCardMini, godRowMini, moodBar } from './olympus';
 import './greecegods.css';
 
 const cap = (t: string): string => (t ? `${t[0].toUpperCase()}${t.slice(1)}` : t);
@@ -53,9 +55,6 @@ export function patronKicker(id: CityId): string {
   if (!g) return '';
   return `<div class="gg-watch" style="--god:${godColourCss(g)}">${godEmblem(g, 'gem')}<span>${esc(watchesWords(g, id))}</span></div>`;
 }
-
-/** A mood's bar, -100 to 100, a mark at 0. */
-const moodBar = (n: number, tip = 'From furious to loving'): string => kbar({ value: n + 100, max: 200, tone: n >= 10 ? 'good' : n <= -10 ? 'danger' : 'stone', tick: 0.5, tip, cls: 'gg-bar' });
 
 /** One reason, as the cards list them. */
 const reasonLi = (r: GodReason): string => `<li class="${r.worth > 0 ? 'up' : 'down'}"><b>${signed(r.worth)}</b> ${esc(cap(r.why))}${r.fading ? '<small> · fading</small>' : ''}</li>`;
@@ -87,7 +86,7 @@ export function patronSection(s: SimState, id: CityId): string {
     : pious
       ? `<p class="gg-pious">${esc(`${cap(c.ruler?.name ?? 'The ruler')} is pious, and minds what ${G.name} thinks of you: ${p ? `${signed(p)} to ${c.ruler?.female ? 'her' : 'his'} mood, while ${G.name} is ${moodWord(n)}` : `nothing either way while ${goddess(g) ? 'she' : 'he'} is ${moodWord(n)}`}.`)}</p>`
       : '';
-  return `<section class="gg-patron" style="--god:${godColourCss(g)}"><h3>${esc(`${possessive(cityName(id))} god`)}</h3><div class="gg-row"><span class="gg-em">${godEmblem(g)}</span><div><p class="gg-who"><b>${esc(watchesWords(g, id))}</b>, ${esc(G.epithet)}, ${goddess(g) ? 'goddess' : 'god'} of ${esc(G.of)}.</p><p class="gg-mood">${moodChip(n)} ${esc(towards(n))}${moodBar(n)}</p></div></div>${shown.length ? `<ul class="gg-whys">${shown.map(reasonLi).join('')}</ul>` : `<p class="gg-none">${esc(`${G.name} has no reason to think either way of you yet.`)}</p>`}${piety}<p class="gg-foot">${esc(`Making war on ${cityName(id)} angers ${goddess(g) ? 'her' : 'him'}, plunder more; ${moodRank(n) <= 1 ? `while ${goddess(g) ? 'she' : 'he'} is ${moodWord(n)} ${goddess(g) ? 'she' : 'he'} stands with ${possessive(cityName(id))} men against yours` : `angry, ${goddess(g) ? 'she' : 'he'} would stand with ${possessive(cityName(id))} men against yours`}.`)}</p></section>`;
+  return `<section class="gg-patron" style="--god:${godColourCss(g)};--gc:${godColourCss(g)}"><h3>${esc(`${possessive(cityName(id))} god`)}</h3><div class="gg-row"><button class="gg-em ol-emb link" data-act="god" data-god="${g}" title="${esc(`${G.name}’s page on Olympus: every reason, two years of moods`)}">${godEmblem(g)}</button><div><p class="gg-who"><b>${esc(watchesWords(g, id))}</b>, ${esc(G.epithet)}, ${goddess(g) ? 'goddess' : 'god'} of ${esc(G.of)}.</p><p class="gg-mood">${moodChip(n)} ${esc(towards(n))}${moodBar(n)}</p></div></div>${shown.length ? `<ul class="gg-whys">${shown.map(reasonLi).join('')}</ul>` : `<p class="gg-none">${esc(`${G.name} has no reason to think either way of you yet.`)}</p>`}${piety}<p class="gg-foot">${esc(`Making war on ${cityName(id)} angers ${goddess(g) ? 'her' : 'him'}, plunder more; ${moodRank(n) <= 1 ? `while ${goddess(g) ? 'she' : 'he'} is ${moodWord(n)} ${goddess(g) ? 'she' : 'he'} stands with ${possessive(cityName(id))} men against yours` : `angry, ${goddess(g) ? 'she' : 'he'} would stand with ${possessive(cityName(id))} men against yours`}.`)}</p></section>`;
 }
 
 /** A festival's god, for its chip: their emblem. */
@@ -135,31 +134,37 @@ export function patronHoverLine(s: SimState, id: CityId): string {
   return `<span class="gg-hl">${godEmblem(g, 'gem')} ${esc(`${watchesWords(g, id)}${s.gods.on ? ` · ${moodWord(n)} ${towards(n)}` : ''}`)}</span>`;
 }
 
-/** One god's card on the Olympus page. */
-function olympusCard(s: SimState, g: GodId): string {
-  const G = GODS[g];
-  const n = moodOfGod(s, g);
-  const reasons = reasonsOf(s, g).slice(0, 3);
+/** What the Olympus page says a god watches over. */
+function watchLine(g: GodId): string {
   const cities = citiesOf(g);
-  const watch = cities.length ? `Watches over ${cities.map(cityName).join(' and ')}` : g === 'aphrodite' ? 'Rose from the sea off Kythera' : 'Patron of no city of Greece here';
-  const inner = `<div class="gg-ch"><span class="gg-em">${godEmblem(g)}</span><div class="gg-name"><b>${esc(G.name)}</b><small>${esc(cap(G.of))}</small><small class="gg-w">${esc(watch)}</small></div><div class="gg-mood">${moodChip(n)}${moodBar(n)}</div></div>${reasons.length ? `<ul class="gg-whys">${reasons.map(reasonLi).join('')}</ul>` : ''}`;
-  return kcard(inner, `gg-card${reasons.length ? '' : ' quiet'}`, ` style="--god:${godColourCss(g)}"`);
+  return cities.length ? `Watches over ${cities.map(cityName).join(' and ')}` : g === 'aphrodite' ? 'Rose from the sea off Kythera' : 'Patron of no city of Greece here';
 }
 
-/** (Review of slice 58) The twelve in the order the page shows them: those with reasons to think something of you first, the most moved first; the rest after, in the twelve's own order. */
+/**
+ * Whether a god has a full card on the Olympus page (merge with slice 53):
+ * not watchful of you, or remembering a deed of yours in Greece. (Since
+ * slice 53 reads the city each month, nearly every god has some small
+ * reason; those still watchful, with nothing from Greece, are short rows.)
+ */
+const fullCard = (s: SimState, g: GodId): boolean => moodWord(moodOfGod(s, g)) !== 'watchful' || reasonsOf(s, g).some((r) => r.kind === 'greece');
+
+/** (Review of slice 58) The twelve in the order the page shows them: those with full cards first, then those with reasons, the most moved first; the rest after, in the twelve's own order. */
 function byWeight(s: SimState): GodId[] {
-  const weight = (g: GodId): number => (reasonsOf(s, g).length ? 1000 + Math.abs(moodOfGod(s, g)) : 0);
+  const weight = (g: GodId): number => (fullCard(s, g) ? 2000 : reasonsOf(s, g).length ? 1000 : 0) + (reasonsOf(s, g).length ? Math.abs(moodOfGod(s, g)) : 0);
   return GOD_IDS.map((g, i) => ({ g, i, w: weight(g) }))
     .sort((a, b) => b.w - a.w || a.i - b.i)
     .map((x) => x.g);
 }
 
-/** The Olympus page: the twelve's moods towards you as cards (those with reasons first; the quiet ones as short rows). */
+/** The Olympus page: the twelve's moods towards you as the Olympus panel's cards (those who think something of you first; the rest as short rows). A click opens a god's page. */
 export function olympusPageHtml(s: SimState): string {
   const n = olympusCounts(s);
   const sum = !s.gods.on ? 'The gods are not watching this city.' : [n.loving ? `${n.loving === 1 ? 'one god loves' : `${n.loving} gods love`} your city` : '', n.warm ? `${n.warm === 1 ? 'one is' : `${n.warm} are`} warm` : '', n.angry ? `${n.angry === 1 ? 'one is' : `${n.angry} are`} angry with you` : ''].filter(Boolean).join(', ') || 'none of the twelve loves you or is angry with you yet';
   const noticed = s.gods.on && s.gods.noticedAt < 0 ? ' Your city is still beneath their notice: they take no great interest until it has 300 people.' : '';
+  const gods = byWeight(s);
+  const cards = gods.filter((g) => fullCard(s, g)).map((g) => godCardMini(s, g, watchLine(g))).join('');
+  const rows = gods.filter((g) => !fullCard(s, g)).map((g) => godRowMini(s, g, watchLine(g))).join('');
   return `<header class="gg-olympus"><div class="kicker">Mount Olympus · the home of the twelve</div><h2>The gods of Olympus</h2><div class="from">${esc(cap(sum))}.${esc(noticed)}</div></header>
-<p class="gg-intro">Each god remembers what you do, in your city and in Greece: their shrines and sanctuaries, festivals and offerings, what they love and hate in your streets, and your deeds abroad. A god who loves you blesses your expeditions; a city’s patron who is angry with you stands with its men; Poseidon’s mood tips the fights at sea.</p>
-<div class="gg-cards">${byWeight(s).map((g) => olympusCard(s, g)).join('')}</div>`;
+<p class="gg-intro">Each god remembers what you do, in your city and in Greece: their shrines and sanctuaries, festivals and offerings, what they love and hate in your streets, and your deeds abroad. A god who loves you blesses your expeditions; a city’s patron who is angry with you stands with its men; Poseidon’s mood tips the fights at sea. Click a god for their page (G opens Olympus).</p>
+<div class="gg-ol">${cards}${rows ? `<div class="gg-rows">${rows}</div>` : ''}</div>`;
 }

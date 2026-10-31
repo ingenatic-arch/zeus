@@ -5,14 +5,14 @@
 .glabel .patron svg { width: 15px; height: 15px; filter: drop-shadow(0 0 1px rgba(255, 250, 235, 0.9)); }
 
 /* Olympus's label: gold-edged, a little peak before its name. */
-.glabel.olympus { font-size: 13px; padding: 1px 8px 1px 5px; background: linear-gradient(180deg, rgba(255, 250, 236, 0.95), rgba(244, 230, 196, 0.92)); border-width: 1.5px; letter-spacing: 0.05em; }
-.glabel.olympus .gg-peak { width: 19px; height: 13px; flex: none; }
-.glabel.olympus .gg-n { font-variant: normal; font-size: 11.5px; letter-spacing: 0; padding: 0 4px; border-radius: 6px; }
-.glabel.olympus .gg-n.up { color: #4f6a1e; background: rgba(156, 176, 90, 0.22); }
-.glabel.olympus .gg-n.down { color: #8c2f26; background: rgba(198, 61, 36, 0.14); }
+.glabel.mtolympus { font-size: 13px; padding: 1px 8px 1px 5px; background: linear-gradient(180deg, rgba(255, 250, 236, 0.95), rgba(244, 230, 196, 0.92)); border-width: 1.5px; letter-spacing: 0.05em; }
+.glabel.mtolympus .gg-peak { width: 19px; height: 13px; flex: none; }
+.glabel.mtolympus .gg-n { font-variant: normal; font-size: 11.5px; letter-spacing: 0; padding: 0 4px; border-radius: 6px; }
+.glabel.mtolympus .gg-n.up { color: #4f6a1e; background: rgba(156, 176, 90, 0.22); }
+.glabel.mtolympus .gg-n.down { color: #8c2f26; background: rgba(198, 61, 36, 0.14); }
 
 /* (Review of slice 58) Under the top bar, it stands beside the mountain, its stem to the mountain's shoulder. */
-.glabel.olympus.beside::after { left: -6px; top: 50%; bottom: auto; width: 5px; height: 2px; margin: -1px 0 0; }
+.glabel.mtolympus.beside::after { left: -6px; top: 50%; bottom: auto; width: 5px; height: 2px; margin: -1px 0 0; }
 
 /* A city's patron in its hover card. */
 .greece-card .gg-hl { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-soft); }
@@ -48,6 +48,11 @@
 .greece-panel section.gg-patron h3 { margin: 0 0 4px; }
 .gg-patron .gg-row { display: flex; gap: 9px; align-items: flex-start; }
 .gg-patron .gg-em svg { width: 34px; height: 34px; }
+/* (Merge with slice 53) The god's emblem in the Olympus panel's ring, and its banded mood bar. */
+.gg-patron .gg-em.ol-emb { width: 44px; height: 44px; }
+.gg-patron .gg-em.ol-emb svg { width: 32px; height: 32px; }
+.gg-patron .ol-bar { height: 8px; margin: 5px 0 2px; }
+.gg-patron .ol-bar b { top: -4px; height: 14px; }
 .gg-patron .gg-row > div { flex: 1; }
 .gg-patron .gg-who { margin: 0; font-size: 13px; line-height: 1.3; }
 .gg-patron .gg-who b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.03em; font-size: 14px; }
@@ -55,20 +60,36 @@
 .gg-patron .gg-pious { margin: 6px 0 0; font-size: 12.5px; }
 .gg-patron .gg-foot { margin: 6px 0 0; font-size: 12px; font-style: italic; color: var(--ink-soft); }
 
-/* The Olympus page. */
+/* The Olympus page. (Merge with slice 53: the Olympus panel's cards, olympus.css, narrower here.) */
 .greece-panel header.gg-olympus h2 { margin: 2px 0 2px; }
 .greece-panel .gg-intro { margin: 6px 0 4px; font-size: 12.5px; line-height: 1.35; color: var(--ink-soft); }
-.gg-cards .k-card.gg-card { margin: 5px 0; padding: 5px 8px 6px; border-left: 5px solid var(--god); border-image: none; border-top: 1px solid rgba(120, 90, 50, 0.35); border-right: 1px solid rgba(120, 90, 50, 0.35); border-bottom: 1px solid rgba(120, 90, 50, 0.35); border-radius: 4px; }
-.gg-card .gg-ch { display: flex; gap: 8px; align-items: center; }
-.gg-card .gg-em svg { width: 30px; height: 30px; display: block; }
-.gg-card .gg-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
-.gg-card .gg-name b { font-weight: normal; font-variant: small-caps; letter-spacing: 0.04em; font-size: 15px; }
-.gg-card .gg-name small { font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gg-card .gg-name small.gg-w { font-style: italic; }
-.gg-card .gg-mood { flex: none; width: 108px; text-align: right; }
-.gg-card .gg-whys { margin-top: 4px; font-size: 12px; }
-.gg-card.quiet { opacity: 0.86; }
-/* (Review of slice 58) A god with nothing to hold for or against you yet: a short row, so the page fits on the screen. */
-.gg-cards .k-card.gg-card.quiet { margin: 3px 0; padding: 2px 8px 3px; }
-.gg-card.quiet .gg-em svg { width: 22px; height: 22px; }
-.gg-card.quiet .gg-name small:not(.gg-w), .gg-card.quiet .k-bar.gg-bar { display: none; }
+.gg-ol { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.gg-ol svg.emb { width: 28px; height: 28px; display: block; flex: none; filter: drop-shadow(0 1px 1px rgba(40, 24, 8, 0.35)); }
+.gg-ol .ol-emb { width: 36px; height: 36px; }
+.gg-ol .ol-card.mini { padding: 6px 8px 6px; gap: 2px; }
+.gg-ol .ol-card.mini .ol-nm b { font-size: 16px; }
+.gg-ol .ol-card.mini .ol-nm small { font-size: 12.5px; }
+.gg-ol .ol-card.mini .ol-word { font-size: 13.5px; }
+.gg-ol .ol-card.mini .ol-bar { margin: 3px 0 2px; height: 8px; }
+.gg-ol .ol-card.mini .ol-bar b { top: -4px; height: 14px; }
+.gg-ol .ol-card.mini .ol-rs { min-height: 0; font-size: 12.5px; }
+.gg-ol .ol-card.mini .ol-rs span { -webkit-line-clamp: 1; }
+/* (Review of slice 58) Those still watchful, with nothing from Greece: short rows, so all twelve fit at 1080. */
+.gg-rows { display: flex; flex-direction: column; gap: 3px; }
+.gg-ol .ol-row {
+  appearance: none; cursor: pointer; text-align: left; font: inherit; color: inherit; text-shadow: inherit;
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 2px 8px 2px 4px;
+  border: 1px solid rgba(138, 100, 48, 0.55); border-radius: 4px; background: var(--k-parch);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gc) 85%, #3a2a10);
+}
+.gg-ol .ol-row:hover { box-shadow: inset 3px 0 0 var(--gc), 0 0 0 2px color-mix(in srgb, var(--gc) 55%, transparent); }
+.gg-ol .ol-row .ol-emb { width: 26px; height: 26px; }
+.gg-ol .ol-row svg.emb { width: 20px; height: 20px; }
+.gg-ol .ol-row b { font: 700 14.5px/1.15 var(--display); letter-spacing: 0.02em; white-space: nowrap; }
+.gg-ol .ol-row small { font-size: 12px; color: var(--ink-soft); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gg-ol .ol-row .ol-word { font-size: 12.5px; }
+.gg-ol .ol-row .ol-word em { font-size: 11.5px; }
+
+/* (Merge with slice 53) A city's god's emblem opens their page on Olympus. */
+.gg-patron button.gg-em { appearance: none; border: 0; padding: 0; cursor: pointer; flex: none; border-radius: 50%; }
+.gg-patron button.gg-em:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--god) 55%, transparent); }

@@ -568,6 +568,9 @@ function fight(s: SimState, e: Expedition): void {
   } else if (l && l.sent === e.id) l.sent = 0;
   // What Greece makes of it.
   const cause = !!e.loan || e.aim === 'war';
+  // (Merge of slice 58: to its patron god, crushing a vassal's rising is a war with cause, as slice 58's plan meant;
+  // asked here, before aimFought settles the rising.)
+  const godsCause = cause || (e.aim === 'conquer' && !!vassalOf(s, e.city));
   const answer: LoanAnswer = cause ? (e.kind === 'raid' ? 'raided' : 'forced') : e.kind === 'raid' ? 'raidedfree' : 'forcedfree';
   const m = loanMemory(c, answer, cause ? `you sent your soldiers against them over a debt` : `you sent your soldiers against them without cause`, s.tick);
   c.memories.push(m);
@@ -615,7 +618,7 @@ function fight(s: SimState, e: Expedition): void {
   r.push(`${byCompany}.`);
   r.push(`${cap(rulerShort(c))} will not soon forget it (${signed(m.amount)}), and Greece ${cause ? 'frowns on it' : 'is shocked'} (${signed(heardAmount)} with every other ruler).`);
   // (Slice 58: and what the gods make of it.)
-  const godsLine = expeditionDeeds(s, e, cause);
+  const godsLine = expeditionDeeds(s, e, godsCause);
   if (godsLine) r.push(godsLine);
   r.push(e.by === 'sea' ? `They sail home: in your bay about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.` : `They march home by road: at the edge of your land about ${dayWords(s.tick + FIGHT_TICKS + marchTicks(e.city, e.by))}.`);
   e.report = r;

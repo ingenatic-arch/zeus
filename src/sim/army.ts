@@ -829,10 +829,10 @@ function racks(s: SimState, map: CoastMap, b: Building): void {
   if (spare > 0 && !out && errandsOut(s, b) === 0 && rateOf(b) > 0) sendCart(s, size, b, ARMOUR, spare);
 }
 
-/** Send a building's porter to the nearest store holding a ware, for a handcart of it (or wait a while if none holds any; slice 58: none beyond what it keeps back, `keep`). */
-function fetchWare(s: SimState, size: number, b: Building, ware: Ware, keep = 0): void {
+/** Send a building's porter to the nearest store holding a ware, for a handcart of it (or wait a while if none holds any; slice 58: none beyond what each store keeps back, `keep`). */
+function fetchWare(s: SimState, size: number, b: Building, ware: Ware, keep: (g: Building) => number = () => 0): void {
   const k = gi(ware);
-  const found = nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && roomOf(g.kind, ware) > 0 && held(g, ware) > keep, fromStores(ware));
+  const found = nearestBy(s, size, roadsBeside(s, size, b), (g) => isStore(g.kind) && roomOf(g.kind, ware) > 0 && held(g, ware) > keep(g), fromStores(ware));
   if (!found) {
     b.fetch[k] = PORTER_RETRY;
     return;
@@ -860,7 +860,8 @@ function smithy(s: SimState, map: CoastMap, b: Building): void {
   if (held(b, COPPER) + coming(b, COPPER) > ARMOURY_COPPER / 2) return;
   if (s.walkers.some((w) => w.origin === b.id && w.kind === 'porter')) return;
   // (Slice 58: the copper the sites still want stays in the stores for their ox carts.)
-  fetchWare(s, map.size, b, COPPER, sitesKeep(s, COPPER));
+  // (Merge of slice 58: what each store keeps back, shared between them, the nearest a site keeping the most.)
+  fetchWare(s, map.size, b, COPPER, (g) => sitesKeep(s, COPPER, g));
 }
 
 /** Move a company's banner along its march. */

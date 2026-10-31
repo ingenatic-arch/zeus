@@ -22,7 +22,9 @@ import './olympus.css';
 import type { CoastMap } from '../map/bake';
 import { dateOfTick, MONTH_NAMES, TICKS_PER_MONTH } from '../sim/clock';
 import type { Command } from '../sim/commands';
-import { GOD_IDS, GOD_MOODS, GODS, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, type GodId, type GodReason } from '../sim/pantheon';
+import { GOD_IDS, GOD_MOODS, GODS, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, PATRONS, reasonsOf, type GodId, type GodReason } from '../sim/pantheon';
+// Merge with slice 58: the cities of Greece a god watches over, on their page.
+import { PLACES, type CityId } from '../map/greece';
 import type { Building, SimState } from '../sim/state';
 import { FESTIVAL_COST, festivalGoods, festivalOf, festivalRefusal, goodsWords, offeringOf, offeringTo, offerRefusal, placeWords, shrinesTo, shrineWords } from '../sim/worship';
 // Merge with slice 54: a god's sanctuary on their card and page, and the festival and offering on a sanctuary's panel.
@@ -243,6 +245,29 @@ function card(s: SimState, god: GodId): string {
   return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
 }
 
+/**
+ * (Merge of slice 58) A god's card on the map of Greece's Olympus page: this
+ * panel's card drawing, narrower (the emblem, the name, the city they watch
+ * over, the mood, its bar and the weightiest reasons; no shrines, rival or
+ * powers, which their page has). A click opens their page here.
+ */
+export function godCardMini(s: SimState, god: GodId, watches: string, reasons = 3): string {
+  const G = GODS[god];
+  const m = moodOfGod(s, god);
+  const rs = reasonsOf(s, god).slice(0, reasons);
+  const why = rs.length ? rs.map((r) => `<span class="${r.worth > 0 ? 'up' : 'down'}">${signed(r.worth)} ${esc(r.why)}</span>`).join('') : `<span class="none">${esc('Nothing of yours noticed yet')}</span>`;
+  return `<button class="ol-card mini" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(watches)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span></button>`;
+}
+
+/** (Merge of slice 58) A god on one short row (the map's Olympus page, for those with little to hold for or against you): emblem, name, mood and the weightiest reason. */
+export function godRowMini(s: SimState, god: GodId, watches: string): string {
+  const G = GODS[god];
+  const m = moodOfGod(s, god);
+  const r = reasonsOf(s, god)[0];
+  const tip = `${G.name}, ${watches.charAt(0).toLowerCase()}${watches.slice(1)}: ${moodWord(m)} (${signed(m)})${r ? `; ${signed(r.worth)} ${r.why}` : ''}. Click for ${G.name}’s page`;
+  return `<button class="ol-row" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(tip)}"><span class="ol-emb">${emblemSvg(god)}</span><b>${esc(G.name)}</b><small>${esc(r ? `${signed(r.worth)} ${r.why}` : watches)}</small>${moodChip(m)}</button>`;
+}
+
 /** A god's page. */
 function godPage(s: SimState, map: CoastMap, god: GodId): string {
   const G = GODS[god];
@@ -253,10 +278,12 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
   const rm = moodOfGod(s, G.rival);
   const her = ['hera', 'demeter', 'athena', 'artemis', 'aphrodite'].includes(god) ? 'her' : 'his';
   const they = her === 'her' ? 'she' : 'he';
+  // (Merge with slice 58: the cities of Greece that are theirs.)
+  const cities = (Object.keys(PATRONS) as CityId[]).filter((c) => PATRONS[c] === god).map((c) => PLACES[c].name);
   const rivalWords = rm < m ? `${rival.name} is honoured less than ${G.name} now (${moodWord(rm)}, ${signed(rm)}), and minds: honouring ${G.name} costs a third as much with ${rival.name}.` : `${rival.name} is honoured as much or more (${moodWord(rm)}, ${signed(rm)}): honouring ${G.name} costs nothing with ${rival.name} while that lasts.`;
   const left = [
-    `<div class="ol-gh" style="--gc:${godColour(god)}"><span class="ol-emb big">${emblemSvg(god)}</span><div><h3>${esc(G.name)}</h3><p class="ol-ep">${esc(cap(G.epithet))}, god of ${esc(G.of)}</p>${moodChip(m)}${moodBar(m, 'wide')}</div></div>`,
-    ksec('Loves and hates', `<p class="ol-lh"><b>Loves</b> ${esc(G.loves.join(', '))}.</p><p class="ol-lh"><b>Hates</b> ${esc(G.hates.join(', '))}.</p><p class="ol-note">${esc(`What ${they} sees in your city is counted once a month, each thing with its reason. Deeds in Greece (wars, tribute, promises) come later.`)}</p>`, { icon: 'reach' }),
+    `<div class="ol-gh" style="--gc:${godColour(god)}"><span class="ol-emb big">${emblemSvg(god)}</span><div><h3>${esc(G.name)}</h3><p class="ol-ep">${esc(cap(G.epithet))}, ${her === 'her' ? 'goddess' : 'god'} of ${esc(G.of)}${cities.length ? `; watches over ${esc(cities.join(' and '))}` : ''}</p>${moodChip(m)}${moodBar(m, 'wide')}</div></div>`,
+    ksec('Loves and hates', `<p class="ol-lh"><b>Loves</b> ${esc(G.loves.join(', '))}.</p><p class="ol-lh"><b>Hates</b> ${esc(G.hates.join(', '))}.</p><p class="ol-note">${esc(`What ${they} sees in your city is counted once a month, each thing with its reason. Deeds in Greece (a war or plunder on a city, tribute paid, a promise kept or broken, a gift at a feast) are remembered as they happen.`)}</p>`, { icon: 'reach' }),
     ksec('Rival', `<p class="ol-riv" style="--gc:${godColour(G.rival)}">${emblemSvg(G.rival)}<span><b>${esc(rival.name)}</b>, ${esc(rival.epithet)}. ${esc(rivalWords)}</span></p>`, { icon: 'refuse' }),
     ksec('What they can do', `<p class="ol-lh"><b>In blessing</b> ${esc(G.blessWords)}</p><p class="ol-lh"><b>In wrath</b> ${esc(G.curseWords)}</p><p class="ol-note">The gods don’t act on these yet: their blessings and their wrath are still to come.</p>`, { icon: 'gods' }),
   ].join('');
@@ -371,7 +398,7 @@ export class OlympusPanel {
       this.headHtml = head;
       morph(this.head, head);
     }
-    const html = kitHtml(this.god ? godPage(s, map, this.god) : `<div class="ol-grid">${GOD_IDS.map((g) => card(s, g)).join('')}</div><p class="ol-foot">${esc(noticed(s) ? 'Each god’s mood is the sum of what they remember: worship (shrines, festivals, offerings), what they love and hate in your city, and neglect. Honouring a god stirs their rival, while the rival is honoured less. Click a god for their page.' : 'Your town is beneath the gods’ notice until it has 300 people: nothing it does yet moves them but worship. Click a god for their page.')}</p>`);
+    const html = kitHtml(this.god ? godPage(s, map, this.god) : `<div class="ol-grid">${GOD_IDS.map((g) => card(s, g)).join('')}</div><p class="ol-foot">${esc(noticed(s) ? 'Each god’s mood is the sum of what they remember: worship (shrines, festivals, offerings), what they love and hate in your city, your deeds in Greece, and neglect. Honouring a god stirs their rival, while the rival is honoured less. Click a god for their page.' : 'Your town is beneath the gods’ notice until it has 300 people: nothing it does yet moves them but worship. Click a god for their page.')}</p>`);
     if (html !== this.html) {
       this.html = html;
       morph(this.body, html);

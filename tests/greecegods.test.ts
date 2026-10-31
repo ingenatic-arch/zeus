@@ -262,6 +262,54 @@ describe('copper kept for the sites (from slice 54’s review)', () => {
   }, 600000);
 });
 
+describe('merge of slice 58 with the trunk', () => {
+  it('the copper kept back is shared between the stores: the store nearest the site keeps it first, and the rest is the smiths’', () => {
+    const s = fresh('sanctuary').state;
+    const x = sanctuaryOf(s, 'demeter')!;
+    const need = sitesKeep(s, COPPER);
+    expect(need).toBeGreaterThan(0);
+    const site = s.buildings.find((b) => b.id === x.id)!;
+    const stores = s.buildings.filter((b) => b.kind === 'storehouse');
+    expect(stores.length).toBeGreaterThan(0);
+    // (A second store across the map, for the test, if the town has only one.)
+    if (stores.length < 2) {
+      const far = { ...structuredClone(stores[0]), id: Math.max(...s.buildings.map((b) => b.id)) + 1, x: site.x > 64 ? 2 : 120, z: site.z > 64 ? 2 : 120 };
+      s.buildings.push(far);
+      stores.push(far);
+    }
+    const d2 = (g: { x: number; z: number }): number => (g.x - site.x) ** 2 + (g.z - site.z) ** 2;
+    stores.sort((p, q) => d2(p) - d2(q) || p.id - q.id);
+    for (const b of stores) setHeld(b, COPPER, 0);
+    const [near, far] = stores;
+    // Half of it in the nearest store, all of it in the other: the nearest keeps its half, the other only the rest.
+    const half = Math.floor(need / 2);
+    setHeld(near, COPPER, half);
+    setHeld(far, COPPER, need);
+    expect(sitesKeep(s, COPPER, near)).toBe(half);
+    expect(sitesKeep(s, COPPER, far)).toBe(need - half);
+    // All of it, and more, in the nearest: the other keeps nothing back.
+    setHeld(near, COPPER, need + 10);
+    expect(sitesKeep(s, COPPER, near)).toBe(need);
+    expect(sitesKeep(s, COPPER, far)).toBe(0);
+    // What all the sites want is unchanged.
+    expect(sitesKeep(s, COPPER)).toBe(need);
+  }, 600000);
+
+  it('crushing a vassal’s rising is a war with cause to the city’s patron', () => {
+    const sim = fresh('rebellion');
+    const s = sim.state;
+    expect(s.gods.on).toBe(true);
+    send(sim, { type: 'empire', act: 'conquer', city: 'corinth' });
+    const e = s.world.expeditions.at(-1)!;
+    expect(e?.aim).toBe('conquer');
+    const end = s.tick + 6 * TICKS_PER_MONTH;
+    while (s.tick < end && e.phase !== 'fighting' && e.phase !== 'homeward' && e.phase !== 'back' && e.phase !== 'done') sim.step();
+    expect(e.report.join(' ')).toMatch(/to crush Corinth’s rising/);
+    expect(reason(s, 'poseidon', /^you made war on Corinth, his city$/)).toBe(-8);
+    expect(reason(s, 'poseidon', /without cause/)).toBeUndefined();
+  }, 600000);
+});
+
 describe('the same commands give the same city', () => {
   it('a gift reaching Corinth during the Isthmian Games, played twice', () => {
     const run = (): { state: string; poseidon: number } => {

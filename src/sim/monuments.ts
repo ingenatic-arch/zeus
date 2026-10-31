@@ -25,7 +25,9 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { ARMOUR, CHEESE, COPPER, held, HORSES, MARBLE, MEAT, TIMBER, WARE_NAMES, WHEAT, type Ware } from './foods';
 // Slice 54: a sanctuary's site, its god and their sacred good.
 import { GODS, type GodId } from './pantheon';
-import type { BuildingKind, SimState } from './state';
+import type { Building, BuildingKind, SimState } from './state';
+// (Merge of slice 58: the stores, for the copper kept back in each.)
+import { isStore, roomOf } from './stores';
 
 export type MonumentKind = 'lighthouse' | 'colossus' | 'stadium';
 export const MONUMENT_KINDS: readonly MonumentKind[] = ['lighthouse', 'colossus', 'stadium'];
@@ -282,12 +284,22 @@ export function siteName(x: { kind: SiteKind; god?: GodId }, cap = false): strin
 /**
  * How much of a ware the unfinished sites still want brought to them: the
  * stage gathering now and every stage after it, less what is on site and on
- * its way. A store keeps this much back from an armoury's smiths (army.ts,
+ * its way. The stores keep this much back from an armoury's smiths (army.ts,
  * food.ts), so a statue's or the Colossus's copper isn't hammered into armour
  * before the ox carts can take it; 0 with no site wanting any.
+ *
+ * (Merge of slice 58: shared between the stores.) Given a `store`, how much
+ * of that is kept back in it: each site's want is met first from the store
+ * nearest it (as the crow flies, then by id), then the next, so copper spread
+ * over two stores keeps back only what is wanted in all, and the rest is the
+ * smiths'. Sites are served in their own order, each from what the ones
+ * before it left.
  */
-export function sitesKeep(s: SimState, w: Ware): number {
+export function sitesKeep(s: SimState, w: Ware, store?: Building): number {
   let n = 0;
+  let mine = 0;
+  let stores: Building[] | null = null;
+  const left = new Map<number, number>();
   for (const x of s.monuments.sites) {
     if (x.finished) continue;
     const st = stagesOf(x);
@@ -297,7 +309,20 @@ export function sitesKeep(s: SimState, w: Ware): number {
     const b = s.buildings.find((y) => y.id === x.id);
     let have = b ? held(b, w) : 0;
     for (const k of s.walkers) if (k.kind === 'oxcart' && k.target === x.id && !k.back && k.food === w) have += k.load;
-    n += Math.max(0, need - have);
+    const want = Math.max(0, need - have);
+    n += want;
+    if (!store || want <= 0 || !b) continue;
+    stores ??= s.buildings.filter((g) => isStore(g.kind) && roomOf(g.kind, w) > 0 && held(g, w) > 0);
+    const d2 = (g: Building): number => (g.x - b.x) * (g.x - b.x) + (g.z - b.z) * (g.z - b.z);
+    let rest = want;
+    for (const g of stores.slice().sort((p, q) => d2(p) - d2(q) || p.id - q.id)) {
+      if (rest <= 0) break;
+      const there = left.get(g.id) ?? held(g, w);
+      const k = Math.min(there, rest);
+      left.set(g.id, there - k);
+      rest -= k;
+      if (g.id === store.id) mine += k;
+    }
   }
-  return n;
+  return store ? mine : n;
 }

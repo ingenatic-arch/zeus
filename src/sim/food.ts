@@ -448,7 +448,7 @@ export function moveErrand(s: SimState, map: CoastMap, w: Walker): boolean {
       const f = w.food;
       // (Slice 36: an estate's porter takes what its yard or stable has room for.)
       // (Slice 58: an armoury's porter leaves the copper the sites still want.)
-      const there = origin.kind === 'armoury' && f === COPPER ? Math.max(0, held(g, f) - sitesKeep(s, f)) : held(g, f);
+      const there = origin.kind === 'armoury' && f === COPPER ? Math.max(0, held(g, f) - sitesKeep(s, f, g)) : held(g, f);
       const take = origin.kind === 'home' ? estateTake(origin, f, held(g, f)) : Math.min(porterTake(f), there, Math.max(0, stallRoom(f) - held(origin, f)));
       setHeld(g, f, held(g, f) - take);
       w.load = take;

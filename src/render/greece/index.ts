@@ -49,6 +49,9 @@ import { buildRelief, reliefMesh, type Relief } from './relief';
 // Slice 58: Mount Olympus on the map, its label, and the festivals' banners in their gods' colours.
 import { olympusModel } from './models';
 import { olympusLabelHtml } from '../../ui/greecegods';
+// Merge of slices 53 and 58: a god's card on the map's Olympus page, or a city's god, opens their page on the Olympus panel.
+import { olympusHooks } from '../../ui/olympus';
+import type { GodId } from '../../sim/pantheon';
 import { GODS } from '../../sim/pantheon';
 // Slice 50: the panels' kit (its tips; the page in its dress).
 import { kitHtml } from '../../ui/kit';
@@ -304,7 +307,8 @@ export class GreeceMap {
     this.armyTag = tag;
     // (Slice 58) Olympus's label: before the cities' labels, so theirs stand over it where they meet.
     const olympus = document.createElement('div');
-    olympus.className = 'glabel olympus';
+    // (Merge with slice 53: not 'olympus', the Olympus panel's own class, whose rules would make the label a window.)
+    olympus.className = 'glabel mtolympus';
     olympus.style.setProperty('--c', '#d9a62e');
     layer.prepend(olympus);
     this.olympusTag = olympus;
@@ -352,6 +356,12 @@ export class GreeceMap {
         return;
       }
       const t = e.target as HTMLElement;
+      // (Merge of slices 53 and 58: a god's card or a city's god opens their page on Olympus.)
+      const god = t.closest('[data-act="god"][data-god]') as HTMLElement | null;
+      if (god) {
+        olympusHooks.open(god.dataset.god as GodId);
+        return;
+      }
       const tab = t.closest('button[data-tab]') as HTMLButtonElement | null;
       const gift = t.closest('button[data-gift]') as HTMLButtonElement | null;
       const deal = t.closest('button[data-deal]') as HTMLButtonElement | null;
