@@ -6,6 +6,9 @@
  * caduceus and Dionysus' vine. Each is filled in the god's colour with a
  * darker line of the same hue, on a 32 × 32 box, so the pale ones (Zeus's
  * gold, Artemis' moonlight) still read on parchment.
+ *
+ * (Merge of slice 53 with slices 54 and 56: the one drawing of the twelve,
+ * used on Olympus, the sanctuary's chooser and panel, and a god's panel.)
  */
 import { GODS, type Emblem, type GodId } from '../sim/pantheon';
 

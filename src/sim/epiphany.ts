@@ -8,7 +8,9 @@
  *   system calls `startVisit` (slice 53's festivals, slice 54's finished
  *   sanctuaries, at their merges). A demo can pose all twelve in a row
  *   (`#pantheon`): posed, they never move or leave.
- * - **Where they arrive.** Somewhere fitting them (arrivalOf): Poseidon on
+ * - **Where they arrive.** Come for a festival (merge of slice 53), where its
+ *   procession sets out; come to see their new sanctuary, at its altar.
+ *   Otherwise somewhere fitting them (arrivalOf): Poseidon on
  *   the shore, Demeter among the fields, Hephaestus by the forge, Artemis in
  *   the woods, the others at a shrine dedicated to them, else the agora,
  *   else the middle of the town. Never on water.
@@ -548,8 +550,9 @@ export function startVisit(s: SimState, god: GodId, why: VisitWhy, at?: { x: num
   const map = mapOf(s);
   const w = s.gods.walks;
   const posed = why === 'pose';
-  // (Merge of slices 54 and 56: a god come to see their new sanctuary rises at its altar, `at`.)
-  const [x, z] = (posed || why === 'sanctuary') && at ? [at.x, at.z] : arrivalOf(s, map, god);
+  // (Merge of slices 54 and 56: a god come to see their new sanctuary rises at its altar, `at`. Merge of slice 53: one
+  // come for their festival rises where the procession sets out, `at`: the shrine, or the sanctuary's altar.)
+  const [x, z] = (posed || why === 'sanctuary' || why === 'festival') && at ? [at.x, at.z] : arrivalOf(s, map, god);
   const plan = posed ? { stops: [], own: true } : placesFor(s, map, god, x, z);
   const first = plan.stops[0];
   const f: GodFigure = {
@@ -579,14 +582,17 @@ export function startVisit(s: SimState, god: GodId, why: VisitWhy, at?: { x: num
   // (Merge of slices 54 and 56: their own sanctuary, first of all, named as theirs; come to see it new, they rise at its altar.)
   const shrine = where[0]?.kind === 'sanctuary' ? where.shift() : undefined;
   const atAltar = !!shrine && why === 'sanctuary' && !!at;
+  // (Merge of slice 53: come for a festival held at their sanctuary, they rise at its altar too, and bless it first.)
+  const atHoly = atAltar || (!!shrine && why === 'festival' && !!at && dist(...centreOf(shrine), at.x, at.z) < footSide(shrine));
   const She = cap(she(god));
-  const lead = atAltar ? `${She} blesses it first` : shrine ? `${She} means to visit ${her(god)} sanctuary` : '';
+  const lead = atAltar ? `${She} blesses it first` : atHoly ? `${She} blesses ${her(god)} sanctuary first` : shrine ? `${She} means to visit ${her(god)} sanctuary` : '';
   const going = !where.length
     ? lead ? ` ${lead}.` : ''
     : plan.own
-      ? lead ? ` ${lead}, then ${atAltar ? 'means to visit ' : ''}${tally(where.map((b) => b.kind))}.` : ` ${She} means to visit ${tally(where.map((b) => b.kind))}.`
+      ? lead ? ` ${lead}, then ${atHoly ? 'means to visit ' : ''}${tally(where.map((b) => b.kind))}.` : ` ${She} means to visit ${tally(where.map((b) => b.kind))}.`
       : ` ${lead ? `${lead}; ${she(god)}` : She} finds no ${nounOf(LOVED[god][0], true)} in your city, and walks among your homes ${lead ? 'after' : 'instead'}.`;
-  const arrives = atAltar ? `rises at the altar of ${her(god)} new sanctuary, come to see it` : `${ARRIVES[god]}: ${f.words}`;
+  const forFeast = why === 'festival' && !!at;
+  const arrives = atAltar ? `rises at the altar of ${her(god)} new sanctuary, come to see it` : forFeast ? `rises where ${her(god)} procession sets out, come for ${her(god)} festival` : `${ARRIVES[god]}: ${f.words}`;
   say(s, { kind: 'epiphany', words: `${name} ${arrives}.${going}`, title: `${name} has come to your city`, at: { tile: Math.floor(z) * map.size + Math.floor(x) } });
   return f;
 }

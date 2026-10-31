@@ -20,7 +20,8 @@ import { GODS, moodOfGod, moodWord, reasonsOf, type GodId } from '../sim/pantheo
 import { DIM_AFTER, dimmed, PRIEST_RANGE, STANDING_HONOUR } from '../sim/sanctuaries';
 import type { Building, SimState } from '../sim/state';
 import { sacredWords } from './godchooser';
-import { godColourCss, godEmblem } from './godemblems';
+// (Merge of slice 53: the twelve's emblems drawn once, in emblems.ts, the same on Olympus, here and on a god's panel.)
+import { emblemSvg as godEmblem, godColour as godColourCss } from './emblems';
 import { kbar, ksec } from './kit';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

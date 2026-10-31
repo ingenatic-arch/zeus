@@ -14,7 +14,8 @@ import { sacredMeasure } from '../sim/monuments';
 import { GOD_IDS, GODS, type GodId } from '../sim/pantheon';
 import { sanctuaryRefusal } from '../sim/sanctuaries';
 import type { SimState } from '../sim/state';
-import { godColourCss, godEmblem } from './godemblems';
+// (Merge of slice 53: the twelve's emblems drawn once, in emblems.ts, the same on Olympus, here and on a god's panel.)
+import { emblemSvg as godEmblem, godColour as godColourCss } from './emblems';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');

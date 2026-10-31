@@ -155,7 +155,7 @@ describe('neglect', () => {
       expect(moodOfGod(s, 'ares')).toBeGreaterThanOrEqual(NEGLECT_FLOOR);
     }
     expect(moodOfGod(s, 'ares')).toBeLessThan(-10);
-    expect(reasonsOf(s, 'ares')[0].why).toBe('no shrine, festival or offering in a year');
+    expect(reasonsOf(s, 'ares')[0].why).toBe('no shrine, sanctuary, festival or offering in a year');
     const low = moodOfGod(s, 'ares');
     worship(s, 'ares', 4, 'offering', 'your offerings to Ares', 6 * TICKS_PER_MONTH);
     s.tick += TICKS_PER_MONTH;

@@ -4,7 +4,7 @@
  * - **The Olympus panel** (G, or the top bar's thunderbolt): the twelve as
  *   cards, four by three, each with its emblem in the god's colour, the mood
  *   in a word and on a bar from furious to loving, the weightiest reasons,
- *   their shrines, the sanctuary's slot (slice 54) and their rival. A card
+ *   their shrines, their sanctuary (merge with slice 54) and their rival. A card
  *   opens the god's page: every reason with its worth, two years of moods,
  *   what they love and hate, the rivalry, their shrines (each a link), the
  *   festival and the offering (sent to their first shrine), and what they
@@ -24,7 +24,13 @@ import { dateOfTick, MONTH_NAMES, TICKS_PER_MONTH } from '../sim/clock';
 import type { Command } from '../sim/commands';
 import { GOD_IDS, GOD_MOODS, GODS, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, type GodId, type GodReason } from '../sim/pantheon';
 import type { Building, SimState } from '../sim/state';
-import { FESTIVAL_COST, festivalGoods, festivalOf, festivalRefusal, goodsWords, offeringOf, offeringTo, offerRefusal, shrinesTo, shrineWords } from '../sim/worship';
+import { FESTIVAL_COST, festivalGoods, festivalOf, festivalRefusal, goodsWords, offeringOf, offeringTo, offerRefusal, placeWords, shrinesTo, shrineWords } from '../sim/worship';
+// Merge with slice 54: a god's sanctuary on their card and page, and the festival and offering on a sanctuary's panel.
+import { mapOf } from '../map/lands';
+import { findBuilding } from '../sim/buildings';
+import { stagesOf } from '../sim/monuments';
+import { dimmed, sanctuaryDone, sanctuaryName, sanctuaryOf, STANDING_HONOUR } from '../sim/sanctuaries';
+import { SANCTUARY_SLOTS } from './sanctuarypanel';
 import { emblemSvg, godColour } from './emblems';
 import { actionIcon } from './icons';
 import { esc, kbtn, kitHtml, ksec } from './kit';
@@ -94,19 +100,51 @@ function festivalWords(s: SimState, god: GodId): string {
 function worshipButtons(s: SimState, map: CoastMap, b: Building | undefined, god: GodId, named = false): string {
   const G = GODS[god];
   // (On a god's page, which of their shrines the buttons act at.)
-  const at = named && b ? `<p class="ol-note ol-at">${esc(`At ${shrineWords(map, b, s)}${shrinesTo(s, god).length > 1 ? ' (the others from their own panels)' : ''}:`)}</p>` : '';
+  const at = named && b ? `<p class="ol-note ol-at">${esc(`At ${placeWords(map, b, s)}${placesTo(s, god).length > 1 ? ' (the others from their own panels)' : ''}:`)}</p>` : '';
   const none = `Dedicate a shrine to ${G.name} first`;
   const fWhy = b ? festivalRefusal(s, map, b.id) : none;
   const oWhy = b ? offerRefusal(s, map, b.id) : none;
   const data = { id: b?.id ?? 0 };
-  return `${at}<div class="ol-acts">${kbtn({ act: 'festival', data, icon: emblemSvg(god, 'ki'), html: 'Hold a festival', tone: 'lapis', small: true, why: fWhy || undefined, tip: `A festival to ${G.name}: ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, festivalGoods(G.sacred))} from the stores, announced a month ahead; then a procession round the agora, and the homes it passes glad for a season. One a year.` })}${kbtn({ act: 'offer', data, icon: 'keep', html: 'Send an offering', small: true, why: oWhy || undefined, tip: `An offering to ${G.name}: ${goodsWords(G.sacred, offeringOf(G.sacred))}, carried from the nearest store to the shrine. A small honour, when it arrives.` })}</div>${fWhy && b ? `<p class="k-why">${esc(fWhy)}.</p>` : ''}`;
+  return `${at}<div class="ol-acts">${kbtn({ act: 'festival', data, icon: emblemSvg(god, 'ki'), html: 'Hold a festival', tone: 'lapis', small: true, why: fWhy || undefined, tip: `A festival to ${G.name}: ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, festivalGoods(G.sacred))} from the stores, announced a month ahead; then a procession round the agora, and the homes it passes glad for a season. One a year.` })}${kbtn({ act: 'offer', data, icon: 'keep', html: 'Send an offering', small: true, why: oWhy || undefined, tip: `An offering to ${G.name}: ${goodsWords(G.sacred, offeringOf(G.sacred))}, carried from the nearest store to the ${b?.kind === 'sanctuary' ? 'sanctuary' : 'shrine'}. A small honour, when it arrives.` })}</div>${fWhy && b ? `<p class="k-why">${esc(fWhy)}.</p>` : ''}`;
 }
 
-/** The god's first shrine with nothing in the way of an offering (or the first). */
+/** Merge with slice 54: a god's finished sanctuary's building, if it stands. */
+const holyOf = (s: SimState, god: GodId): Building | undefined => {
+  const x = sanctuaryDone(s, god) ? sanctuaryOf(s, god) : undefined;
+  return x ? findBuilding(s, x.id) : undefined;
+};
+
+/** Where a god's festival and offerings can be held: their finished sanctuary first (merge with slice 54), then their shrines. */
+const placesTo = (s: SimState, god: GodId): Building[] => {
+  const holy = holyOf(s, god);
+  return holy ? [holy, ...shrinesTo(s, god)] : shrinesTo(s, god);
+};
+
+/** The god's first place (their sanctuary, else a shrine) with nothing in the way of an offering (or the first). */
 const shrineFor = (s: SimState, god: GodId): Building | undefined => {
-  const all = shrinesTo(s, god);
+  const all = placesTo(s, god);
   return all.find((b) => !offeringTo(s, b.id)) ?? all[0];
 };
+
+/**
+ * Merge with slice 54: where a god's sanctuary stands, for their card (`short`)
+ * and page (`long`): none, rising (its stage), finished, or dimmed; and its
+ * building, for a link.
+ */
+export function sanctuaryWords(s: SimState, god: GodId): { b?: Building; short: string; long: string } {
+  const x = sanctuaryOf(s, god);
+  const G = GODS[god];
+  if (!x) return { short: 'no sanctuary', long: `No sanctuary to ${G.name} yet: the Sanctuary button on the build bar marks one out.` };
+  const b = findBuilding(s, x.id);
+  const name = cap(sanctuaryName(god));
+  const all = stagesOf(x);
+  if (!x.finished) {
+    const st = all[Math.min(x.stage, all.length - 1)];
+    return { b, short: `sanctuary rising (${Math.min(x.stage + 1, all.length)} of ${all.length})`, long: `${name} is rising: ${st ? `${st.name.toLowerCase()}, ` : ''}stage ${Math.min(x.stage + 1, all.length)} of ${all.length}. Each stage finished honours ${G.name}.` };
+  }
+  if (dimmed(s, x)) return { b, short: 'sanctuary dimmed', long: `${name} is dimmed: no priests work it, and ${G.name} no longer counts it an honour until they come back.` };
+  return { b, short: 'a sanctuary', long: `${name} stands finished: ${signed(STANDING_HONOUR)} to ${G.name} while it is staffed.` };
+}
 
 // ---------------------------------------------------------------------------- a shrine's section
 
@@ -166,6 +204,27 @@ export function shrineAct(act: string, el: HTMLElement, b: Building): Command | 
 /** Tip lines the shrine's own section says (left out of "What it is doing"). */
 export const SHRINE_QUIET = /^(Dedicated to|To all the gods)/;
 
+// ---------------------------------------------------------------------------- a sanctuary's festival and offering
+
+/**
+ * Merge with slice 54: a finished sanctuary's panel gets the festival and the
+ * offering in the place slice 54 left for them (SANCTUARY_SLOTS.offerings),
+ * acting at the sanctuary: a festival from it walks from its altar.
+ */
+export function sanctuaryWorship(s: SimState, b: Building, god: GodId): string {
+  if (!sanctuaryDone(s, god) || sanctuaryOf(s, god)?.id !== b.id) return '';
+  const G = GODS[god];
+  const off = offeringTo(s, b.id);
+  const more = `<div class="ol-acts">${kbtn({ act: 'olympus', data: { god }, icon: 'gods', html: 'Olympus ›', small: true, tone: 'stone', tip: `${G.name}’s page on the Olympus panel (G)` })}</div>`;
+  return ksec('Festival and offering', `<p class="ol-note">${esc(`${festivalWords(s, god)}${off ? ` An offering of ${goodsWords(off.food, off.load)} is on its way here.` : ''} A festival here walks from the altar.`)}</p>${worshipButtons(s, mapOf(s), b, god)}${more}`, { icon: 'gods', cls: 'ol-shrine' });
+}
+SANCTUARY_SLOTS.offerings = sanctuaryWorship;
+
+/** A sanctuary's festival, offering and Olympus buttons (the registry's `act`), as a shrine's. */
+export function sanctuaryAct(act: string, el: HTMLElement, b: Building): Command | 'redraw' | null {
+  return act === 'festival' || act === 'offer' || act === 'olympus' ? shrineAct(act, el, b) : null;
+}
+
 // ---------------------------------------------------------------------------- the Olympus panel
 
 /** One god's card. */
@@ -180,7 +239,8 @@ function card(s: SimState, god: GodId): string {
   const why = rs.length ? rs.map((r) => `<span class="${r.worth > 0 ? 'up' : 'down'}">${signed(r.worth)} ${esc(r.why)}</span>`).join('') : `<span class="none">${esc(`Nothing of yours noticed yet`)}</span>`;
   const shrines = n ? plural(n, 'shrine', 'shrines') : 'no shrine';
   const fest = f ? (f.walker ? ' · festival under way' : ` · festival on ${dayWords(f.day)}`) : '';
-  return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · no sanctuary yet${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
+  const holy = sanctuaryWords(s, god).short;
+  return `<button class="ol-card" data-act="god" data-god="${god}" style="--gc:${godColour(god)}" title="${esc(`${G.name}’s page: every reason, two years of moods, the festival and offerings`)}"><span class="ol-top"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-nm"><b>${esc(G.name)}</b><small>${esc(G.epithet)}</small></span>${moodChip(m)}</span>${moodBar(m)}<span class="ol-rs">${why}</span><span class="ol-ft"><span>${esc(cap(shrines))} · ${esc(holy)}${esc(fest)}</span><span class="${rm < m ? 'riv' : ''}">Rival: ${esc(rival.name)}, ${esc(moodWord(rm))}</span></span><span class="ol-can"><span class="bl" title="${esc(`In blessing: ${G.blessWords}`)}"><b>Blessing</b> ${esc(G.blessWords)}</span><span class="cu" title="${esc(`In wrath: ${G.curseWords}`)}"><b>Wrath</b> ${esc(G.curseWords)}</span></span></button>`;
 }
 
 /** A god's page. */
@@ -202,10 +262,13 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
   ].join('');
   const why = rs.length ? `<ul class="ol-why">${rs.map(reasonLine).join('')}</ul>` : `<p class="ol-note">${esc(`${G.name} has noticed nothing of yours yet${noticed(s) ? '' : ': a town of under 300 is beneath the gods’ notice'}.`)}</p>`;
   const list = shrines.length ? `<ul class="ol-shrines">${shrines.map((b) => `<li><button class="ol-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>${offeringTo(s, b.id) ? '<small> · an offering on its way</small>' : ''}</li>`).join('')}</ul>` : `<p class="ol-note">${esc(`No shrine is dedicated to ${G.name}. Click a shrine to choose its god, or build one (V).`)}</p>`;
+  // (Merge with slice 54: their sanctuary, as it stands, with a link to it.)
+  const sw = sanctuaryWords(s, god);
+  const holy = sw.b ? `<p class="ol-holy"><button class="ol-link" data-act="building" data-id="${sw.b.id}">${esc(cap(sanctuaryName(god)))}</button>${offeringTo(s, sw.b.id) ? '<small> · an offering on its way</small>' : ''}</p><p class="ol-note">${esc(sw.long)}</p>` : `<p class="ol-note">${esc(sw.long)}</p>`;
   const right = [
     ksec(`Why ${they} is ${moodWord(m)}`, why, { icon: 'reach', aside: `<b class="ol-sum">${signed(m)}</b>` }),
     ksec('Two years', `${moodMonths(s, god, 420, 64)}<p class="ol-note">${esc(`Month by month, at the start of each, and now: gold for pleased and better, red for displeased and worse; the dotted lines are watchful’s edges.`)}</p>`, { icon: 'overview' }),
-    ksec('Worship', `${list}<p class="ol-note">${esc(`${festivalWords(s, god)} No sanctuary yet.`)}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
+    ksec('Worship', `${list}${holy}<p class="ol-note">${esc(festivalWords(s, god))}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
   ].join('');
   return `<div class="ol-page"><div class="ol-back">${kbtn({ act: 'all', icon: 'go', html: '‹ The twelve', small: true, tone: 'stone' })}</div><div class="ol-cols"><div>${left}</div><div>${right}</div></div></div>`;
 }
@@ -325,7 +388,8 @@ export function godsPage(s: SimState, map: CoastMap): string {
     const m = moodOfGod(s, god);
     const rs = reasonsOf(s, god).slice(0, 2);
     const shrines = shrinesTo(s, god);
-    const links = shrines.length ? shrines.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>`).join('') : '<span class="ov-note">no shrine</span>';
+    const holy = sanctuaryWords(s, god);
+    const links = [holy.b ? `<button class="ov-link" data-act="building" data-id="${holy.b.id}">${esc(cap(holy.short === 'a sanctuary' ? sanctuaryName(god) : holy.short))}</button>` : '', ...shrines.map((b) => `<button class="ov-link" data-act="building" data-id="${b.id}">${esc(cap(shrineWords(map, b, s)))}</button>`)].join('') || '<span class="ov-note">no shrine</span>';
     return `<li class="ol-ovrow" style="--gc:${godColour(god)}"><span class="ol-emb">${emblemSvg(god)}</span><span class="ol-ovnm"><b>${esc(G.name)}</b>${moodChip(m)}<small>${esc(rs.map((r) => `${signed(r.worth)} ${r.why}`).join('; ') || 'nothing noticed yet')}</small></span>${moodMonths(s, god, 300, 44)}<span class="ol-ovsh">${links}</span></li>`;
   }).join('');
   const kept = Math.min(MOOD_MONTHS, s.gods.months.zeus?.length ?? 0);

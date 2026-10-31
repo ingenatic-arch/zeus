@@ -13,37 +13,17 @@ import type { CoastMap } from '../map/bake';
 import { TICKS_PER_DAY } from '../sim/clock';
 import { findBuilding } from '../sim/buildings';
 import { doingWords, figureOf, nextWords, placeName, untilWords, type GodFigure } from '../sim/epiphany';
-import { blessingOn, GODS, goddess, moodOfGod, moodWord, reasonsOf, type Emblem, type GodId } from '../sim/pantheon';
+import { blessingOn, GODS, goddess, moodOfGod, moodWord, reasonsOf, type GodId } from '../sim/pantheon';
 import type { SimState } from '../sim/state';
 import { esc, kbar, kbtn, khead, kitHtml, ksec } from './kit';
 import { morph } from './morph';
 import './godpanel.css';
+import { emblemSvg } from './emblems';
 
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
-const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
 
-/** Each emblem's shape, drawn in code (24 × 24), filled with the god's colour and inked. */
-const EMBLEM_PATHS: Record<Emblem, string> = {
-  thunderbolt: '<path d="M13.6 2 6 13.2h5.2L9.4 22 18 9.6h-5.4L15.2 2z" fill="C" stroke="K" stroke-width="1.1" stroke-linejoin="round"/>',
-  peacock:
-    '<path d="M12 21c-1.8-3-1.8-6 0-9 1.8 3 1.8 6 0 9z" fill="C" stroke="K" stroke-width="1"/><circle cx="12" cy="6.4" r="3.4" fill="C" stroke="K" stroke-width="1"/><circle cx="12" cy="6.4" r="1.4" fill="K"/><circle cx="5.4" cy="9.4" r="2.6" fill="C" stroke="K" stroke-width="1"/><circle cx="18.6" cy="9.4" r="2.6" fill="C" stroke="K" stroke-width="1"/><circle cx="5.4" cy="9.4" r="1" fill="K"/><circle cx="18.6" cy="9.4" r="1" fill="K"/>',
-  trident: '<path d="M12 22V7M5.4 3v5.4c0 2.4 3 3.6 6.6 3.6s6.6-1.2 6.6-3.6V3M12 2.4v4.6" fill="none" stroke="K" stroke-width="3.4" stroke-linecap="round"/><path d="M12 22V7M5.4 3v5.4c0 2.4 3 3.6 6.6 3.6s6.6-1.2 6.6-3.6V3M12 2.4v4.6" fill="none" stroke="C" stroke-width="1.8" stroke-linecap="round"/>',
-  sheaf: '<path d="M12 22V9M12 22 7 10M12 22l5-12M12 22 4.6 13M12 22l7.4-9" stroke="K" stroke-width="1.2"/><ellipse cx="12" cy="6" rx="2" ry="4" fill="C" stroke="K"/><ellipse cx="7" cy="7.4" rx="1.8" ry="3.6" fill="C" stroke="K" transform="rotate(-20 7 7.4)"/><ellipse cx="17" cy="7.4" rx="1.8" ry="3.6" fill="C" stroke="K" transform="rotate(20 17 7.4)"/><path d="M7.6 16.4h8.8" stroke="K" stroke-width="2.2"/>',
-  owl: '<path d="M5 6.4 7.4 3l2.4 2.4h4.4L16.6 3 19 6.4v8.4c0 4-3.2 6.8-7 6.8s-7-2.8-7-6.8z" fill="C" stroke="K" stroke-width="1.1" stroke-linejoin="round"/><circle cx="9" cy="10" r="2.4" fill="#fff" stroke="K"/><circle cx="15" cy="10" r="2.4" fill="#fff" stroke="K"/><circle cx="9" cy="10" r="1" fill="K"/><circle cx="15" cy="10" r="1" fill="K"/><path d="m11 13 1 1.6 1-1.6z" fill="K"/>',
-  lyre: '<path d="M6.6 3c-2 4-1.4 9 2 12h6.8c3.4-3 4-8 2-12" fill="none" stroke="K" stroke-width="3.2" stroke-linecap="round"/><path d="M6.6 3c-2 4-1.4 9 2 12h6.8c3.4-3 4-8 2-12" fill="none" stroke="C" stroke-width="1.6" stroke-linecap="round"/><path d="M7.6 6.4h8.8M9.6 6.4V15M12 6.4V15M14.4 6.4V15" stroke="K" stroke-width=".9"/><rect x="7.4" y="15" width="9.2" height="5.6" rx="2" fill="C" stroke="K"/>',
-  bow: '<path d="M7 2.6c7.4 4 7.4 14.8 0 18.8" fill="none" stroke="K" stroke-width="3.2" stroke-linecap="round"/><path d="M7 2.6c7.4 4 7.4 14.8 0 18.8" fill="none" stroke="C" stroke-width="1.6" stroke-linecap="round"/><path d="M7 2.6v18.8M4 12h15" stroke="K" stroke-width="1"/><path d="m19 12-3-2v4z" fill="K"/><path d="M17.4 5.4a3 3 0 1 0 2.4 4.4 2.4 2.4 0 1 1-2.4-4.4z" fill="C" stroke="K" stroke-width=".8"/>',
-  spear: '<path d="M4 20 18.6 5.4" stroke="K" stroke-width="2.4" stroke-linecap="round"/><path d="m16.6 2.6 5 0-0.2 5-3.4 1.4-2.8-2.8z" fill="C" stroke="K" stroke-linejoin="round"/><circle cx="8.6" cy="15.4" r="5.4" fill="C" stroke="K" stroke-width="1.1"/><circle cx="8.6" cy="15.4" r="1.6" fill="K"/>',
-  dove: '<path d="M3 13c3-1 5-.6 7 1 1-4 4-8.4 9.6-9.4-1.6 3-1.4 6.2-3.6 8.6 2 .4 3.6 0 5-1-1 4-4.4 6.8-9 6.8-3.4 0-6.6-2.4-9-6z" fill="C" stroke="K" stroke-width="1.1" stroke-linejoin="round"/><circle cx="6.4" cy="13.2" r=".8" fill="K"/>',
-  hammer: '<path d="M10.6 10.4 4 20" stroke="K" stroke-width="3.4" stroke-linecap="round"/><path d="M10.6 10.4 4 20" stroke="C" stroke-width="1.6" stroke-linecap="round"/><path d="m8.6 6.4 5.6-4 4.4 6.2-5.6 4z" fill="C" stroke="K" stroke-width="1.1" stroke-linejoin="round"/>',
-  caduceus: '<path d="M12 22V3" stroke="K" stroke-width="2.2" stroke-linecap="round"/><path d="M12 5.4c-4 0-7-1.6-8.4-3 2 .4 5 .6 8.4 1.6 3.4-1 6.4-1.2 8.4-1.6-1.4 1.4-4.4 3-8.4 3z" fill="C" stroke="K" stroke-width=".9"/><path d="M8.6 8.4c4.6 2 4.6 3.6 0 5.6s-4.6 3.6 0 5.6M15.4 8.4c-4.6 2-4.6 3.6 0 5.6s4.6 3.6 0 5.6" fill="none" stroke="C" stroke-width="1.6"/>',
-  vine: '<path d="M12 3c-2 3 2 5 0 8s2 5 0 8" fill="none" stroke="K" stroke-width="1.4"/><path d="M12 6c3-2 6-1 7 1-2 1.6-5 1.6-7-1zM12 11c-3-2-6-1-7 1 2 1.6 5 1.6 7-1z" fill="#5aa83a" stroke="K" stroke-width=".8"/><circle cx="14" cy="15" r="1.7" fill="C" stroke="K" stroke-width=".7"/><circle cx="16.6" cy="15.4" r="1.7" fill="C" stroke="K" stroke-width=".7"/><circle cx="15.2" cy="17.6" r="1.7" fill="C" stroke="K" stroke-width=".7"/><circle cx="17.8" cy="17.8" r="1.7" fill="C" stroke="K" stroke-width=".7"/><circle cx="16.4" cy="20" r="1.7" fill="C" stroke="K" stroke-width=".7"/>',
-};
-
-/** A god's emblem, drawn in their colour (an SVG). */
-export function emblemIcon(g: GodId): string {
-  const god = GODS[g];
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${EMBLEM_PATHS[god.emblem].replace(/"C"/g, `"${hex(god.colour)}"`).replace(/"K"/g, '"#3a2a18"')}</svg>`;
-}
+/** A god's emblem, drawn in their colour (an SVG). (Merge of slice 53: the one drawing of the twelve's emblems, emblems.ts.) */
+export const emblemIcon = (g: GodId): string => emblemSvg(g, 'gem');
 
 /** The whole panel's HTML. */
 export function godHtml(s: SimState, map: CoastMap, f: GodFigure): string {

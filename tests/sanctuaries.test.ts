@@ -25,6 +25,8 @@ import { income } from '../src/sim/treasury';
 import { demoSim } from './prepared';
 // Merge with slice 56.
 import { MOST_STOPS, placesFor, startVisit } from '../src/sim/epiphany';
+// Merge with slice 53.
+import { festivalRefusal, festivalUnderWay, offerRefusal } from '../src/sim/worship';
 
 const N = 128;
 const T = (x: number, z: number): number => z * N + x;
@@ -298,5 +300,86 @@ describe('a sanctuary finished brings its god (merge with slice 56)', () => {
     finishAll(full.sim, full.x);
     expect(full.x.finished).toBeGreaterThan(0);
     expect(full.sim.state.gods.walks.figures.some((g) => g.god === 'demeter')).toBe(false);
+  });
+});
+
+// Merge of slice 53: a sanctuary in worship, and the god come to their festival.
+describe('a sanctuary in worship, and a god at their festival (merge with slice 53)', () => {
+  const finishAll = (sim: Sim, x: Site): void => {
+    for (let k = 0; k < 3 && !x.finished; k++) finishStage(sim, x);
+  };
+  /** Hold a festival at a building and play until its procession sets out. */
+  const festival = (sim: Sim, id: number): void => {
+    send(sim, { type: 'festival', id });
+    runUntil(sim, () => festivalUnderWay(sim.state, 'demeter'), TICKS_PER_MONTH + 2 * TICKS_PER_DAY);
+  };
+
+  it('its stages and its standing honour go through worship: the rival minds them, and neglect counts them', () => {
+    const { sim, x } = sanctuaryTown();
+    const s = sim.state;
+    finishStage(sim, x);
+    expect(s.gods.worshipped.demeter).toBeGreaterThanOrEqual(s.tick - 1);
+    // (Zeus, Demeter's rival, honoured less than she is: he minds a third of each honour.)
+    expect(moodOfGod(s, 'zeus')).toBeLessThan(moodOfGod(s, 'demeter'));
+    expect(reasonsOf(s, 'zeus').some((r) => r.kind === 'rival' && r.worth === -Math.round(STAGE_HONOUR[0] / 3))).toBe(true);
+    finishStage(sim, x);
+    finishStage(sim, x);
+    expect(x.finished).toBeGreaterThan(0);
+    expect(reasonsOf(s, 'zeus').find((r) => r.kind === 'rival:sanctuary')?.worth).toBe(-Math.round(STANDING_HONOUR / 3));
+    // Honoured each month while it stands, so neglect never begins.
+    const at = s.gods.worshipped.demeter ?? -1;
+    sim.run(TICKS_PER_MONTH + 1);
+    expect(s.gods.worshipped.demeter ?? -1).toBeGreaterThan(at);
+  });
+
+  it('holds festivals and takes offerings once finished; the procession walks from its altar, and the god rises there', () => {
+    const { sim, b, x, store } = sanctuaryTown();
+    const s = sim.state;
+    setHeld(store, WHEAT, held(store, WHEAT) + 200);
+    expect(festivalRefusal(s, sim.map, b.id)).toMatch(/not finished: festivals wait for its consecration/);
+    expect(offerRefusal(s, sim.map, b.id)).toMatch(/not finished: offerings wait for its consecration/);
+    finishAll(sim, x);
+    // (The god who came to see it finished has gone.)
+    s.gods.walks.figures = [];
+    expect(festivalRefusal(s, sim.map, b.id)).toBe('');
+    expect(offerRefusal(s, sim.map, b.id)).toBe('');
+    send(sim, { type: 'offer', id: b.id });
+    expect(s.walkers.some((w) => w.kind === 'offering' && w.target === b.id)).toBe(true);
+    festival(sim, b.id);
+    const altar = altarOf(s, b);
+    const p = s.walkers.find((w) => w.kind === 'procession' && w.origin === b.id)!;
+    expect([p.path[0], p.path[1]]).toEqual([altar.x, altar.z]);
+    expect([p.path[p.path.length - 2], p.path[p.path.length - 1]]).toEqual([altar.x, altar.z]);
+    const f = s.gods.walks.figures.find((g) => g.god === 'demeter')!;
+    expect(f.why).toBe('festival');
+    expect([f.x, f.z]).toEqual([altar.x, altar.z]);
+    const said = s.messages.log.filter((m) => m.kind === 'epiphany').map((m) => m.words);
+    expect(said.some((w) => /^Demeter rises where her procession sets out, come for her festival\. She blesses her sanctuary first/.test(w))).toBe(true);
+  });
+
+  it('a festival at a shrine brings its god to the shrine, but never past three gods at once', () => {
+    const one = demoSim('town');
+    const shrine = one.state.buildings.find((g) => g.kind === 'shrine')!;
+    send(one, { type: 'dedicate', id: shrine.id, god: 'demeter' });
+    income(one.state, 2000, 'sales', 'a test');
+    const granary = one.state.buildings.find((g) => g.kind === 'granary')!;
+    setHeld(granary, WHEAT, held(granary, WHEAT) + 100);
+    festival(one, shrine.id);
+    const f = one.state.gods.walks.figures.find((g) => g.god === 'demeter')!;
+    expect(f.why).toBe('festival');
+    expect([f.x, f.z]).toEqual([shrine.x + footSide(shrine) / 2, shrine.z + footSide(shrine) / 2]);
+    const full = demoSim('town');
+    const s2 = full.state.buildings.find((g) => g.kind === 'shrine')!;
+    send(full, { type: 'dedicate', id: s2.id, god: 'demeter' });
+    income(full.state, 2000, 'sales', 'a test');
+    const g2 = full.state.buildings.find((g) => g.kind === 'granary')!;
+    setHeld(g2, WHEAT, held(g2, WHEAT) + 100);
+    send(full, { type: 'festival', id: s2.id });
+    const day = full.state.gods.festivals[0].day;
+    runUntil(full, () => full.state.tick >= day - 1, TICKS_PER_MONTH + TICKS_PER_DAY);
+    for (const g of ['zeus', 'hera', 'apollo'] as const) expect(startVisit(full.state, g, 'loving')).not.toBeNull();
+    runUntil(full, () => festivalUnderWay(full.state, 'demeter'), 2 * TICKS_PER_DAY);
+    expect(festivalUnderWay(full.state, 'demeter')).toBe(true);
+    expect(full.state.gods.walks.figures.some((g) => g.god === 'demeter')).toBe(false);
   });
 });

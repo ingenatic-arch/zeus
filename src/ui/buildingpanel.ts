@@ -59,6 +59,7 @@ import { SANCTUARY_QUIET, sanctuarySections } from './sanctuarypanel';
 import { GODS } from '../sim/pantheon';
 // Slice 53: the shrine's god.
 import { SHRINE_QUIET, shrineAct, shrineSections } from './olympus';
+import { sanctuaryAct } from './olympus';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -98,7 +99,8 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   infirmary: { more: infirmarySections, quiet: HEALTH_QUIET },
   asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
   // Slice 54: a sanctuary (its god, its stages, the god's mood, its priests), src/ui/sanctuarypanel.ts.
-  sanctuary: { more: sanctuarySections, quiet: SANCTUARY_QUIET },
+  // (Merge of slice 53: its festival and offering buttons, in the sections' slot, act through slice 53's.)
+  sanctuary: { more: sanctuarySections, quiet: SANCTUARY_QUIET, act: sanctuaryAct },
   // Slice 53: the shrine (its god, or the twelve to choose from; the god's mood; a festival and an offering), src/ui/olympus.ts.
   shrine: { more: shrineSections, quiet: SHRINE_QUIET, act: shrineAct },
 };

@@ -14,7 +14,9 @@
  *   copper (cast into bronze by an armoury's smiths) and a measure of the
  *   god's sacred good to consecrate it (`sacredMeasure`), which the ox carts
  *   fetch from the granaries or storehouses that hold it.
- * - **The god notices** (only through the groundwork's API): each stage
+ * - **The god notices** (through slice 53's worship, at its merge: `worship`
+ *   and `standing`, so the god's rival minds it while honoured less, and
+ *   neglect counts it as honouring its god): each stage
  *   finished is remembered (STAGE_HONOUR, fading over STAGE_FADE); finished
  *   and staffed, the sanctuary is a standing honour (STANDING_HONOUR, asserted
  *   as it is finished and on the first of every month, never fading while it
@@ -47,7 +49,9 @@ import { serviceDue, serviceScore } from './folk';
 import { rateOf } from './labour';
 import { say, WARNING } from './messages';
 import { siteName, type Site } from './monuments';
-import { assert, GODS, honour, type GodId } from './pantheon';
+import { GODS, type GodId } from './pantheon';
+// Merge of slice 53: a sanctuary's honours go through worship, so the god's rival minds them and neglect counts them.
+import { standing, worship } from './worship';
 import { CREW_GAP, crewClock, moveRounds, sendOut, type ServiceSpec } from './rounds';
 import { TILE_ROAD, type Building, type SimState, type Walker } from './state';
 // Merge with slice 56: the god comes to see their sanctuary finished.
@@ -108,7 +112,7 @@ function stageWhy(god: GodId, stage: number): string {
 export const dimmed = (s: SimState, x: Site): boolean => !!x.finished && x.idle > 0 && s.tick - x.idle >= DIM_AFTER;
 
 /** Is a finished sanctuary's standing honour in force (standing, not dimmed)? */
-const standing = (s: SimState, x: Site): boolean => !!x.finished && !dimmed(s, x);
+const inForce = (s: SimState, x: Site): boolean => !!x.finished && !dimmed(s, x);
 
 // ---------------------------------------------------------------------------
 // The hooks monumentworks.ts calls.
@@ -122,7 +126,7 @@ export function sanctuaryMarked(s: SimState, x: Site): void {
 /** A stage of a sanctuary is finished (monumentworks.ts, before the last is `sanctuaryFinished`): the god remembers it. */
 export function sanctuaryStageDone(s: SimState, x: Site, stage: number): void {
   if (!x.god) return;
-  honour(s, x.god, STAGE_HONOUR[stage] ?? 0, STAGE_KIND, stageWhy(x.god, stage), STAGE_FADE);
+  worship(s, x.god, STAGE_HONOUR[stage] ?? 0, STAGE_KIND, stageWhy(x.god, stage), STAGE_FADE);
   if (stage >= 2) return;
   const g = GODS[x.god];
   const words = stage === 0 ? `The foundations of ${sanctuaryName(x.god)} are laid. ${g.name} has noticed.` : `The temple of ${sanctuaryName(x.god)} is raised: only the statue and the finish are left. ${g.name} is watching.`;
@@ -145,7 +149,7 @@ export function sanctuaryFinished(s: SimState, x: Site): void {
     b.clock = FIRST_PRIEST;
   }
   x.idle = 0;
-  assert(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
+  standing(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
   const g = GODS[x.god];
   say(s, { kind: 'sanctuary', words: `${sanctuaryName(x.god, true)} is finished and consecrated: ${g.name}’s statue stands in its court. Once its priests come to work it, they walk far through the streets, blessing homes.`, at: { building: x.id } });
   // Merge with slice 56: the god comes to see it, rising at its altar (only with the gods switched on, so never while a
@@ -187,7 +191,7 @@ export function altarOf(s: SimState, b: Building): { x: number; z: number } {
 /** A sanctuary is taken down or lost (monumentworks.ts, as its record goes): its god's standing honour goes with it. */
 export function sanctuaryGone(s: SimState, x: Site): void {
   if (!x.god) return;
-  assert(s, x.god, STANDING_KIND, standingWhy(x.god), 0);
+  standing(s, x.god, STANDING_KIND, standingWhy(x.god), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -256,18 +260,18 @@ export function stepSanctuaries(s: SimState, map: CoastMap): void {
         const was = dimmed(s, x);
         x.idle = 0;
         if (was) {
-          assert(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
+          standing(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
           say(s, { kind: 'sanctuary', words: `${sanctuaryName(x.god, true)} has its priests again: its lamps are lit, and ${g.name} is honoured once more.`, at: { building: x.id } });
           s.looks++;
         }
       } else if (!staffed && x.idle === 0) x.idle = s.tick;
       else if (!staffed && s.tick - x.idle >= DIM_AFTER && s.tick - x.idle < DIM_AFTER + TICKS_PER_DAY) {
-        assert(s, x.god, STANDING_KIND, standingWhy(x.god), 0);
+        standing(s, x.god, STANDING_KIND, standingWhy(x.god), 0);
         say(s, { kind: 'sanctuary', u: WARNING, words: `${sanctuaryName(x.god, true)} has stood without priests for a season: its lamps are out, and ${g.name} no longer counts it an honour. Workers bring it back: it needs homes nearby with people free to work.`, at: { building: x.id } });
         s.looks++;
       }
     }
-    if (month && standing(s, x)) assert(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
+    if (month && inForce(s, x)) standing(s, x.god, STANDING_KIND, standingWhy(x.god), STANDING_HONOUR);
     b.clock = crewClock(s, b, 'priest', b.clock, staffed, () => sendOut(s, size, b, 'priest'), restFor(b, CREW_GAP), PRIEST_REST);
   }
 }
