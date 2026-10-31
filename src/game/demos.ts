@@ -3915,6 +3915,10 @@ const SCENES: Record<string, Demo> = {
   blessing: { view: 'blessing', setup: blessingTown, overlay: 'missing', building: (s) => sanctuaryOf(s, 'demeter')?.id ?? 0 },
   // (Merge of slice 57: #wrath opens paused, so a slow load can't let the earthquake land before the page is ready.)
   wrath: { view: 'wrath', speed: 'paused', setup: wrathTown, overlay: 'missing', unread: TICKS_PER_MONTH },
+  // Slice 61: beloved of the gods. #olympus: #order's town given a year with the gods watching: shrines to eleven of the twelve,
+  // six sanctuaries along a sacred way (five finished, Apollo's rising), Demeter and Athena loving, Hera angry with her omen
+  // running, the Boar in its marsh, Atalanta's hall waiting on one demand, Sparta's band on the road with Ares marching with it.
+  olympus: { view: 'olympus', setup: olympusTown, overlay: 'missing', unread: TICKS_PER_MONTH },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -5220,4 +5224,200 @@ function wrathTown(sim: Sim): void {
   const o = beginOmen(s, sim.map, 'poseidon', 'earthquake');
   if (!o) return;
   sim.run(Math.max(0, o.day - WRATH_OPENS - s.tick));
+}
+
+// Slice 61
+/**
+ * Beloved of the gods (slice 61). #olympus: #order's town given a year with
+ * the gods watching, played as a player honouring them would: every god but
+ * Ares given a shrine, a sacred way laid north from the main street and six
+ * sanctuaries marked out along it one after another, festivals and
+ * offerings; a monster sent and settled; Atalanta's hall raised; and, as it
+ * opens, Demeter and Athena loving, Hera angry with her omen running, the
+ * Boar in its marsh, Atalanta waiting on one demand, and Sparta's band on
+ * the road with Ares marching with it.
+ *
+ * The gods are off while #order's history plays and switched on for the
+ * year (as #gods does), with the ambitions, so the gods' laurels come in
+ * play. Wrath stays off through the setup, as in every demo (on as it
+ * opens): the omen is begun by its hook, as #omen's is. The sanctuaries'
+ * coin is given (noted "set up for this demo") and five are raised stage by
+ * stage at once, as #godwar's and #blessing's are, since #order's town
+ * quarries no marble; the sixth (Apollo's) rises for real from what is put
+ * on its site. Moods the year doesn't bring where the demo needs them are
+ * set through the mood API, named as set up for this demo.
+ */
+/** The sacred way: a road north from #order's main street (at z 103), and the six sanctuaries' top-left tiles beside it, in the order they are marked out. */
+const SACRED_WAY = { x: 30, z0: 76, z1: 102 };
+const OLYMPUS_SANCTUARIES: ReadonlyArray<[GodId, number, number]> = [
+  ['demeter', 31, 96],
+  ['athena', 25, 96],
+  ['zeus', 31, 89],
+  ['dionysus', 25, 89],
+  ['hermes', 31, 82],
+  ['apollo', 25, 82],
+];
+/** The three shrines #order has, and who they are given to; the gods the new ones go to (every god but Ares). */
+const OLYMPUS_OLD_SHRINES: readonly GodId[] = ['zeus', 'demeter', 'dionysus'];
+const OLYMPUS_NEW_SHRINES: readonly GodId[] = ['hera', 'poseidon', 'athena', 'apollo', 'artemis', 'aphrodite', 'hephaestus', 'hermes'];
+/** Where the new shrines go: the free spot beside a road nearest each of these (one each). */
+const OLYMPUS_SHRINE_SPOTS: ReadonlyArray<[number, number]> = [
+  [34, 116], [52, 116], [70, 116], [34, 124], [52, 124], [70, 124], [20, 128], [60, 132],
+];
+/** Where the third hunting lodge goes (the free spot nearest this): by the woods west of the town. */
+const OLYMPUS_LODGE = { x: 12, z: 112 };
+/** How the year runs (months from the gods' switch). */
+const OLYMPUS_MONTH = { demeter: 1, athena: 3, zeus: 4, dionysus: 6, monster: 6, hermes: 7, hall: 8, apollo: 9 };
+/** The moods #olympus opens with where the year leaves them short (set up for this demo), and why. */
+export const OLYMPUS_LOVE = 64;
+export const OLYMPUS_HERA = -42;
+export const OLYMPUS_HERA_WHY = 'a promise broken to Argos, her city (set up for this demo)';
+export const OLYMPUS_ARES = -72;
+export const OLYMPUS_ARES_WHY = 'no shrine to him in a city of eleven, and tribute paid where he wanted war (set up for this demo)';
+export const OLYMPUS_DEVOTION = 'the city’s devotion all year (set up for this demo)';
+/** How near Hera's curse and Sparta's band may come before #olympus opens, in days (it opens sooner if Athena walks with the band on the road). */
+const OLYMPUS_OMEN_LEFT = 10;
+const OLYMPUS_BAND_LEFT = 3;
+/** How many days after Athena's festival is called Hera's omens begin (her feast is a month off; the omens' curse a month off too). */
+const OLYMPUS_OMEN_AFTER = 17;
+
+/** A sanctuary marked out at a tile (its coin given and noted), and its stages raised at once up to `stages` (3: finished). */
+function olympusSanctuary(sim: Sim, god: GodId, x: number, z: number, stages: number): Site | undefined {
+  const s = sim.state;
+  income(s, SANCTUARY_COST, 'gifts', 'set up for this demo: the sanctuary’s coin');
+  sim.enqueue({ type: 'sanctuary', god, at: [O(x, z)] });
+  sim.flush();
+  const site = sanctuaryOf(s, god);
+  const b = site ? s.buildings.find((y) => y.id === site.id) : undefined;
+  if (!site || !b) return site;
+  // (No ox carts called for materials it won't need.)
+  b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < stages && !site.finished; stage++) {
+    site.building = true;
+    site.work = workOf(stagesOf(site)[site.stage]);
+    sim.step();
+  }
+  return site;
+}
+
+function olympusTown(sim: Sim): void {
+  orderTown(sim);
+  const s = sim.state;
+  const seen = new Set<number>();
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  const playOn = (most: number, done: () => boolean = () => false): void => {
+    const end = s.tick + most;
+    while (s.tick < end && !done()) {
+      sim.run(TICKS_PER_DAY);
+      answerCarefully(sim, seen);
+    }
+  };
+  const start = s.tick;
+  const month = (m: number): void => playOn(Math.max(0, start + m * TICKS_PER_MONTH - s.tick));
+  // The gods watching from here (as every demo has them as it opens), and the ambitions, so the gods' laurels come in play.
+  gods(sim, true);
+  ambition(sim, true);
+  // Shrines: #order's three given to Zeus, Demeter and Dionysus, and one to each god but Ares built where there is room.
+  const old = s.buildings.filter((b) => b.kind === 'shrine');
+  old.forEach((b, i) => OLYMPUS_OLD_SHRINES[i] && send({ type: 'dedicate', id: b.id, god: OLYMPUS_OLD_SHRINES[i] }));
+  OLYMPUS_NEW_SHRINES.forEach((god, i) => {
+    const [cx, cz] = OLYMPUS_SHRINE_SPOTS[i];
+    waitFor(sim, s.tick, SHRINE_COST + JOBS.shrine * WAGE);
+    const at = spotNear(sim, 'shrine', 2, cx, cz, 12);
+    if (at < 0) return;
+    const was = new Set(s.buildings.map((b) => b.id));
+    send({ type: 'build', kind: 'shrine', at: [at] });
+    const b = s.buildings.find((y) => y.kind === 'shrine' && !was.has(y.id));
+    if (b) send({ type: 'dedicate', id: b.id, god });
+  });
+  // The sacred way: its ground cleared and its road laid north from the main street.
+  send({ type: 'clear', x0: SACRED_WAY.x - 7, z0: SACRED_WAY.z0, x1: SACRED_WAY.x + 6, z1: SACRED_WAY.z1 });
+  send({ type: 'road', tiles: Array.from({ length: SACRED_WAY.z1 - SACRED_WAY.z0 + 1 }, (_, i) => O(SACRED_WAY.x, SACRED_WAY.z1 - i)) });
+  const shrineOf = (god: GodId): Building | undefined => s.buildings.find((b) => b.kind === 'shrine' && b.god === god);
+  const holy = (god: GodId): Building | undefined => {
+    const x = sanctuaryOf(s, god);
+    return x ? s.buildings.find((b) => b.id === x.id) : undefined;
+  };
+  const raise = (god: GodId, stages = 3): Site | undefined => {
+    const spot = OLYMPUS_SANCTUARIES.find(([g]) => g === god);
+    return spot ? olympusSanctuary(sim, god, spot[1], spot[2], stages) : undefined;
+  };
+  const festival = (god: GodId): void => {
+    const at = holy(god) ?? shrineOf(god);
+    if (!at) return;
+    waitFor(sim, s.tick, 250 + wageBill(s));
+    send({ type: 'festival', id: at.id });
+  };
+  const offer = (god: GodId): void => {
+    const at = holy(god) ?? shrineOf(god);
+    if (at) send({ type: 'offer', id: at.id });
+  };
+  // The year: a sanctuary every month or two, the gods who have one honoured with festivals and offerings.
+  month(OLYMPUS_MONTH.demeter);
+  raise('demeter');
+  playOn(TICKS_PER_DAY * 12);
+  festival('demeter');
+  month(OLYMPUS_MONTH.athena);
+  raise('athena');
+  offer('demeter');
+  month(OLYMPUS_MONTH.zeus);
+  raise('zeus');
+  offer('athena');
+  month(OLYMPUS_MONTH.dionysus);
+  raise('dionysus');
+  // The Calydonian Boar, sent by Artemis (her herds hunted thin by the lodges), settled in its marsh.
+  const boar = sendMonster(s, 'boar', MONSTER_WHY.boar);
+  playOn(MONSTER_GUARD, () => !boar || boar.state === 'lair');
+  month(OLYMPUS_MONTH.hermes);
+  raise('hermes');
+  offer('demeter');
+  offer('athena');
+  month(OLYMPUS_MONTH.hall);
+  // Atalanta, who alone of the heroes but Heracles can slay the Boar: a third hunting lodge (her demands: Artemis warm and
+  // three lodges), and her hall north of the sacred way, waiting on Artemis.
+  if (s.buildings.filter((b) => b.kind === 'lodge').length < 3) {
+    waitFor(sim, s.tick, COST.lodge + JOBS.lodge * WAGE);
+    const at = spotNear(sim, 'lodge', sideOf('lodge'), OLYMPUS_LODGE.x, OLYMPUS_LODGE.z, 16);
+    if (at >= 0) send({ type: 'build', kind: 'lodge', at: [at] });
+  }
+  waitFor(sim, s.tick, COST.herohall + wageBill(s));
+  raiseHall(sim, 'atalanta', SACRED_WAY.x, SACRED_WAY.z0 - 3);
+  month(OLYMPUS_MONTH.apollo);
+  // Apollo's marked out last: its foundations and temple raised at once, its statue's materials put on its site, and a
+  // masons' yard beside the way to raise it, so it rises when played on.
+  const apollo = raise('apollo', 2);
+  const yard = spotNear(sim, 'masons', 2, SACRED_WAY.x + 3, SACRED_WAY.z0 + 2, 10);
+  waitFor(sim, s.tick, MASONS_COST + JOBS.masons * WAGE);
+  if (yard >= 0) send({ type: 'build', kind: 'masons', at: [yard] });
+  if (apollo) stockSanctuary(sim, apollo, 2, 3);
+  // Athena's festival called (its feast a month off), so she walks for it as #olympus opens.
+  festival('athena');
+  offer('demeter');
+  playOn(OLYMPUS_OMEN_AFTER * TICKS_PER_DAY);
+  // Hera's anger, and her omen: families quarrelling, a month off.
+  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, 0);
+  beginOmen(s, sim.map, 'hera', 'quarrels');
+  // Sparta's band threatened and refused (as #battle's), Ares furious with the city and marching with it.
+  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, 0);
+  stagedRaid(sim, 'sparta', 'the king will not suffer a city of temples that gives Ares none');
+  // On until the band is on the road and Athena walks for her festival, with Hera's curse no nearer than
+  // OLYMPUS_OMEN_LEFT days and the band no nearer than OLYMPUS_BAND_LEFT.
+  const r = s.world.raids.find((x) => x.city === 'sparta' && x.ended === 0);
+  const omen = s.gods.wrath.omens.find((o) => o.god === 'hera');
+  const due = (): number => (r && r.phase === 'marching' ? (r.start + r.dur - s.tick) / TICKS_PER_DAY : 99);
+  const walks = (): boolean => s.gods.walks.figures.some((f) => f.god === 'athena');
+  const late = (): boolean => (!!omen && omen.day - s.tick <= OLYMPUS_OMEN_LEFT * TICKS_PER_DAY) || due() <= OLYMPUS_BAND_LEFT;
+  const love = (): void => {
+    for (const g of ['demeter', 'athena'] as const) if (moodOfGod(s, g) < OLYMPUS_LOVE) honour(s, g, OLYMPUS_LOVE - moodOfGod(s, g), 'staged', OLYMPUS_DEVOTION, 0);
+  };
+  love();
+  playOn(2 * TICKS_PER_MONTH, () => late() || (due() < 99 && walks()));
+  // The loves the year leaves short, set up for this demo; the angers kept where they were set.
+  love();
+  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, 0);
+  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, 0);
+  sim.run(1);
 }

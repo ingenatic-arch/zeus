@@ -348,6 +348,8 @@ for (const [hash, views] of [
   ['#godduel-paused-shot', [null]],
   // Merge of slice 60 with slice 59: Perseus holding Ares by the bridge.
   ['#herogod-paused-shot', [null]],
+  // Slice 61: everything at once: six sanctuaries along the sacred way, Athena walking for her festival, the Boar's marsh, Sparta's band with Ares.
+  ['#olympus-paused-shot', [null, 'overview']],
   // Slice 57: Athena's omens over #richtown, Olympus open on her page; Demeter's sanctuary by #town's fields, its panel open;
   // Poseidon standing over the harbour in wrath.
   ['#omen-paused-shot', [null]],
@@ -784,7 +786,7 @@ console.log(`gpu objects: ${mem.geometries} geometries, ${mem.textures} textures
     console.log(`${label.padEnd(30)} update ${((b.ms - a.ms) / Math.max(1, b.f - a.f)).toFixed(2)} ms a frame before drawing (${b.f - a.f} frames; ${b.g.drawn.gods} gods, ${b.g.drawn.particles} particles; ${b.info.triangles} triangles, ${b.info.calls} draws)`);
   }
   // Slice 60: and with two gods at war, Ares among Sparta's band and Athena fighting him, their blows drawn.
-  for (const [hash, label] of [['#godwar-shot', '#godwar, Ares with the band'], ['#godduel-shot', '#godduel, two gods fighting']]) {
+  for (const [hash, label] of [['#godwar-shot', '#godwar, Ares with the band'], ['#godduel-shot', '#godduel, two gods fighting'], ['#olympus-shot', '#olympus, everything at once']]) {
     await page.goto('about:blank');
     await page.goto(url + hash);
     await page.waitForFunction(() => window.__zeus?.ready === true && window.__zeus.frames > 3, null, { timeout: 120000 });
