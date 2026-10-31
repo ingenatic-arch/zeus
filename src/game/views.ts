@@ -213,5 +213,6 @@ export const VIEWS: Record<string, CameraView> = {
   // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.
   epiphany: { x: 47.5, z: 44, yaw: 2.356, dist: 14, tilt: -0.05 },
   // #pantheon: the twelve in a row across the view on the Bay's flood plain, facing the camera.
-  pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 21, tilt: -0.05 },
+  // (Merge of slice 56: from further back, 31 not 21, for the row of gods 2.8 apart, not 2.2.)
+  pantheon: { x: 64.6, z: 54.6, yaw: 2.356, dist: 31, tilt: -0.05 },
 };

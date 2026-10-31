@@ -4568,8 +4568,10 @@ function epiphanyTown(sim: Sim): void {
   sim.flush();
 }
 /** #pantheon: where the row of the twelve begins on the Bay's flood plain, and how far apart they stand, along the classic view's level (towards +x and +z). */
-export const PANTHEON_AT = { x: 56, z: 46 };
-export const PANTHEON_GAP = 2.2;
+// (Merge of slice 56: 2.8 apart, not 2.2, since the review made them 2.5 tiles tall; the row's start moved so its middle
+// stays at #pantheon's view, 64.6, 54.6.)
+export const PANTHEON_AT = { x: 53.7, z: 43.7 };
+export const PANTHEON_GAP = 2.8;
 function pantheonField(sim: Sim): void {
   const step = PANTHEON_GAP / Math.SQRT2;
   // (Zeus first on the left as you look: the row runs from the far end along the screen.)

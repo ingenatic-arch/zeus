@@ -1202,11 +1202,25 @@ function start(preparedTown: string | null): void {
     const id = monstersView.pick(camera, r, sx, sy) || monstersView.pickLair(camera, r, sx, sy);
     return id > 0 ? monsterOf(sim.state, id) : undefined;
   };
+  // Merge of slices 55 and 56: the god under a screen point, unless a monster is under it too and nearer the eye (it is
+  // drawn in front): then the monster's tip and click, as it is the one seen there.
+  const godUnder = (sx: number, sy: number): number => {
+    const id = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+    if (!id) return 0;
+    const bm = beastUnder(sx, sy);
+    const a = godsView.at.get(id);
+    if (!bm || !a) return id;
+    const o = monstersView.shown.find((x) => x.id === bm.id);
+    const l = o ? undefined : monstersView.lairsShown.find((x) => x.id === bm.id);
+    const mid = o ? new THREE.Vector3(o.x, o.y + o.tall / 2, o.z) : l ? new THREE.Vector3(l.x, l.y, l.z) : null;
+    if (!mid) return id;
+    return camera.position.distanceToSquared(new THREE.Vector3(a.x, a.y + a.h / 2, a.z)) <= camera.position.distanceToSquared(mid) ? id : 0;
+  };
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
     // Slice 56: a god in the city, towering over whatever is under them: who, what they're doing and why.
-    const godId = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+    const godId = godUnder(sx, sy);
     const god = godId ? figureOf(sim.state, godId) : undefined;
     if (god) {
       const gs = godStatus(sim.state, god);
@@ -1410,7 +1424,7 @@ function start(preparedTown: string | null): void {
     click(w, sx, sy) {
       if (greeceOpen()) return greece?.click(sx, sy);
       // Slice 56: a god in the city: their panel.
-      const godHit = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+      const godHit = godUnder(sx, sy);
       if (godHit) {
         godPanel.show(godHit);
         return hover(w, sx, sy);
@@ -1880,6 +1894,19 @@ function start(preparedTown: string | null): void {
     const was = other.onOpen;
     other.onOpen = () => {
       was?.();
+      godPanel.show(0);
+    };
+  }
+  // Merge of slices 55 and 56: a god's panel and a monster's share the left side, one at a time.
+  {
+    const wasGod = godPanel.onOpen;
+    godPanel.onOpen = () => {
+      wasGod?.();
+      monsterPanel.show(0);
+    };
+    const wasMonster = monsterPanel.onOpen;
+    monsterPanel.onOpen = () => {
+      wasMonster?.();
       godPanel.show(0);
     };
   }
@@ -3007,6 +3034,8 @@ function start(preparedTown: string | null): void {
     monstersView.update(s, driver.speed === 'paused' ? 0 : Math.min(1, driver.alpha), time, camera.quaternion);
     monsterPanel.update(s, time);
     if (panel.open && monsterPanel.open) monsterPanel.show(0);
+    // (Merge of slices 55 and 56: a home's panel puts a god's away too, as it does a monster's.)
+    if (panel.open && godPanel.open) godPanel.show(0);
     // Slice 51.
     {
       const t = performance.now();
