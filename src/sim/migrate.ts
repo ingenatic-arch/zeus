@@ -212,6 +212,10 @@
  * Slice 56 (The gods walk your streets): no god is in the city, nothing has
  * been blessed, no god was loving at the last look and none has ever come
  * (`gods.walks`). Nothing in the city changes.
+ * Slice 54 (Sanctuaries rise): a site's record says when a finished
+ * sanctuary lost its workers (`idle`); an older town has no sanctuary, so
+ * every monument's site gets 0 where it has none, and nothing else is
+ * touched (no new ware). Nothing in the city changes.
  *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
@@ -329,6 +333,7 @@ export function migrate(st: unknown): number {
   if (st.version === 47) fromSlice53g(st);
   if (st.version === 48) fromSlice55(st);
   if (st.version === 49) fromSlice56(st);
+  if (st.version === 50) fromSlice54(st);
   return from;
 }
 
@@ -1227,5 +1232,17 @@ function fromSlice55(st: Record<string, unknown>): void {
  */
 function fromSlice56(st: Record<string, unknown>): void {
   if (isObj(st.gods) && !isObj(st.gods.walks)) st.gods.walks = freshWalks();
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Slice 54 (Sanctuaries rise): see the notes at the top. It fills in only its
+ * own field (a site's `idle`), only where it is absent, and assumes nothing
+ * of any other line's.
+ */
+function fromSlice54(st: Record<string, unknown>): void {
+  if (isObj(st.monuments) && Array.isArray(st.monuments.sites)) {
+    for (const x of st.monuments.sites as unknown[]) if (isObj(x) && x.idle === undefined) x.idle = 0;
+  }
   st.version = (st.version as number) + 1;
 }

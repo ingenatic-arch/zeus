@@ -43,6 +43,8 @@ import { ESTATE_PLOT_COST, HORSEFARM_COST } from '../sim/build';
 import { COURT_COST, PRISON_COST } from '../sim/build';
 // Slice 49.
 import { ASKLEPIEION_COST, INFIRMARY_COST } from '../sim/build';
+// Slice 54.
+import { SANCTUARY_COST } from '../sim/build';
 
 /**
  * Every tool's and overlay's icon, name, key, cost and hint, which the
@@ -192,6 +194,9 @@ export const ICONS: Record<ButtonName, string> = {
   // Slice 49: the asklepieion: a temple front on its steps, the rod and serpent on its pediment.
   asklepieion:
     '<svg viewBox="0 0 24 24"><path d="M2 8.4 12 3l10 5.4z" class="fill-soft"/><path d="M4.4 9.8v8.6M8.1 9.8v8.6M11.9 9.8v8.6M15.7 9.8v8.6M19.5 9.8v8.6" class="stroke-ink"/><path d="M2.4 18.6h19.2v1.6H2.4zM1.6 20.4h20.8V22H1.6z" class="fill-soft"/><path d="M12 4.6v3.2" class="stroke-ink"/><path d="M12 5c-1 .3-1 .9 0 1.2s1 .9 0 1.2" class="stroke-water"/></svg>',
+  // Slice 54: a sanctuary: a temple front on its steps behind a walled court, a statue on its plinth before it.
+  sanctuary:
+    '<svg viewBox="0 0 24 24"><path d="M5.4 7.4 13.6 3l8.2 4.4z" class="fill-soft"/><path d="M7.2 8.6v7M10.4 8.6v7M13.6 8.6v7M16.8 8.6v7M20 8.6v7" class="stroke-ink"/><path d="M5.6 15.8h16v1.6h-16z" class="fill-soft"/><path d="M1.6 19h20.8v2.4H1.6z" class="fill-ink"/><path d="M2.8 18.8v-5.4h3.4v5.4z" class="fill-soft"/><circle cx="4.5" cy="9.4" r="1.4" class="fill-gold"/><path d="M4.5 10.8v2.6M3.2 11.6l1.3-.6 1.3.6" class="stroke-ink"/></svg>',
   // Slice 49: the health overlay: Hygieia's bowl with her serpent drinking from it.
   health:
     '<svg viewBox="0 0 24 24"><path d="M3.4 11.4h17.2c-.6 4.4-4.2 7.2-8.6 7.2s-8-2.8-8.6-7.2z" class="fill-soft"/><path d="M10 18.4l-1 3h6l-1-3" class="fill-ink"/><path d="M6.4 11.2C5 7.6 8 5.2 10.4 6.6s1.6 4.6 4.8 4.4c2.4-.2 3.4-2.4 2.6-4.4" class="stroke-water"/><circle cx="17.6" cy="6.4" r="1.1" class="fill-ink"/></svg>',
@@ -452,6 +457,13 @@ export const INFO: Record<ButtonName, { name: string; key: string; cost: string;
     key: 'Z ×7',
     cost: `${ASKLEPIEION_COST} dr`,
     hint: 'Click beside a road (four by four). Its stretcher-bearers carry the sick to its beds, where they mend faster and seldom die, and the homes around it are healthier and slow the plague. Click it for the city’s health, and to order a quarantine.',
+  },
+  // Slice 54.
+  sanctuary: {
+    name: 'Sanctuary',
+    key: '',
+    cost: `${SANCTUARY_COST} dr`,
+    hint: 'Choose a god, then click beside a road (five by five; one to a god). The ox carts haul its marble, timber, copper and the god’s sacred good from the stores, and the masons’ builders raise it in three stages: a year or more with one masons’ yard, longer when the stores are far from it. Its god notices each stage; finished and staffed, it honours them for as long as it stands so, and its priests bless homes far along the roads.',
   },
   undo: { name: 'Undo', key: 'U', cost: '', hint: '' },
   water: { name: 'Water overlay: where the water carrier walks, and which homes have water', key: 'Shift O', cost: '', hint: '' }, // (Slice 51: O is the overview.)

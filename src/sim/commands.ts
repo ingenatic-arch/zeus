@@ -7,6 +7,9 @@
  * Commands carry exactly what to build (tile lists), not how the tool chose
  * it, so a replay never depends on the route-finding of the day.
  */
+// Slice 54.
+import type { GodId } from './pantheon';
+
 export type Command =
   /** Lay road on these tiles (tile indices), in order; a run of wet tiles is a bridge, laid whole or not at all. */
   | { type: 'road'; tiles: number[] }
@@ -98,7 +101,10 @@ export type Command =
   | { type: 'gods'; on: boolean }
   // Slice 56
   /** A god comes to the city (epiphany.ts: `why` 'loving', 'festival' or 'sanctuary'), or stands posed at `at` for #pantheon ('pose'). Refused (nothing happens) if the god is there already or too many walk. */
-  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } };
+  | { type: 'visit'; god: string; why: string; at?: { x: number; z: number } }
+  // Slice 54
+  /** Mark out a sanctuary to a god (sanctuaries.ts) at these top-left tiles (the first that can take it; one to a god). */
+  | { type: 'sanctuary'; god: GodId; at: number[] };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

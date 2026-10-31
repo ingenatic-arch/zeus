@@ -110,6 +110,8 @@ import { applySeasonUniforms, seasonLook } from './render/seasons';
 import { buildRain } from './render/rain';
 // Slice 48: a building's panel, and a paused workplace's plaque.
 import { BuildingPanel, ownPanel } from './ui/buildingpanel';
+// Slice 54: the Sanctuary button's chooser of the twelve.
+import { GodChooser } from './ui/godchooser';
 import { PauseMarks } from './render/pausemarks';
 import { ALARM, WARNING } from './sim/messages';
 // Merge of slice 46: a founding's news.
@@ -567,6 +569,14 @@ function start(preparedTown: string | null): void {
   const corner = buildCorner(ui, !shot && !demo?.tool && !welcoming, classicOn());
   const tip = pointerTip(ui);
   const tools = new Tools(sim, placement, tip, overlay);
+  // Slice 54: the Sanctuary button opens the chooser; a god chosen puts the sanctuary tool in hand for them.
+  const godChooser = new GodChooser(ui, { state: () => sim.state, choose: (god) => tools.chooseGod(god) });
+  const sanctuaryButton = (): void => {
+    if (tools.tool === 'sanctuary') {
+      tools.select(null);
+      godChooser.close();
+    } else godChooser.toggle();
+  };
   /** The company whose banner or man is under a screen point (set once the city view is up; 0: none). */
   let armyPick: (sx: number, sy: number) => { company: number; soldier: number; d?: number } = () => ({ company: 0, soldier: 0 });
   const orders = new Orders(
@@ -911,7 +921,7 @@ function start(preparedTown: string | null): void {
       else rig.flyTo({ ...v, x, z });
     },
     faceNorth: () => rig.faceNorth(),
-    tool: (t) => tools.select(t),
+    tool: (t) => (t === 'sanctuary' ? sanctuaryButton() : tools.select(t)),
     undo: () => tools.undo(),
     overlay: (m) => overlay.toggle(m),
     overlayMode: () => overlay.mode,
@@ -1111,7 +1121,10 @@ function start(preparedTown: string | null): void {
     monumentNdc.set(((sx - r.left) / r.width) * 2 - 1, -((sy - r.top) / r.height) * 2 + 1);
     monumentRay.setFromCamera(monumentNdc, camera);
     const hit = city.monuments.pick(monumentRay);
-    return hit ? findBuilding(sim.state, hit.id) : undefined;
+    // (Slice 54: or a sanctuary, the nearer.)
+    const holy = city.sanctuaries.pick(monumentRay);
+    const near = holy && (!hit || holy.distance < hit.distance) ? holy : hit;
+    return near ? findBuilding(sim.state, near.id) : undefined;
   };
   const buildingAt = (world: { x: number; z: number } | null): Building | undefined => {
     const n = map.size;
@@ -1405,7 +1418,9 @@ function start(preparedTown: string | null): void {
         // The map of Greece: its panel first, then the map itself.
         if (greece.shown) greece.show(null);
         else toggleGreece(false);
-      } else if (tools.tool) tools.cancel();
+      } else if (godChooser.open) godChooser.close();
+      // (Slice 54: the chooser of the twelve, above.)
+      else if (tools.tool) tools.cancel();
       else if (orders.selected) takeBanner(0);
       else if (follow) stopFollow();
       else if (tradePanel.open) tradePanel.toggle(false);

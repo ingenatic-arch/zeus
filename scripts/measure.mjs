@@ -338,6 +338,9 @@ for (const [hash, views] of [
   // Slice 56: Demeter come to #town's fields, her flourish and the blessed farms' shimmer; the twelve posed in a row.
   ['#epiphany-paused-shot', [null, 'town']],
   ['#pantheon-paused-shot', [null]],
+  // Slice 54: four sanctuaries at four stages on #quarry's town, Athena's panel open; all twelve finished in two rows.
+  ['#sanctuaries-paused-shot', [null]],
+  ['#twelve-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');
