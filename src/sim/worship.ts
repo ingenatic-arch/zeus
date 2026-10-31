@@ -66,6 +66,8 @@ import type { Building, SimState, Walker } from './state';
 // god come in person as their festival begins.
 import { altarOf, sanctuaryDone, sanctuaryName, sanctuaryOf } from './sanctuaries';
 import { startVisit } from './epiphany';
+// Slice 57.
+import { blessingOn } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The numbers, in one place (tuned by eye: a city doing nothing special for a
@@ -827,7 +829,14 @@ export function godDay(s: SimState, god: GodId, look: CityLook): void {
     setStanding(s, god, `city:${r.id}`, v ? v[1] : '', v ? v[0] : 0);
   }
   neglect(s, god);
+  // Slice 57: a sanctuary its own god walked in this season (slice 56's blessing on it) honours them while it lasts.
+  const site = sanctuaryOf(s, god);
+  const walked = !!site && blessingOn(s, site.id)?.god === god;
+  setStanding(s, god, 'walked', walked ? `${herOf(god) === 'her' ? 'she' : 'he'} walked in ${herOf(god)} sanctuary this season` : '', walked ? WALKED_HONOUR : 0);
 }
+
+/** Slice 57: what a god's walk in their own sanctuary is worth, for its season. */
+export const WALKED_HONOUR = 3;
 
 /** Has a god any worship standing now (a shrine, a sanctuary: their `standing` marks it each month) or lately? */
 function worshippedLately(s: SimState, god: GodId): boolean {

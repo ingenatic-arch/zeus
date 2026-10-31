@@ -347,6 +347,8 @@ export interface Gods {
   month: number;
   /** Homes a procession passed (by building id): [the tick, the god's index in GOD_IDS], glad for a season. */
   festive: Record<string, [number, number]>;
+  // Slice 57 (Blessings and wrath): omens, curses and blessings (wrath.ts, blessings.ts).
+  wrath: Wrath;
 }
 
 /** Slice 53: a festival at home (worship.ts): announced a month ahead, then its procession walks. */
@@ -368,7 +370,7 @@ export function freshGods(on = false, noticedAt = -1): Gods {
   const memories = {} as Record<GodId, Memory[]>;
   for (const g of GOD_IDS) memories[g] = [];
   // (Slice 56: and nobody walking in the city. Slice 53: worship's record, empty.)
-  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {} };
+  return { on, noticedAt, memories, walks: freshWalks(), festivals: [], worshipped: {}, lastFestival: {}, months: {}, month: -1, festive: {}, wrath: freshWrath() };
 }
 
 /** How many people a city needs before the gods notice it. */
@@ -615,3 +617,126 @@ export function festiveMood(s: SimState, homeId: number): { w: number; text: str
   const g = GOD_IDS[f[1]];
   return g ? { w: FESTIVE_MOOD, text: `The procession for ${GODS[g].name} passed their door` } : null;
 }
+
+// ---------------------------------------------------------------------------
+// Slice 57 (Blessings and wrath): the state of omens, curses and blessings
+// (blessings.ts and wrath.ts move it), and the small lookups the systems a
+// blessing or a curse touches read (production, crime, settlers, folk,
+// hunting, trade, the seas, loyalty), so each of them imports only this leaf.
+
+/** A god's curse (wrath.ts' table says what each does). */
+export type CurseId = 'lightning' | 'hydra' | 'quarrels' | 'earthquake' | 'cyclops' | 'blight' | 'medusa' | 'olives' | 'plague' | 'boar' | 'herds' | 'chimera' | 'brawls' | 'heartbreak' | 'talos' | 'forge' | 'thieves' | 'riot';
+
+/** An omen: a god's curse chosen, landing on `day`, over a spot (and a building, if one is its target). */
+export interface Omen {
+  god: GodId;
+  curse: CurseId;
+  /** When the omens began, and the tick the curse lands. */
+  at: number;
+  day: number;
+  /** Where it will strike (world units), and the building it means (0: none, a stretch of ground). */
+  x: number;
+  z: number;
+  target: number;
+  /** The god's reasons as the omens began, in words. */
+  why: string;
+  /** Told again a few days before (0: not yet). */
+  told: number;
+  /** The god come in person to deliver it (a figure's id; 0: none). */
+  figure: number;
+}
+
+/** A spell in force: a god's blessing (`curse` '') or a lasting curse, from when until when. */
+export interface Spell {
+  god: GodId;
+  curse: CurseId | '';
+  from: number;
+  until: number;
+}
+
+/** The gods' omens, curses and blessings (`gods.wrath`). */
+export interface Wrath {
+  /** Wrath's switch: omens may begin and blessings come unasked only while it is on (off while a demo's history plays). */
+  on: boolean;
+  omens: Omen[];
+  spells: Spell[];
+  /** When each god's blessing was last asked for, and last given (asked or not), and when each last cursed or was appeased. */
+  asked: Partial<Record<GodId, number>>;
+  given: Partial<Record<GodId, number>>;
+  cursed: Partial<Record<GodId, number>>;
+}
+
+export const freshWrath = (on = false): Wrath => ({ on, omens: [], spells: [], asked: {}, given: {}, cursed: {} });
+
+/** A blessing of a god's in force now, if any. */
+export function blessingFrom(s: SimState, god: GodId): Spell | undefined {
+  const list = s.gods?.wrath?.spells;
+  if (!list || list.length === 0) return undefined;
+  for (const x of list) if (x.god === god && x.curse === '' && x.until > s.tick && x.from <= s.tick) return x;
+  return undefined;
+}
+
+/** A lasting curse in force now, if any. */
+export function curseNow(s: SimState, curse: CurseId): Spell | undefined {
+  const list = s.gods?.wrath?.spells;
+  if (!list || list.length === 0) return undefined;
+  for (const x of list) if (x.curse === curse && x.until > s.tick && x.from <= s.tick) return x;
+  return undefined;
+}
+
+/** How a blessing or a curse speeds or slows a kind of maker (production.ts): Demeter's farms, Athena's groves, Dionysus's vines, Hephaestus's forges, blight, the olives failed. */
+export function godPace(s: SimState, kind: string): number {
+  const list = s.gods?.wrath?.spells;
+  if (!list || list.length === 0) return 1;
+  let p = 1;
+  if (kind === 'farm') {
+    if (blessingFrom(s, 'demeter')) p *= 2;
+    if (curseNow(s, 'blight')) p *= BLIGHT_PACE;
+  } else if (kind === 'grove' || kind === 'press') {
+    if (blessingFrom(s, 'athena')) p *= 2;
+    if (kind === 'grove' && curseNow(s, 'olives')) p = 0;
+  } else if (kind === 'vineyard' || kind === 'winery') {
+    if (blessingFrom(s, 'dionysus')) p *= 2;
+  } else if (kind === 'armoury' || kind === 'mine' || kind === 'masons') {
+    if (blessingFrom(s, 'hephaestus')) p *= 2;
+  }
+  return p;
+}
+/** Blight: the fields yield this share for its season. */
+export const BLIGHT_PACE = 0.25;
+
+/** A hunter's kill (hunt.ts): double under Artemis's blessing. */
+export const godHunt = (s: SimState): number => (blessingFrom(s, 'artemis') ? 2 : 1);
+
+/** How tempted to crime homes grow (crime.ts): half under Athena's wisdom, twice over in Hermes's season of thieves. */
+export function godCrime(s: SimState): number {
+  const list = s.gods?.wrath?.spells;
+  if (!list || list.length === 0) return 1;
+  return (blessingFrom(s, 'athena') ? 0.5 : 1) * (curseNow(s, 'thieves') ? 2 : 1);
+}
+
+/** How often settlers come (settlers.ts: the wait between groups is divided by it): twice as often under Aphrodite's blessing. */
+export const godSettle = (s: SimState): number => (blessingFrom(s, 'aphrodite') ? 2 : 1);
+
+/** A home's mood from a god this season (folk.ts), or null: Aphrodite's blessing lifts every home, her curse lowers them. */
+export function godMood(s: SimState): { w: number; text: string } | null {
+  if (blessingFrom(s, 'aphrodite')) return { w: 2, text: 'Aphrodite’s blessing: love is in the air' };
+  if (curseNow(s, 'heartbreak')) return { w: -2, text: 'Aphrodite’s curse: quarrels in every street' };
+  return null;
+}
+
+/** Poseidon's fair seas: no winter storm holds a ship back (seasons.ts), the merchant ship sails quicker (trade.ts), enemy ships slower (fleet.ts). */
+export const fairSeas = (s: SimState): boolean => !!blessingFrom(s, 'poseidon');
+/** Under fair seas: the merchant ship's days at sea, and an enemy ship's pace, as a share of the usual. */
+export const FAIR_SAIL = 0.75;
+export const FOUL_FOR_FOES = 0.8;
+
+/** Your prices with Greece (routes.ts): a seventh better each way under Hermes's blessing. `sell` true when you sell. */
+export function godPrice(s: SimState, price: number, sell: boolean): number {
+  if (!blessingFrom(s, 'hermes')) return price;
+  return Math.max(1, Math.round(sell ? (price * 8) / 7 : (price * 6) / 7));
+}
+
+/** Loyalty from Hera's blessing on the ties between you (vassals.ts, colonies.ts), or 0. */
+export const HERA_BOND = 15;
+export const godBond = (s: SimState): number => (blessingFrom(s, 'hera') ? HERA_BOND : 0);

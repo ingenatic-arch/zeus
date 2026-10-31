@@ -1977,7 +1977,17 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     health(sim, true);
     // Phase 7 groundwork: and the gods (off while the history plays, so no history changes): watchful as it opens, a town of 300 people noticed.
     gods(sim, true);
+    // Slice 57: and their wrath and unasked blessings (off while every history plays, even one with the gods watching).
+    wrath(sim, true);
   };
+}
+
+// Slice 57
+/** Switch the gods' wrath (and their unasked blessings) on or off now (a command). */
+function wrath(sim: Sim, on: boolean): void {
+  if (sim.state.gods.wrath.on === on) return;
+  sim.enqueue({ type: 'wrath', on });
+  sim.flush();
 }
 
 // Phase 7 groundwork

@@ -36,6 +36,8 @@
 import { hash2 } from '../map/noise';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import type { BuildingKind, SimState } from './state';
+// Slice 57.
+import { fairSeas } from './pantheon';
 
 export const SPRING = 0;
 export const SUMMER = 1;
@@ -216,6 +218,11 @@ export const WINTER_SEA_PACE = 0.75;
  */
 export function stormDelay(s: SimState, ship: string, due: number): number {
   if (!s.season?.on) return 0;
+  // (Slice 57: no storm holds a ship back under Poseidon's fair seas.)
+  if (fairSeas(s)) {
+    if (s.season.late[ship]) delete s.season.late[ship];
+    return 0;
+  }
   if (seasonAt(due) !== WINTER) {
     if (s.season.late[ship]) delete s.season.late[ship];
     return 0;

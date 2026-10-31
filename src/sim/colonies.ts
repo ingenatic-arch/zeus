@@ -72,6 +72,8 @@ import { defenceWords, freshGrowth, govTrait, growthCauses, loyaltyCauses, offer
 // Slice 42: the land's size.
 import { sizeOf } from '../map/lands';
 import { WOMEN } from './folk';
+// Slice 57.
+import { godBond } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The records (kept in the `empire` field: vassals.ts' Empire has `colonies` and `foundings`).
@@ -689,6 +691,8 @@ export function colonyLoyalty(s: SimState, c: Colony): Loyalty {
   for (const x of loyaltyCauses(c)) add(x.n, x.why);
   // Slice 47: a company stationed there, triremes stationed off it.
   for (const x of empireCauses(s, c)) add(x.n, x.why);
+  // Slice 57: Hera's blessing on the ties between you, for its season.
+  add(godBond(s), 'Hera’s blessing on the ties between you');
   why.sort((a, b) => Math.abs(b.n) - Math.abs(a.n));
   return { target: clamp(LOYAL_BASE + why.reduce((a, x) => a + x.n, 0), 0, 100), why };
 }

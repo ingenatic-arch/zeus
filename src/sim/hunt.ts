@@ -21,6 +21,8 @@ import { note } from './stockbook';
 import { HUNTER_SPEED, newWalker, position, setPath } from './walk';
 import { bolt, lineClear, MIN_HEAD, offRoadPath, prunePath, regrowIn, walkable } from './wild';
 import { restFor } from './water';
+// Slice 57.
+import { godHunt } from './pantheon';
 
 /** How far (straight across country, from the lodge) its hunters go after game. */
 export const HUNT_RANGE = 40;
@@ -194,7 +196,8 @@ function strike(s: SimState, map: CoastMap, w: Walker, l: Building): boolean {
   if (h && h.head > MIN_HEAD) {
     if (dhypot(h.x - x, h.z - z) <= REACH + 1) {
       h.head--;
-      w.load = MEAT_KILL;
+      // (Slice 57: double under Artemis's blessing.)
+      w.load = MEAT_KILL * godHunt(s);
       bolt(s, map, h, x, z);
     } else if (w.steps < REAIMS && aim(s, map, w)) {
       // It moved off while he crept up (another hunter's kill scattered it): after it again.

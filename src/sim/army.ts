@@ -1098,3 +1098,16 @@ export function doingWords(s: SimState, c: Company): string {
   // (Nobody ready yet: nobody is drilling or marching.)
   return `${ready ? '' : 'raising: '}${ready} of ${c.want} ready${bits.length ? ` (${bits.join(', ')})` : ''}${ready ? `; ${what}` : ''}`;
 }
+
+// Slice 57 (Blessings and wrath): a soldier deserts in Ares' brawls, walking home with his armour (it is lost to the city).
+
+/** A man deserts his company: he walks home from where he stands, his armour with him. */
+export function desert(s: SimState, map: CoastMap, x: Soldier): void {
+  if (x.armed) {
+    x.armed = false;
+    note(s, ARMOUR, 'lost', 'deserters', 1);
+  }
+  x.foe = 0;
+  sendHome(s, map, x);
+  s.rev++;
+}

@@ -99,6 +99,8 @@ import { lateWords, onSchedule, stormDelay } from './seasons';
 import { tributeDoing, unload as unloadTribute } from './vassals';
 // Slice 42: the land's size.
 import { sizeOf } from '../map/lands';
+// Slice 57: Hermes's blessing on your prices.
+import { godPrice } from './pantheon';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -356,7 +358,8 @@ function unload(s: SimState, r: TradeRoute, depot: Building): void {
     // (Under an offer you took: its price and its own limit for its year.)
     const o = offerOn(s.world, r.city, k, 'sell');
     const left = o ? offerLeft(o) : yearlyLimit(s, r.city, k) - boughtFrom(s, r.city, k);
-    const price = Math.max(1, o ? offerPrice(s, o) : yourPrice(s.world, r.city, k, s.tick));
+    // (Slice 57: a seventh less under Hermes's blessing.)
+    const price = godPrice(s, Math.max(1, o ? offerPrice(s, o) : yourPrice(s.world, r.city, k, s.tick)), false);
     const purse = importPurse(s);
     let n = Math.min(want, left, depotRoom(depot, w), Math.floor((purse * 100) / price));
     // (Slice 36: horses come by the head, the rest by tens.)
@@ -388,7 +391,8 @@ function settle(s: SimState, r: TradeRoute): void {
     if (n <= 0) return;
     // (Under an offer you took: at its price, if better than the market's.)
     const o = offerOn(s.world, r.city, k, 'buy');
-    const dr = o ? Math.round((n * offerPrice(s, o)) / 100) : priceAt(s, r.city, k, n);
+    // (Slice 57: a seventh more under Hermes's blessing.)
+    const dr = godPrice(s, o ? Math.round((n * offerPrice(s, o)) / 100) : priceAt(s, r.city, k, n), true);
     if (o) tradedUnder(o, n);
     paid += dr;
     r.sold[k] += n;

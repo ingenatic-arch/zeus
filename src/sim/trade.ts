@@ -56,6 +56,8 @@ import { blockaded } from './lanes';
 // Slice 49: the quarantine, and the plague the Tyrian ship may bring.
 import { landed, quarantined } from './health';
 import { PLACES, type CityId } from '../map/greece';
+// Slice 57.
+import { FAIR_SAIL, fairSeas } from './pantheon';
 /** "Troy’s", "Athens’". */
 const whoseCity = (id: CityId): string => (PLACES[id].name.endsWith('s') ? `${PLACES[id].name}’` : `${PLACES[id].name}’s`);
 
@@ -541,7 +543,8 @@ export const leaveTicks = (ship: Sailing): number => Math.max(TICKS_PER_DAY, Mat
 /** Slice 35: how long she takes to sail in on this voyage (SAIL_IN, or less while the Lighthouse burns). */
 export const sailInTicks = (ship: Sailing): number => (ship.pace === undefined ? SAIL_IN : Math.round(SAIL_IN * ship.pace));
 /** Slice 35: her pace on a voyage begun now (LIT_PACE while the Lighthouse burns, else the usual), how long she takes to sail in on it, and how often she calls. */
-export const paceNow = (s: SimState): number | undefined => (lit(s) ? LIT_PACE : undefined);
+// (Slice 57: a quarter quicker again under Poseidon's fair seas.)
+export const paceNow = (s: SimState): number | undefined => (fairSeas(s) ? (lit(s) ? LIT_PACE : 1) * FAIR_SAIL : lit(s) ? LIT_PACE : undefined);
 export const sailInNow = (s: SimState): number => (lit(s) ? Math.round(SAIL_IN * LIT_PACE) : SAIL_IN);
 export const shipEvery = (s: SimState): number => (lit(s) ? LIT_EVERY : SHIP_EVERY);
 

@@ -26,6 +26,8 @@ import { healthMoods } from './health';
 import { blessingOn, GODS, goddess } from './pantheon';
 // Slice 53: a festival's procession passing the door (pantheon.ts, a leaf).
 import { festiveMood } from './pantheon';
+// Slice 57.
+import { godMood } from './pantheon';
 
 /** Ordinary men's names of the Greek world. */
 export const MEN = [
@@ -435,6 +437,9 @@ export function moodOf(s: SimState, b: Building, ctx: { agora: boolean; jobs: bo
   // Slice 53: a festival's procession passed their door this season.
   const fest = festiveMood(s, b.id);
   if (fest) add(fest.w, fest.text);
+  // Slice 57: Aphrodite's blessing or her curse, this season.
+  const love = godMood(s);
+  if (love) add(love.w, love.text);
   if (b.unpaid > 0) add(-1, b.unpaid >= b.workers ? 'Their wages are owed: the treasury is empty' : `${b.unpaid} of them are owed wages: the treasury is empty`);
   if (workable > 0 && ctx.jobs) {
     if (b.workers >= workable) add(1, workable === 1 ? 'Has work' : 'Everyone who can work has work');

@@ -53,8 +53,11 @@ import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
 /** Where a god is in their visit. `posing`: standing for #pantheon, never moving or leaving. */
 export type WalkState = 'arriving' | 'walking' | 'blessing' | 'leaving' | 'posing';
 /** Why a god came: loving the city, a festival to them, their sanctuary finished; or posed for #pantheon. */
-export type VisitWhy = 'loving' | 'festival' | 'sanctuary' | 'pose';
-export const VISIT_WHYS: readonly VisitWhy[] = ['loving', 'festival', 'sanctuary', 'pose'];
+export type VisitWhy = 'loving' | 'festival' | 'sanctuary' | 'pose'
+  // Slice 57: come to give their blessing (blessings.ts), or in wrath to deliver a curse (wrath.ts makes those figures itself).
+  | 'blessing'
+  | 'wrath';
+export const VISIT_WHYS: readonly VisitWhy[] = ['loving', 'festival', 'sanctuary', 'pose', 'blessing'];
 
 /** A place a god means to visit: a building (by id), and its middle. */
 export interface Stop {
@@ -216,6 +219,8 @@ export const untilWords = (until: number): string => SEASON_NAMES[seasonAt(until
 /** What a blessing does for a place, in words: "its crop grows a quarter faster". */
 export function boonWords(kind: BuildingKind): string {
   if (kind === 'home') return 'the household’s spirits lift';
+  // (Slice 57: a sanctuary its own god walks in honours them for the season: worship.ts reads it.)
+  if (kind === 'sanctuary') return 'its god is honoured the more for it';
   if (kind === 'farm' || kind === 'grove' || kind === 'vineyard') return 'its crop grows a quarter faster';
   if (kind === 'armoury') return 'its smiths work a quarter faster';
   if (kind === 'dairy' || kind === 'press' || kind === 'pasture' || kind === 'winery' || kind === 'mine' || kind === 'horsefarm') return 'it works a quarter faster';
@@ -236,6 +241,9 @@ function whyWords(s: SimState, g: GodId, why: VisitWhy): string {
   if (why === 'festival') return `${she(g)} has come for your festival`;
   if (why === 'sanctuary') return `${she(g)} has come to see ${her(g)} new sanctuary`;
   if (why === 'pose') return `${she(g)} stands for you to see`;
+  // (Slice 57.)
+  if (why === 'blessing') return `${she(g)} has come to give ${her(g)} blessing`;
+  if (why === 'wrath') return `${she(g)} has come in wrath`;
   const best = reasonsOf(s, g).find((r) => r.worth > 0);
   return best ? `${she(g)} is pleased with ${best.why}` : `${she(g)} loves your city`;
 }
@@ -251,6 +259,8 @@ export function doingWords(s: SimState, f: GodFigure): string {
     case 'walking':
       return b ? `walking to ${placeName(map, b)}` : 'walking';
     case 'blessing':
+      // (Slice 57: a god come in wrath stands over the place instead, until the curse falls.)
+      if (f.why === 'wrath') return b ? `standing over ${placeName(map, b)}, the storm gathering` : 'the storm gathering';
       return b ? `blessing ${placeName(map, b)}` : 'blessing';
     case 'leaving':
       return 'leaving your city';
@@ -599,6 +609,8 @@ export function startVisit(s: SimState, god: GodId, why: VisitWhy, at?: { x: num
 
 /** Bless a place for the season after next (another god's blessing gives way; the same god's is made longer). */
 function bless(s: SimState, f: GodFigure, b: Building): void {
+  // (Slice 57: a god come in wrath blesses nothing.)
+  if (f.why === 'wrath') return;
   const w = s.gods.walks;
   const until = nextSeasonAt(s.tick + TICKS_PER_SEASON);
   const had = w.blessed.findIndex((x) => x.id === b.id);

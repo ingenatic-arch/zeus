@@ -34,7 +34,8 @@ import type { Legends } from './monsters';
 // (Slice 56: the gods walk your streets, 49 on its line, renumbered 50 at its merge.)
 // (Slice 54: sanctuaries, 49 on the Temples line, renumbered 51 at its merge.)
 // (Slice 53: the twelve and their tempers, 49 on its line, renumbered 52 at its merge.)
-export const SIM_STATE_VERSION = 52;
+// (Slice 57: blessings and wrath, 53 on its line.)
+export const SIM_STATE_VERSION = 53;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;

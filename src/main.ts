@@ -462,6 +462,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'health', on: true });
     // Phase 7 groundwork: and the gods, watching from the founding.
     sim.enqueue({ type: 'gods', on: true });
+    // Slice 57: and their wrath (omens may begin, blessings come unasked).
+    sim.enqueue({ type: 'wrath', on: true });
     sim.flush();
     // Slice 46: on a land founded from the new-game screen, the road in is laid at once (from the edge nearest the city's ground).
     if (founding) {

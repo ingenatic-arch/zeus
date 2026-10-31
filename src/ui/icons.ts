@@ -354,3 +354,7 @@ export const LAND_ICONS: Record<string, string> = {
   dryplain: land(`<rect x=".5" y=".5" width="43" height="29" rx="2" fill="${OCHRE}"/><path d="M.5 26c12-1 30-1 43 0v3.5H.5z" fill="${SEA}" ${LAND_EDGE}/><path d="M30 1c-2 6-6 12-4 17s1 6 0 8" fill="none" stroke="${SEA_DEEP}" stroke-width="1.4"/><path d="M26 2c-2 6-5 12-3 17l-1 7M33 2c-1 6-4 12-3 17l1 7" fill="none" stroke="${GRASS_DEEP}" stroke-width="1.6" opacity=".6"/><g fill="#7a8a3a">${[[6, 9], [10, 13], [14, 8], [8, 18]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4"/>`).join('')}</g>`),
   woods: land(`<path d="M.5 23c9 1 15-3 22-2s13 2 21 1v7.5H.5z" fill="${SEA}" ${LAND_EDGE}/>${trees([[4, 6], [8, 9], [12, 5], [17, 8], [6, 14], [11, 15], [26, 6], [31, 9], [36, 5], [40, 10], [33, 15], [38, 16]])}<path d="M22 1c-1 6 1 12 0 20" fill="none" stroke="${SEA_DEEP}" stroke-width="1.4"/>`),
 };
+
+// Slice 57: omens and curses: a dark storm cloud with a red bolt under it.
+MESSAGE_ICONS.wrath =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.6 9.6a2.6 2.6 0 0 1 .4-5.2 3.6 3.6 0 0 1 6.8-.8 2.8 2.8 0 0 1 2.2 4.8 2 2 0 0 1-1.4 1.2z" fill="#4a4658" stroke="#24202e" stroke-width=".9" stroke-linejoin="round"/><path d="M8.6 9.2 6.4 12.4h2l-1.2 3 3.6-4.2H8.8l1-2z" fill="#d8402c" stroke="#6e1a10" stroke-width=".6" stroke-linejoin="round"/></svg>';
