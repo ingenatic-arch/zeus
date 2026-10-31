@@ -837,7 +837,7 @@ export class SidePanel {
     const stores = st.places.filter((p) => (p.b.kind === 'granary' || p.b.kind === 'storehouse') && p.room > 0);
     if (stores.length && stores.every((p) => p.n >= p.room * 0.95)) {
       const kind = stores[0].b.kind;
-      out.push({ text: `The ${MANY[kind]} are full of ${esc(name)}: another ${kind} (G${kind === 'storehouse' ? ' twice' : ''}) or selling it at the trading post would make room.`, bad: true });
+      out.push({ text: `The ${MANY[kind]} are full of ${esc(name)}: another ${kind} (Shift G${kind === 'storehouse' ? ' twice' : ''}) or selling it at the trading post would make room.`, bad: true });
     }
     return out;
   }

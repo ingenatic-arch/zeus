@@ -69,14 +69,15 @@ export function moodMonths(s: SimState, god: GodId, w = 240, h = 36): string {
     .map((v, i, all) => {
       const x = (n - all.length + i) * bw;
       const hh = Math.max(1.5, Math.min(1, Math.abs(v) / MONTHS_SCALE) * mid);
-      return `<rect x="${(x + bw * 0.15).toFixed(1)}" y="${(v >= 0 ? mid - hh : mid).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${hh.toFixed(1)}" class="${v >= 10 ? 'up' : v < -10 ? 'down' : 'even'}${i === all.length - 1 ? ' now' : ''}"><title>${esc(i === all.length - 1 ? `Now: ${moodWord(v)} (${signed(v)})` : `${monthAgo(s, all.length - 1 - i)}: ${moodWord(v)} (${signed(v)})`)}</title></rect>`;
+      return `<rect x="${(x + bw * 0.15).toFixed(1)}" y="${(v >= 0 ? mid - hh : mid).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${hh.toFixed(1)}" class="${v >= 10 ? 'up' : v < -10 ? 'down' : 'even'}${i === all.length - 1 ? ' now' : ''}" data-tip="${esc(i === all.length - 1 ? `Now: ${moodWord(v)} (${signed(v)})` : `${monthAgo(s, all.length - 1 - i)}: ${moodWord(v)} (${signed(v)})`)}"></rect>`;
     })
     .join('');
   return `<svg class="ol-months" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px" role="img" aria-label="${esc(`${GODS[god].name}’s mood, month by month`)}"><path d="M0 ${mid}H${w}" class="axis"/><path d="M0 ${(mid - (10 / MONTHS_SCALE) * mid).toFixed(1)}H${w}M0 ${(mid + (10 / MONTHS_SCALE) * mid).toFixed(1)}H${w}" class="band"/>${bars}</svg>`;
 }
 
 const monthAgo = (s: SimState, k: number): string => {
-  const d = dateOfTick(Math.max(0, (Math.floor(s.tick / TICKS_PER_MONTH) - k + 1) * TICKS_PER_MONTH - TICKS_PER_MONTH));
+  // (The record's last month was kept at the start of this one: k = 1.)
+  const d = dateOfTick(Math.max(0, (Math.floor(s.tick / TICKS_PER_MONTH) - k + 1) * TICKS_PER_MONTH));
   return `Start of ${MONTH_NAMES[d.month]}`;
 };
 
@@ -90,13 +91,15 @@ function festivalWords(s: SimState, god: GodId): string {
 }
 
 /** The festival's and the offering's buttons for a shrine. */
-function worshipButtons(s: SimState, map: CoastMap, b: Building | undefined, god: GodId): string {
+function worshipButtons(s: SimState, map: CoastMap, b: Building | undefined, god: GodId, named = false): string {
   const G = GODS[god];
+  // (On a god's page, which of their shrines the buttons act at.)
+  const at = named && b ? `<p class="ol-note ol-at">${esc(`At ${shrineWords(map, b, s)}${shrinesTo(s, god).length > 1 ? ' (the others from their own panels)' : ''}:`)}</p>` : '';
   const none = `Dedicate a shrine to ${G.name} first`;
   const fWhy = b ? festivalRefusal(s, map, b.id) : none;
   const oWhy = b ? offerRefusal(s, map, b.id) : none;
   const data = { id: b?.id ?? 0 };
-  return `<div class="ol-acts">${kbtn({ act: 'festival', data, icon: emblemSvg(god, 'ki'), html: 'Hold a festival', tone: 'lapis', small: true, why: fWhy || undefined, tip: `A festival to ${G.name}: ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, festivalGoods(G.sacred))} from the stores, announced a month ahead; then a procession round the agora, and the homes it passes glad for a season. One a year.` })}${kbtn({ act: 'offer', data, icon: 'keep', html: 'Send an offering', small: true, why: oWhy || undefined, tip: `An offering to ${G.name}: ${goodsWords(G.sacred, offeringOf(G.sacred))}, carried from the nearest store to the shrine. A small honour, when it arrives.` })}</div>${fWhy && b ? `<p class="k-why">${esc(fWhy)}.</p>` : ''}`;
+  return `${at}<div class="ol-acts">${kbtn({ act: 'festival', data, icon: emblemSvg(god, 'ki'), html: 'Hold a festival', tone: 'lapis', small: true, why: fWhy || undefined, tip: `A festival to ${G.name}: ${FESTIVAL_COST} dr and ${goodsWords(G.sacred, festivalGoods(G.sacred))} from the stores, announced a month ahead; then a procession round the agora, and the homes it passes glad for a season. One a year.` })}${kbtn({ act: 'offer', data, icon: 'keep', html: 'Send an offering', small: true, why: oWhy || undefined, tip: `An offering to ${G.name}: ${goodsWords(G.sacred, offeringOf(G.sacred))}, carried from the nearest store to the shrine. A small honour, when it arrives.` })}</div>${fWhy && b ? `<p class="k-why">${esc(fWhy)}.</p>` : ''}`;
 }
 
 /** The god's first shrine with nothing in the way of an offering (or the first). */
@@ -202,7 +205,7 @@ function godPage(s: SimState, map: CoastMap, god: GodId): string {
   const right = [
     ksec(`Why ${they} is ${moodWord(m)}`, why, { icon: 'reach', aside: `<b class="ol-sum">${signed(m)}</b>` }),
     ksec('Two years', `${moodMonths(s, god, 420, 64)}<p class="ol-note">${esc(`Month by month, at the start of each, and now: gold for pleased and better, red for displeased and worse; the dotted lines are watchful’s edges.`)}</p>`, { icon: 'overview' }),
-    ksec('Worship', `${list}<p class="ol-note">${esc(`${festivalWords(s, god)} No sanctuary yet.`)}</p>${worshipButtons(s, map, shrineFor(s, god), god)}`, { icon: 'gods' }),
+    ksec('Worship', `${list}<p class="ol-note">${esc(`${festivalWords(s, god)} No sanctuary yet.`)}</p>${worshipButtons(s, map, shrineFor(s, god), god, true)}`, { icon: 'gods' }),
   ].join('');
   return `<div class="ol-page"><div class="ol-back">${kbtn({ act: 'all', icon: 'go', html: '‹ The twelve', small: true, tone: 'stone' })}</div><div class="ol-cols"><div>${left}</div><div>${right}</div></div></div>`;
 }

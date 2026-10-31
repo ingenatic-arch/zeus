@@ -210,9 +210,9 @@ const WALKS = {
 
 /** What each stall does, and the chain that fills it, in the tool's tip. */
 const STALL_WORDS: Partial<Record<Ware, { name: string; does: string; chain: string }>> = {
-  [OIL]: { name: 'oil stall', does: 'Its porter fetches jars of oil from a storehouse; its oil vendor sells to cottages and better nearby: a townhouse needs oil', chain: 'Groves, an olive press and a storehouse (M, G) make it.' },
-  [FLEECE]: { name: 'fleece stall', does: 'Its porter fetches bales of fleece from a storehouse; its fleece vendor sells to townhouses and better nearby: a fine house needs fleece', chain: 'A sheep pasture and a storehouse (M, G) make it.' },
-  [WINE]: { name: 'wine stall', does: 'Its porter fetches amphorae of wine from a storehouse; its wine vendor sells to fine houses and better nearby: a villa needs wine', chain: 'Vineyards, a winery and a storehouse (M, G) make it.' },
+  [OIL]: { name: 'oil stall', does: 'Its porter fetches jars of oil from a storehouse; its oil vendor sells to cottages and better nearby: a townhouse needs oil', chain: 'Groves, an olive press and a storehouse (M, Shift G) make it.' },
+  [FLEECE]: { name: 'fleece stall', does: 'Its porter fetches bales of fleece from a storehouse; its fleece vendor sells to townhouses and better nearby: a fine house needs fleece', chain: 'A sheep pasture and a storehouse (M, Shift G) make it.' },
+  [WINE]: { name: 'wine stall', does: 'Its porter fetches amphorae of wine from a storehouse; its wine vendor sells to fine houses and better nearby: a villa needs wine', chain: 'Vineyards, a winery and a storehouse (M, Shift G) make it.' },
 };
 
 /** Why a build that the drachmas would cover is refused: wages owed are paid first, and the treasury keeps back the price of a tax office while there is none. */
@@ -965,13 +965,13 @@ export class Tools {
       lines.push(`Presses up to ${fmt(OIL_MONTH)} jars of oil a month, fully worked, from as many measures of olives (it holds ${fmt(PRESS_OLIVES)} waiting)`);
       if (roads.length === 0) warn = 'No road beside it: carts couldn’t bring the olives or take the oil away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'grove')) lines.push('Its olives come from the olive groves’ carts: build a grove on the dry slopes');
-      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the oil to a storehouse: build one too (G twice)');
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the oil to a storehouse: build one too (Shift G twice)');
     } else if (kind === 'pasture') {
       const grass = grassOf(map, x, z, side);
       text += ` · grass ${Math.round(grass * 100)}%`;
       lines.push(`About ${fmt(Math.round((FLEECE_MONTH * grass) / 10) * 10)} bales of fleece a month, fully worked: the greener the grass, the more`);
       if (roads.length === 0) warn = 'No road beside it: its shepherds couldn’t get there and its carts couldn’t take the fleece away. Lay a road along one side first.';
-      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the fleece to a storehouse: build one too (G twice)');
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the fleece to a storehouse: build one too (Shift G twice)');
     } else if (kind === 'horsefarm') {
       // Slice 36.
       const grass = grassOf(map, x, z, side);
@@ -980,7 +980,7 @@ export class Tools {
       lines.push(`About ${fmt(year)} horses a year, fully worked: the mares foal in spring, so most come then; its grooms lead them to a storehouse`);
       lines.push('Horses are for the estates’ stables (and their sons ride them with the horsemen)');
       if (roads.length === 0) warn = 'No road beside it: its grooms couldn’t get there or lead the horses away. Lay a road along one side first.';
-      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its grooms lead the horses to a storehouse: build one too (G twice)');
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its grooms lead the horses to a storehouse: build one too (Shift G twice)');
     } else if (kind === 'vineyard') {
       const ground = vineOf(map, x, z, side);
       const grapes = Math.round(GRAPE_HARVEST * ground);
@@ -993,7 +993,7 @@ export class Tools {
       lines.push(`Makes up to ${fmt(WINE_MONTH)} amphorae of wine a month, fully worked, from as many measures of grapes (it holds ${fmt(WINERY_GRAPES)} waiting)`);
       if (roads.length === 0) warn = 'No road beside it: carts couldn’t bring the grapes or take the wine away. Lay a road along one side first.';
       else if (!s.buildings.some((b) => b.kind === 'vineyard')) lines.push('Its grapes come from the vineyards’ carts: plant a vineyard on a sunny slope');
-      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the wine to a storehouse: build one too (G twice)');
+      else if (!s.buildings.some((b) => b.kind === 'storehouse')) lines.push('Its ox carts take the wine to a storehouse: build one too (Shift G twice)');
     } else if (kind === 'trading') {
       const berth = berthAt(map, x, z);
       lines.push('Its dockers carry what the granaries and storehouses hold beyond what the city keeps to the quay; a merchant ship calls every three months and buys it');

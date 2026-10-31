@@ -957,11 +957,11 @@ function start(preparedTown: string | null): void {
     }
     // …and one saved before oil (slice 9 or older), with townhouses or better; its grace (eight months from loading) covers the food above too.
     if (loaded.from !== undefined && loaded.from <= 8 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= TOWNHOUSE)) {
-      changed += ' · Townhouses now need oil: plant olive groves on the dry slopes (M ×4), build an olive press (M ×5), a storehouse (G G) and an oil stall on an agora (K K). They have eight months before they start to worry.';
+      changed += ' · Townhouses now need oil: plant olive groves on the dry slopes (M ×4), build an olive press (M ×5), a storehouse (Shift G twice) and an oil stall on an agora (K K). They have eight months before they start to worry.';
     }
     // …and one saved before fleece (slice 10 or older), with fine houses; they have eight months from loading.
     if (loaded.from !== undefined && loaded.from <= 9 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0 && b.level >= FINE)) {
-      changed += ' · Fine houses now need fleece: put a sheep pasture on the grass (M ×6), a storehouse (G G) and a fleece stall on an agora (K ×3). They have eight months before they start to worry. With wine as well (a vineyard M ×7, a winery M ×8, a wine stall K ×4) they become villas.';
+      changed += ' · Fine houses now need fleece: put a sheep pasture on the grass (M ×6), a storehouse (Shift G twice) and a fleece stall on an agora (K ×3). They have eight months before they start to worry. With wine as well (a vineyard M ×7, a winery M ×8, a wine stall K ×4) they become villas.';
     }
     // …and one saved before fire and collapse (slice 11 or older): everything starts safe and sound, and the risk builds from here.
     if (loaded.from !== undefined && loaded.from <= 10 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
@@ -969,7 +969,7 @@ function start(preparedTown: string | null): void {
     }
     // …and one saved before the trading post (slice 12 or older): ships can call now.
     if (loaded.from !== undefined && loaded.from <= 11 && sim.state.buildings.some((b) => b.kind !== 'rubble')) {
-      changed += ' · Merchant ships now call: build a trading post (G ×3) on the bay shore where deep water comes close, and sell your spare wheat, meat, cheese, oil, fleece and wine.';
+      changed += ' · Merchant ships now call: build a trading post (Shift G ×3) on the bay shore where deep water comes close, and sell your spare wheat, meat, cheese, oil, fleece and wine.';
     }
     // …and one saved before slice 14's money: the taxes and harsh rates changed.
     if (loaded.from !== undefined && loaded.from <= 12 && sim.state.buildings.some((b) => b.kind === 'home' && b.people > 0)) {

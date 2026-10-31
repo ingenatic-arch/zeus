@@ -32,13 +32,12 @@ What breaks, or moves:
 
 ### What I'd like your eye on
 - **Do the moods read?** Can you tell from a card where a god stands and why, and is the whole panel readable at a glance? Do the emblems read as their gods?
-- **The weights.** They aim at this: a city doing nothing special for a god sits about watchful; a well-run city with a shrine to a god gets them to pleased within a year; a festival lifts a god a good deal (15, fading over a year). Too gentle, or too quick?
+- **The weights.** They aim at this: a city doing nothing special for a god sits about watchful; a well-run city with a shrine to a god gets them to pleased within a year; a festival lifts a god a good deal (15, fading over a year). Played on three years without touching anything, `#town` and `#richtown` keep every god between -3 and +4 for the first year. A single shrine lands its god at about +7 to +9 there (Demeter: her shrine, full granaries and farms, less the hungry homes), which is the top of watchful, not pleased: pleased takes an offering or a festival as well, or a second shrine. Too gentle, or too quick?
 - **The procession.** Eight figures, the god's colour and white, walking slowly. Does it feel like a festival, or should it be bigger, louder, or carry something (a sheaf, an amphora)?
 - **Shift+G for the stores.** Fine, or would you rather Olympus had another key?
 
 ### Known rough edges
-- A city that never dedicates a shrine sees all twelve gods slide below watchful in the same month, about a year and a half after it is noticed: a dozen warnings at once.
-- The festival and offering buttons on a god's Olympus page act at the god's first shrine; to choose another, use that shrine's own panel.
+- The festival and offering buttons on a god's Olympus page act at one of the god's shrines (named above the buttons); to choose another, use that shrine's own panel.
 - Olympus is drawn afresh each time it opens: a third of a second here (software rendering on a loaded machine). Tell me if G feels slow on your laptop.
 - Blessings and wrath are words only (slice 57), and sanctuaries are a slot on the card (slice 54).
 
@@ -61,6 +60,13 @@ The starting build (`11f9290`) and this slice's, measured with the same loosened
 | A frame's work before drawing | | not measurable under this load: one or two frames in eight seconds under software rendering (`#gods` with Olympus open 39 ms, shut 208 ms; `#procession` 148 ms) |
 | Every earlier demo, people, money, levels and state (less the gods) at opening and 900 ticks on | | identical, all 165 |
 | The smoke (loosened timeouts) | | every check passes, run in two parts (3 h 34 min, then 10 min from `#newgame` on): the long run stopped at `#jailbreak`, whose popup fades before a click under this load, at `11f9290` too |
+
+### What the review changed
+- **Neglect is told once, not twelve times.** A year after the city is noticed, if no god has had a shrine, festival or offering, one warning says so, naming the gods ("The gods feel neglected"), before it shows in their moods. When moods then cross a word, the gods that cross in the same month share one message ("Four gods are displeased", with the reasons they share said once), and a god whose mood sits right on the edge of a word is no longer told back and forth each month. In a `#town` left alone for three years that is now about seven messages over a year, where it was fourteen.
+- **A festival can no longer get stuck.** Pulling down a shrine while its procession walked left the festival "under way" for ever, so its god could never have another. Now the festival is cut short (and the news says so), and the god can have the next one a year after it began. A shrine pulled down also stops counting for its god the next day, not at their day of the month.
+- **A god's page names the shrine** its festival and offering buttons act at.
+- **The month-by-month bars' tips** said the month before the one each bar was kept in; they now say the right month, and they use the game's own tip like every other panel rather than the browser's.
+- **Shift+G everywhere.** The help still said Shift steps back through G's stores, and about twenty tips (the storehouse in a press's, a pasture's, a mine's or a stall's hover, the full granary's warning, the new-need lines) still said "G twice" or "G ×3" for the stores; they all say Shift G now.
 
 ## Slice 52 — A city in order (26 Oct)
 

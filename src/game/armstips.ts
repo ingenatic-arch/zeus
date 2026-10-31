@@ -23,13 +23,13 @@ export function armsLines(s: SimState, map: CoastMap, kind: 'mine' | 'armoury' |
     const rich = copperOf(map, x, z, side);
     lines.push(`About ${fmt(roundTen(COPPER_MONTH * rich))} measures of copper ore a month, fully worked: the richer the rock, the more · the copper ${outcropPlace(map, x + 1, z + 1)}`);
     if (!road) warn = 'No road beside it: its miners couldn’t get there and its carts couldn’t take the ore away. Lay a road along one side first.';
-    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the ore to a storehouse: build one too (G twice)');
+    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the ore to a storehouse: build one too (Shift G twice)');
     else if (!has(s, 'armoury')) lines.push(`An armoury (B ×3) hammers ${ARMOUR_COPPER} measures of copper into a set of armour`);
   } else if (kind === 'armoury') {
     lines.push(`Hammers up to ${fmt(ARMOUR_MONTH)} sets of armour a month, fully worked: a helmet, a breastplate, a round shield and a spear, from ${ARMOUR_COPPER} measures of copper a set (it holds ${fmt(ARMOURY_COPPER)} waiting)`);
     if (!road) warn = 'No road beside it: carts couldn’t bring the copper or take the armour away. Lay a road along one side first.';
     else if (!has(s, 'mine') && stored(s, COPPER) <= 0) lines.push('Its copper comes from the mines’ carts: build a copper mine on the green-streaked rock in the hills (B B), or buy copper from Sparta');
-    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the armour to a storehouse: build one too (G twice)');
+    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the armour to a storehouse: build one too (Shift G twice)');
     else lines.push('Its carts take the armour to a storehouse, where a barracks’ porter fetches it');
   } else {
     const serving = servingHomes(s);

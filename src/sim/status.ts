@@ -930,7 +930,7 @@ const CHAINS: Partial<Record<Ware, Chain>> = {
     links: [
       { kind: 'grove', missing: 'the city has no olive grove yet: build one on the dry slopes (M, four times)' },
       { kind: 'press', missing: 'the city has no olive press yet for the groves’ carts to take their olives to' },
-      { kind: 'storehouse', missing: 'the city has no storehouse yet for the press’s carts to take its jars to (G twice)' },
+      { kind: 'storehouse', missing: 'the city has no storehouse yet for the press’s carts to take its jars to (Shift G twice)' },
     ],
     key: 'K twice',
     buyers: 'cottages and better',
@@ -944,7 +944,7 @@ const CHAINS: Partial<Record<Ware, Chain>> = {
   [FLEECE]: {
     links: [
       { kind: 'pasture', missing: 'the city has no sheep pasture yet: build one on green grass (M, six times)' },
-      { kind: 'storehouse', missing: 'the city has no storehouse yet for the pasture’s carts to take its bales to (G twice)' },
+      { kind: 'storehouse', missing: 'the city has no storehouse yet for the pasture’s carts to take its bales to (Shift G twice)' },
     ],
     key: 'K three times',
     buyers: 'townhouses and better',
@@ -958,7 +958,7 @@ const CHAINS: Partial<Record<Ware, Chain>> = {
     links: [
       { kind: 'vineyard', missing: 'the city has no vineyard yet: plant one on a sunny slope (M, seven times)' },
       { kind: 'winery', missing: 'the city has no winery yet for the vineyards’ carts to take their grapes to (M, eight times)' },
-      { kind: 'storehouse', missing: 'the city has no storehouse yet for the winery’s carts to take its amphorae to (G twice)' },
+      { kind: 'storehouse', missing: 'the city has no storehouse yet for the winery’s carts to take its amphorae to (Shift G twice)' },
     ],
     key: 'K four times',
     buyers: 'fine houses and better',
@@ -1050,7 +1050,7 @@ function workshopStatus(s: SimState, map: CoastMap, p: Building): Status {
   } else making = `${press ? 'Pressing' : 'Treading the grapes'}: about ${fmt(roundTen(month * rate))} ${unitOf(ware, 2)} of ${WARE_NAMES[ware]} a month while it has ${fruit}${rate < 1 ? ` (${fmt(month)} fully worked)` : ''}`;
   const bringing = coming(p, input);
   const inHand = `${cap(fruit)} waiting: ${fmt(raw)} of ${fmt(roomForWareKind(p.kind, input))} measures${bringing > 0 ? ` · carts are bringing ${fmt(bringing)} more` : ''}`;
-  return { title, detail: lines(workersLine(s, map, p), making, inHand, goodsCartLine(s, map, p, ware, 'storehouse', 'a storehouse (G twice)')) };
+  return { title, detail: lines(workersLine(s, map, p), making, inHand, goodsCartLine(s, map, p, ware, 'storehouse', 'a storehouse (Shift G twice)')) };
 }
 
 /** An olive press: olives in hand, jars made, where its oil goes. */
@@ -1071,7 +1071,7 @@ export function pastureStatus(s: SimState, map: CoastMap, p: Building): Status {
   else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(roundTen(FLEECE_MONTH * grass * rate * makerPace(s, 'pasture')))} bales of fleece a month${rate < 1 ? ` (${fmt(roundTen(FLEECE_MONTH * grass * makerPace(s, 'pasture')))} fully worked)` : ''}`;
   // (Slice 33: the season's pace, named.)
   if (rate > 0 && bales < storeOfKind('pasture')) making = lines(making, paceLine(s, 'pasture'));
-  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, FLEECE, 'storehouse', 'a storehouse (G twice)')) };
+  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, FLEECE, 'storehouse', 'a storehouse (Shift G twice)')) };
 }
 
 /** Slice 36: a horse farm: its grass, its horses, where they go. */
@@ -1088,7 +1088,7 @@ export function horseFarmStatus(s: SimState, map: CoastMap, p: Building): Status
   else if (rate === 0) making = 'No foals are raised with nobody to mind the mares';
   else making = `Grass ${Math.round(grass * 100)}% · about ${fmt(month * grass * rate * makerPace(s, 'horsefarm'))} horses a month${rate < 1 ? ` (${fmt(month * grass * makerPace(s, 'horsefarm'))} fully worked)` : ''}`;
   if (rate > 0 && horses < room) making = lines(making, paceLine(s, 'horsefarm'));
-  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, HORSES, 'storehouse', 'a storehouse (G twice)')) };
+  return { title, detail: lines(workersLine(s, map, p), making, goodsCartLine(s, map, p, HORSES, 'storehouse', 'a storehouse (Shift G twice)')) };
 }
 
 /** Slice 36: an estate's marble, armour and horses, in one line. */
@@ -1151,7 +1151,7 @@ function stallLines(s: SimState, a: Building, good: Ware): string {
   const p = s.walkers.find((o) => o.kind === 'porter' && o.origin === a.id && o.food === good);
   let porter = '';
   if (p) porter = p.back ? `Its porter is bringing ${fmt(p.load)} ${unitOf(good, p.load)} from the storehouse` : `Its porter is on his way to the storehouse for ${what}`;
-  else if (!s.buildings.some((g) => g.kind === 'storehouse')) porter = `Build a storehouse (G twice): the ${what} stall’s porter fetches its ${units} from it`;
+  else if (!s.buildings.some((g) => g.kind === 'storehouse')) porter = `Build a storehouse (Shift G twice): the ${what} stall’s porter fetches its ${units} from it`;
   else if (n <= stallLow(good) && !s.buildings.some((g) => g.kind === 'storehouse' && held(g, good) > 0)) porter = `Its porter waits: no storehouse has any ${what} yet`;
   return lines(`${cap(STALL_NAMES[good] ?? what)}: ${fmt(n)} of ${fmt(stallRoom(good))} ${units} · ${vendor}`, porter);
 }

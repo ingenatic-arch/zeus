@@ -62,7 +62,7 @@ export function worksLines(s: SimState, map: CoastMap, kind: WorksTool, x: numbe
     lines.push(`About ${fmt(roundTen(o.blocks))} blocks of marble a month, fully worked: the richer the rock, the faster its quarrymen cut · the pale stone ${o.place}`);
     lines.push('Its sledges are slow: a storehouse close by keeps the stack from filling');
     if (!road) warn = 'No road beside it: its quarrymen couldn’t get there and its sledges couldn’t take the blocks away. Lay a road along one side first.';
-    else if (!has(s, 'storehouse')) lines.push('Its ox sledges take the blocks to a storehouse: build one too (G twice)');
+    else if (!has(s, 'storehouse')) lines.push('Its ox sledges take the blocks to a storehouse: build one too (Shift G twice)');
   } else {
     const o = campOutlook(map, s, { x, z }, MAX_LOGGERS);
     const tw = timberWords(map).many; // (Merge of slice 46: the oaks named where the land has them.)
@@ -72,7 +72,7 @@ export function worksLines(s: SimState, map: CoastMap, kind: WorksTool, x: numbe
       lines.push(`About ${fmt(roundTen(o.logsMonth))} logs a month fully worked (${LOGS_PER_TREE} a tree)${lasts}, and a felled tree takes ${spanWords(REGROW)} to grow back`);
     }
     if (!road) warn = 'No road beside it: its loggers couldn’t get there and its carts couldn’t take the logs away. Lay a road along one side first.';
-    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the logs to a storehouse: build one too (G twice)');
+    else if (!has(s, 'storehouse')) lines.push('Its ox carts take the logs to a storehouse: build one too (Shift G twice)');
   }
   return { lines, warn };
 }

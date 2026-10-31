@@ -20,6 +20,7 @@ import {
   FESTIVAL_HONOUR,
   festivalGoods,
   festivalHeld,
+  festivalOf,
   festivalRefusal,
   godDay,
   lookAtCity,
@@ -29,6 +30,8 @@ import {
   sacredStock,
   shrinesWorth,
   standing,
+  stepWorship,
+  toldRank,
   worship,
 } from '../src/sim/worship';
 import { demoSim } from './prepared';
@@ -212,6 +215,53 @@ describe('festivals', () => {
     sim.flush();
     expect(s.money).toBe(money);
     expect(s.gods.festivals).toHaveLength(0);
+  });
+});
+
+describe('a festival cut short (review of slice 53)', () => {
+  it('a shrine pulled down while its procession walks: the festival is over, its honour and the shrine’s go, and the next can be held in a year', () => {
+    const { sim, shrine } = town();
+    const s = sim.state;
+    s.money = Math.max(s.money, 3000);
+    const g = s.buildings.find((b) => b.kind === 'granary')!;
+    setHeld(g, WHEAT, held(g, WHEAT) + festivalGoods(WHEAT));
+    sim.enqueue({ type: 'festival', id: shrine });
+    sim.run(TICKS_PER_MONTH + 3 * TICKS_PER_DAY);
+    expect(s.walkers.some((w) => w.kind === 'procession')).toBe(true);
+    const b = s.buildings.find((x) => x.id === shrine)!;
+    sim.enqueue({ type: 'clear', x0: b.x, z0: b.z, x1: b.x, z1: b.z });
+    sim.run(TICKS_PER_DAY + 1);
+    expect(s.buildings.some((x) => x.id === shrine)).toBe(false);
+    expect(s.walkers.some((w) => w.kind === 'procession')).toBe(false);
+    expect(festivalOf(s, 'demeter')).toBeUndefined();
+    expect(s.messages.log.some((m) => m.kind === 'gods' && /cut short/.test(m.words))).toBe(true);
+    // (Its shrine's honour goes the next day, not on Demeter's day of the month.)
+    expect(kinds(s, 'demeter')).not.toContain('shrine');
+    expect(kinds(s, 'demeter')).toContain('festival');
+  });
+});
+
+describe('the news of the gods (review of slice 53)', () => {
+  it('neglect is told once, the gods together; a crossing is told once, well past its edge, the gods that cross together in one message', () => {
+    const sim = new Sim();
+    const s = sim.state;
+    setGods(s, true);
+    s.population = 400;
+    s.gods.noticedAt = 0;
+    for (s.tick = 0; s.tick < 3 * TICKS_PER_YEAR; s.tick += TICKS_PER_DAY) stepWorship(s, sim.map);
+    const told = s.messages.log.filter((m) => m.kind === 'gods');
+    const cold = told.filter((m) => /neglected/.test(m.title ?? ''));
+    expect(cold).toHaveLength(1);
+    expect(cold[0].words).toMatch(/^All twelve gods have had no shrine/);
+    const crossed = told.filter((m) => m !== cold[0]);
+    // (The gods' days are spread over the month, so they cross in a few months, not twelve messages: each god named once.)
+    expect(crossed.length).toBeLessThanOrEqual(4);
+    for (const g of GOD_IDS) expect(crossed.filter((m) => m.words.includes(GODS[g].name)).length, g).toBe(1);
+    expect(crossed.every((m) => /displeased/.test(m.title ?? ''))).toBe(true);
+    // A god lingering on an edge isn't told back and forth.
+    expect(toldRank([0, -11, -9, -11, -9])).toBe(3);
+    expect(toldRank([0, -11, -13, -11, -9])).toBe(2);
+    expect(toldRank([0, -13, -8])).toBe(3);
   });
 });
 

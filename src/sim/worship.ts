@@ -816,53 +816,143 @@ function neglect(s: SimState, god: GodId): void {
 // ---------------------------------------------------------------------------
 // The step.
 
+/** A festival whose procession is gone (its shrine pulled down while it walked): over, so the god may have another next year. */
+function cutShort(s: SimState, map: CoastMap, f: Festival): void {
+  s.gods.festivals.splice(s.gods.festivals.indexOf(f), 1);
+  const G = GODS[f.god];
+  const b = findBuilding(s, f.shrine);
+  s.rev++;
+  say(s, {
+    kind: 'gods',
+    u: NEWS,
+    title: `${G.name}’s festival is cut short`,
+    words: `${G.name}’s festival is cut short: ${b ? `${herOf(f.god)} procession went home` : `${herOf(f.god)} shrine was pulled down, and the procession went home`}. ${G.name} is ${moodWord(moodOfGod(s, f.god))}.`,
+    at: b ? { building: b.id } : undefined,
+  });
+  void map;
+}
+
+/** A god whose shrines' standing honour no longer matches how many there are (a shrine pulled down): honoured anew now, not on their day. */
+function shrinesChanged(s: SimState): void {
+  const count = new Map<GodId, number>();
+  for (const b of s.buildings) if (b.kind === 'shrine' && b.god) count.set(b.god, (count.get(b.god) ?? 0) + 1);
+  for (const god of GOD_IDS) {
+    const now = s.gods.memories[god].find((m) => m.kind === 'shrine')?.amount ?? 0;
+    if (now !== shrinesWorth(count.get(god) ?? 0)) honourShrines(s, god);
+  }
+}
+
 /** The day of the month each god's day falls on (0 the first): Zeus the 2nd, Hera the 4th… Dionysus the 24th. */
 export const godDayOf = (i: number): number => 1 + 2 * i;
 
 /** Once a tick, after the gods notice the city (sim.ts): festivals begin; each god's day; the month's record. Nothing with the switch off. */
 export function stepWorship(s: SimState, map: CoastMap): void {
   if (!s.gods.on) return;
-  for (const f of s.gods.festivals.slice()) if (!f.walker && s.tick >= f.day) beginFestival(s, map, f);
+  for (const f of s.gods.festivals.slice()) {
+    if (!f.walker) {
+      if (s.tick >= f.day) beginFestival(s, map, f);
+    } else if (!s.walkers.some((w) => w.id === f.walker)) cutShort(s, map, f);
+  }
   const t = s.tick % TICKS_PER_MONTH;
   if (t % TICKS_PER_DAY !== 0) return;
+  // Each day, a god whose shrines are no longer what their honour says (one pulled down) is honoured anew.
+  shrinesChanged(s);
   const day = t / TICKS_PER_DAY;
   if (day === 0) record(s, map);
   const i = (day - 1) / 2;
   if (Number.isInteger(i) && i >= 0 && i < GOD_IDS.length) godDay(s, GOD_IDS[i], lookAtCity(s, GOD_IDS[i] === 'aphrodite'));
 }
 
-/** The first of the month: each god's mood into the record; the news of any whose mood has crossed a word; homes glad from a procession long ago let go. */
+/** How far into a new word a god's mood must go before the news says so (so a mood on an edge isn't told back and forth). */
+export const MOOD_NEWS_MARGIN = 2;
+
+/** The word last told of a god's mood, replayed over the record (each a rank, furious 0 to loving 6; -1 with none kept). */
+export function toldRank(list: readonly number[]): number {
+  let cur = -1;
+  for (const v of list) {
+    const r = moodRank(v);
+    if (cur < 0) cur = r;
+    else if ((r < cur && moodRank(v + MOOD_NEWS_MARGIN) < cur) || (r > cur && moodRank(v - MOOD_NEWS_MARGIN) > cur)) cur = r;
+  }
+  return cur;
+}
+
+/**
+ * The first of the month: each god's mood into the record; the news of those
+ * whose mood has crossed a word (well past its edge), the gods that moved the
+ * same way told together; the gods that began to feel neglected last month,
+ * told together; homes glad from a procession long ago let go.
+ */
 function record(s: SimState, map: CoastMap): void {
   const g = s.gods;
   const month = Math.floor(s.tick / TICKS_PER_MONTH);
   if (g.month === month) return;
   g.month = month;
+  const up: GodId[] = [];
+  const down: GodId[] = [];
   for (const god of GOD_IDS) {
     const list = g.months[god] ?? (g.months[god] = []);
-    const now = moodOfGod(s, god);
-    const before = list.length ? list[list.length - 1] : null;
-    list.push(now);
+    list.push(moodOfGod(s, god));
     if (list.length > MOOD_MONTHS) list.splice(0, list.length - MOOD_MONTHS);
-    if (before !== null && moodRank(before) !== moodRank(now)) moodNews(s, god, before, now);
+    const was = toldRank(list.slice(0, -1));
+    const is = toldRank(list);
+    if (was >= 0 && is !== was) (is > was ? up : down).push(god);
   }
+  neglectNews(s);
+  if (down.length) moodNews(s, down, false);
+  if (up.length) moodNews(s, up, true);
   for (const k of Object.keys(g.festive)) if (s.tick - g.festive[k][0] >= FESTIVE_LASTS || !findBuilding(s, Number(k))) delete g.festive[k];
   void map;
 }
 
-/** A god's mood has crossed a word: the news, with the weightiest reasons. */
-function moodNews(s: SimState, god: GodId, before: number, now: number): void {
-  const G = GODS[god];
-  const up = now > before;
-  const why = reasonsOf(s, god)
-    .filter((r) => (up ? r.worth > 0 : r.worth < 0))
-    .slice(0, 3)
-    .map((r) => r.why);
-  const word = moodWord(now);
+/** "Zeus", "Zeus and Hera", "Zeus, Hera and Ares". */
+const andList = (w: string[]): string => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} and ${w[w.length - 1]}`);
+const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+
+/** The gods whose neglect began last month (its first step, two at most), told once together, before it shows in their moods. */
+function neglectNews(s: SimState): void {
+  const since = s.tick - TICKS_PER_MONTH;
+  const cold = GOD_IDS.filter((god) => s.gods.memories[god].some((m) => m.kind === 'neglect' && m.tick >= since && m.amount >= -NEGLECT_STEP));
+  if (!cold.length) return;
+  const names = cold.map((god) => GODS[god].name);
+  const all = cold.length === GOD_IDS.length;
   say(s, {
     kind: 'gods',
-    u: !up && moodRank(now) <= 2 ? WARNING : NEWS,
-    title: `${G.name} is ${word}`,
-    words: `${G.name} is ${word} with your city${why.length ? `: ${why.join('; ')}` : ''}.`,
+    u: WARNING,
+    title: all ? 'The gods feel neglected' : cold.length === 1 ? `${names[0]} feels neglected` : `${cap(NUMBER_WORDS[cold.length])} gods feel neglected`,
+    words: `${all ? 'All twelve gods have' : `${andList(names)} ${cold.length === 1 ? 'has' : 'have'}`} had no shrine, festival or offering from your city in a year, and ${cold.length === 1 ? 'grows' : 'grow'} colder a little each month (no further than displeased by neglect alone). A shrine dedicated to a god (click a shrine), a festival or an offering stops it, and it fades over a year.`,
+  });
+}
+
+const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
+
+/** Gods whose moods have crossed a word the same way this month: the news, with the weightiest reasons (those they share said once). */
+function moodNews(s: SimState, gods: GodId[], up: boolean): void {
+  const whys = gods.map((god) =>
+    reasonsOf(s, god)
+      .filter((r) => (up ? r.worth > 0 : r.worth < 0))
+      .slice(0, 3)
+      .map((r) => r.why),
+  );
+  const warn = !up && gods.some((god) => moodRank(moodOfGod(s, god)) <= 2);
+  if (gods.length === 1) {
+    const god = gods[0];
+    const G = GODS[god];
+    const word = moodWord(moodOfGod(s, god));
+    say(s, { kind: 'gods', u: warn ? WARNING : NEWS, title: `${G.name} is ${word}`, words: `${G.name} is ${word} with your city${whys[0].length ? `: ${whys[0].join('; ')}` : ''}.` });
+    return;
+  }
+  // By word (most gods cross into the same one), each group's names; the reasons all of them share, then each one's own first.
+  const words = [...new Set(gods.map((god) => moodWord(moodOfGod(s, god))))];
+  const groups = words.map((w) => `${andList(gods.filter((god) => moodWord(moodOfGod(s, god)) === w).map((god) => GODS[god].name))} ${gods.filter((god) => moodWord(moodOfGod(s, god)) === w).length === 1 ? 'is' : 'are'} ${w}`);
+  const shared = whys[0].filter((w) => whys.every((l) => l.includes(w)));
+  const own = gods.map((god, i) => [GODS[god].name, whys[i].find((w) => !shared.includes(w))] as const).filter(([, w]) => w);
+  const title = words.length === 1 ? `${cap(NUMBER_WORDS[gods.length])} gods are ${words[0]}` : `${cap(NUMBER_WORDS[gods.length])} gods are ${up ? 'warmer' : 'colder'}`;
+  say(s, {
+    kind: 'gods',
+    u: warn ? WARNING : NEWS,
+    title,
+    words: `${groups.join('; ')} with your city${shared.length ? `: ${shared.join('; ')}` : ''}.${own.length ? ` ${own.map(([n, w]) => `${n}: ${w}`).join('; ')}.` : ''}`,
   });
 }
 
