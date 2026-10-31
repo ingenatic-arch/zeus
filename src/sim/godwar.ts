@@ -140,8 +140,8 @@ export const MARCH_PACE = 0.32;
 export const WAR_STAY = 10 * TICKS_PER_DAY;
 /** A god answers a call to war at most once in this long. */
 export const CALL_GAP = TICKS_PER_YEAR;
-/** How long two gods fight, and how near they stand. */
-export const DUEL_TICKS = 4 * TICKS_PER_DAY;
+/** How long two gods fight (six days: four went by in four seconds at normal speed, too quick to watch), and how near they stand. */
+export const DUEL_TICKS = 6 * TICKS_PER_DAY;
 export const DUEL_GAP = 2;
 /** A band with a champion upon it (within this many tiles) breaks once this share of its men have fallen (not half). */
 export const NEAR_BAND = 10;

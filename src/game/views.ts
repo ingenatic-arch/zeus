@@ -219,8 +219,9 @@ export const VIEWS: Record<string, CameraView> = {
   sanctuaries: { x: 104, z: 71, yaw: -0.4, dist: 26, tilt: -0.05 },
   sanctuary: { x: 102.5, z: 67, yaw: -0.4, dist: 20, tilt: -0.05 },
   twelve: { x: 86.5, z: 50.5, yaw: -0.3, dist: 36, tilt: -0.05 },
-  // Slice 60, #godwar: the west road by the bridge, Sparta's band coming in with Ares towering among it, the hoplites meeting them.
-  godwar: { x: 39.5, z: 42, yaw: -0.785, dist: 18, tilt: -0.05 },
-  // #godduel: the same, Athena and Ares fighting there.
-  godduel: { x: 40, z: 41.8, yaw: -0.785, dist: 15, tilt: -0.05 },
+  // Slice 60, #godwar: the west road by the bridge, Sparta's band coming in with Ares towering among it, the hoplites meeting them,
+  // Athena's sanctuary beside the road behind them.
+  godwar: { x: 40, z: 41, yaw: 0.785, dist: 18, tilt: -0.05 },
+  // #godduel: the same, Athena and Ares fighting there, seen side on.
+  godduel: { x: 40.4, z: 41.9, yaw: 0.785, dist: 15, tilt: -0.05 },
 };

@@ -9,7 +9,7 @@
  * Every fight here is #battle's: #companies' town with Sparta's band (Ares is
  * Sparta's patron) on the road to the west edge. Moods are staged through
  * the groundwork's API (slice 53 makes them real). A god's sanctuary is slice
- * 54's, marked out north-east of the bridge and its stages done at once, as
+ * 54's, marked out beside the road north-east of the bridge and its stages done at once, as
  * #godwar's is; its stages' honours are let go, so a test's mood is exact.
  */
 import { readFileSync } from 'node:fs';
@@ -55,7 +55,7 @@ const moodTo = (s: SimState, g: GodId, n: number, why: string): void => honour(s
 function sanctuaryFor(sim: Sim, god: GodId): void {
   const s = sim.state;
   income(s, SANCTUARY_COST, 'gifts', 'for the test');
-  send(sim, { type: 'sanctuary', god, at: [34 * sim.map.size + 44] });
+  send(sim, { type: 'sanctuary', god, at: [36 * sim.map.size + 44] });
   const site = sanctuaryOf(s, god)!;
   const b = s.buildings.find((x) => x.id === site.id)!;
   b.clock = TICKS_PER_DAY * 30;
