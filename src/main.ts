@@ -135,7 +135,7 @@ import type { MonsterId } from './sim/pantheon';
 // Slice 56: the gods in the city (their figures, flourishes and stings; a god's panel; a blessed place's line).
 import { GodsView, godTriangles } from './render/gods';
 // Slice 57: the signs of the gods' wrath in the city.
-import { OmensView } from './render/omens';
+import { OMEN_CLOUD_FREE, OmensView } from './render/omens';
 import { godsTab } from './ui/olympus';
 import { GodPanel } from './ui/godpanel';
 import { blessingWords, figureOf, godStatus } from './sim/epiphany';
@@ -545,6 +545,8 @@ function start(preparedTown: string | null): void {
   // Slice 57: the omens' clouds, rings, dead birds and blight.
   const omensView = new OmensView(map);
   omensView.ground = city.walkers.ground;
+  // (Merge of slice 57: drawn smaller under the free camera of -modern and -plain, whose low view put the cloud over the buildings.)
+  omensView.cloudScale = classicOn() ? 1 : OMEN_CLOUD_FREE;
   world.scene.add(omensView.group);
   const terrainMesh = world.scene.getObjectByName('terrain-map') as THREE.Mesh;
   const placement = new Placement(map, terrainMesh.geometry);

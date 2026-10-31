@@ -288,7 +288,9 @@ export interface Story {
     | 'mended'
     | 'died'
     // Slice 55: one of them killed by a monster (names: who, the monster, or "Medusa’s gaze").
-    | 'slain';
+    | 'slain'
+    // Merge of slice 57: a child born to them (names: the child's, and the parent's), Hera's blessing.
+    | 'born';
   /** The need it was about (a Service, or an estate's: slice 36), 'tax' for someone driven out by harsh taxes, or ''. */
   need: '' | Need | 'tax';
   /** The home's level after it. */

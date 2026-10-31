@@ -546,7 +546,7 @@ function wrathOk(w: unknown): boolean {
     ticks(w.asked) &&
     ticks(w.given) &&
     ticks(w.cursed) &&
-    (w.omens as unknown[]).every((o) => isObj(o) && god(o.god) && o.curse !== '' && curse(o.curse) && ['at', 'day', 'x', 'z', 'target', 'told', 'figure'].every((k) => fin(o[k])) && typeof o.why === 'string') &&
+    (w.omens as unknown[]).every((o) => isObj(o) && god(o.god) && o.curse !== '' && curse(o.curse) && ['at', 'day', 'x', 'z', 'target', 'told', 'figure'].every((k) => fin(o[k])) && (o.held === undefined || fin(o.held)) && typeof o.why === 'string') && // (Merge of slice 57 with slice 60: `held`.)
     (w.spells as unknown[]).every((x) => isObj(x) && god(x.god) && curse(x.curse) && fin(x.from) && fin(x.until))
   );
 }

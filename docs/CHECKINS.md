@@ -19,10 +19,10 @@ What breaks, or moves:
 - **Olympus tells you where you stand:** each card says what the god's blessing and curses really do, and shows an omen, a curse or a blessing in force; the god's page leads with it and says exactly what would turn an omen ("Lift her 3 or more, back to displeased (−30)…").
 
 ### What to try
-1. #omen — Athena is angry and Medusa is due in 25 days. Olympus is open on her page: read why, then press **Send an offering** and play on a day: she should be appeased as its porter sets out (she counts it then, however far he has to walk). Close Olympus to see the storm over the town; open the overview's Gods page (O).
+1. #omen — Athena is angry and Medusa is due in 25 days. Olympus is open on her page: read why, then press **Send an offering** and play on a few days: she should be appeased within about three days of its porter setting out (she counts the offering as soon as it sets out, however far he has to walk). Close Olympus to see the storm over the town; open the overview's Gods page (O).
 2. #omen again, and don't send it: play on at full speed and watch Medusa come.
 3. #blessing — Demeter is warm and her sanctuary stands beside #town's fields, its panel open. Press **Ask Demeter's blessing** and watch her come and walk the fields.
-4. #wrath — Poseidon stands over the harbour in wrath, four days before his earthquake. Play it at normal speed and watch the trading post fall.
+4. #wrath — Poseidon stands over the harbour in wrath, four days before his earthquake. It opens paused: press play at normal speed and watch the trading post fall.
 
 ### What I'd like your eye on
 - **Does the warning read?** Is a month the right lead, and do the alarm, the red card, the Gods tab and the storm cloud tell you enough to act without opening anything?

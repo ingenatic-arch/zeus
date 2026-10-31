@@ -24,7 +24,7 @@ import type { CoastMap } from '../map/bake';
 import { capacity, centreOf, findBuilding, footprint, footSide, livedIn, recountPopulation } from './buildings';
 import { dateOfTick, MONTH_NAMES, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { ARMOUR, held, setHeld } from './foods';
-import { moveIn } from './folk';
+import { bornInto } from './folk';
 import { healAll } from './health';
 import { putOut, unit } from './hazards';
 import { NEWS, say } from './messages';
@@ -106,7 +106,7 @@ export const BLESSINGS: Record<GodId, Blessing> = {
       for (const b of s.buildings) {
         if (!livedIn(b) || !b.family || b.people >= capacity(b)) continue;
         b.people++;
-        moveIn(s, b, 1);
+        bornInto(s, b); // (Merge of slice 57: born, not moved in.)
         born++;
       }
       if (born) recountPopulation(s);

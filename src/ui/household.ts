@@ -191,6 +191,9 @@ function storyLine(f: Family, e: Story, i: number): string {
     // Slice 55.
     case 'slain':
       return /gaze$/.test(e.names[1] ?? '') ? `${e.names[0]} was caught in ${e.names[1]} in the street and turned to stone; the house mourned` : `${e.names[0]} was killed by ${e.names[1] ?? 'a monster'} as the house fell; the rest fled`;
+    // (Merge of slice 57: Hera's blessing.)
+    case 'born':
+      return e.names[1] ? `${e.names[0]} was born to ${e.names[1]}` : `${e.names[0]} was born`;
   }
 }
 

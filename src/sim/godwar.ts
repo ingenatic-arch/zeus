@@ -165,6 +165,8 @@ export const FOE_SLOWER = 1.6;
 export const BURN_REACH = 2.6;
 export const BURN_GAP = 2 * TICKS_PER_DAY;
 export const BURN_MOST = 4;
+/** Merge of slice 57 with slice 60: how long after a god's curse lands (or is turned) before they may rise with a band (wrath.ts' WAR_CLEAR: a week). */
+export const CURSE_CLEAR = 7 * TICKS_PER_DAY;
 /** Blows are kept this long (the renderer's effects, and who a man fell to). */
 const STRIKE_KEEP = 3 * TICKS_PER_DAY;
 /** How far beside their band an enemy god walks. */
@@ -502,6 +504,12 @@ function stepMarch(s: SimState, map: CoastMap, m: GodMarch): void {
       return;
     }
     if (r.phase !== 'raiding' || !band || r.broke || r.end !== '') return;
+    // (Merge of slice 57 with slice 60: one figure per god, so not while the god still stands in your city otherwise (in
+    //  wrath: wrath.ts sends them from the place as the band comes and holds the curse); and never in the same week as
+    //  the god's curse landing or turned.)
+    if (s.gods.walks.figures.some((x) => x.god === m.god)) return;
+    const cursed = s.gods.wrath?.cursed[m.god];
+    if (cursed !== undefined && s.tick - cursed < CURSE_CLEAR) return;
     const at = bandAt(s, r);
     // (Once the band's middle is a little way onto your map: it walks in from beyond the edge.)
     if (!at || at[0] < RISE_IN || at[1] < RISE_IN || at[0] > map.size - RISE_IN || at[1] > map.size - RISE_IN) return;

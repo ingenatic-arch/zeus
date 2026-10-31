@@ -690,6 +690,8 @@ export interface Omen {
   told: number;
   /** The god come in person to deliver it (a figure's id; 0: none). */
   figure: number;
+  /** Merge of slice 57 with slice 60: since when the curse has waited while its god marches with a rival's band (wrath.ts; 0: not waiting). */
+  held: number;
 }
 
 /** A spell in force: a god's blessing (`curse` '') or a lasting curse, from when until when. */

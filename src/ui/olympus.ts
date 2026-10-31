@@ -41,6 +41,8 @@ import { morph } from './morph';
 import { BLESSINGS, blessingUntil, blessRefusal, nextAsk } from '../sim/blessings';
 import { blessingFrom } from '../sim/pantheon';
 import { curseInForce, curseWords, CURSES, daysLeft, GOD_CURSES, omenOf, turnWords } from '../sim/wrath';
+// Merge of slice 57 with slices 59 and 60: a monster's slayers; a curse waiting on a march.
+import { heroAnswer, marchingWith } from '../sim/wrath';
 import { placeName } from '../sim/epiphany';
 import { DISTRICTS, districtAt } from '../map/districts';
 
@@ -507,7 +509,7 @@ function threat(s: SimState, map: CoastMap, god: GodId): string {
     const off = shrineFor(s, god);
     return ksec(
       `Omens: ${C.name}`,
-      `<div class="ol-omen"><p class="ol-omen-big"><b>${d}</b><span>${d === 1 ? 'day' : 'days'} left</span></p><div><p class="ol-lh">${esc(`${C.signs}. ${G.name} will ${C.verb}${C.local ? ` ${placeAt(s, map, o)}` : ''} on ${dayWords(o.day)}.`)}</p><span class="ol-count" role="img" aria-label="${esc(`${d} days left of the month’s warning`)}"><i style="width:${(gone * 100).toFixed(1)}%"></i></span></div></div><p class="ol-lh"><b>Why</b> ${esc(o.why)}.</p><p class="ol-lh"><b>To turn it</b> ${esc(turnWords(s, god))}</p>${off ? '' : `<p class="ol-note">${esc(`No shrine or sanctuary to ${G.name} for an offering or a festival: dedicate a shrine to ${herOf(god) === 'her' ? 'her' : 'him'} (it honours at once).`)}</p>`}`,
+      `<div class="ol-omen"><p class="ol-omen-big"><b>${d}</b><span>${d === 1 ? 'day' : 'days'} left</span></p><div><p class="ol-lh">${esc(`${C.signs}. ${G.name} will ${C.verb}${C.local ? ` ${placeAt(s, map, o)}` : ''} on ${dayWords(o.day)}.`)}</p><span class="ol-count" role="img" aria-label="${esc(`${d} days left of the month’s warning`)}"><i style="width:${(gone * 100).toFixed(1)}%"></i></span></div></div><p class="ol-lh"><b>Why</b> ${esc(o.why)}.</p>${heldLine(s, god, o)}<p class="ol-lh"><b>To turn it</b> ${esc(turnWords(s, god))}</p>${C.monster ? `<p class="ol-lh"><b>A hero</b> ${esc(heroAnswer(s, C.monster))}</p>` : ''}${off ? '' : `<p class="ol-note">${esc(`No shrine or sanctuary to ${G.name} for an offering or a festival: dedicate a shrine to ${herOf(god) === 'her' ? 'her' : 'him'} (it honours at once).`)}</p>`}`,
       { icon: 'warn', cls: 'ol-threat', aside: `<b class="ol-sum">${esc(dayWords(o.day))}</b>` },
     );
   }
@@ -521,6 +523,12 @@ function threat(s: SimState, map: CoastMap, god: GodId): string {
   if (until) return ksec(`${G.name}’s blessing`, `<p class="ol-lh">${esc(`On your city ${until}: ${BLESSINGS[god].does}.`)}</p>`, { icon: 'gods', cls: 'ol-blessing' });
   if (!holy) return '';
   return ksec(`${G.name}’s blessing`, blessingBody(s, holy, god), { icon: 'gods', cls: 'ol-blessing' });
+}
+
+/** Merge of slice 57 with slice 60: an omen whose curse waits while its god marches with a rival's band, in a line ('' if not waiting). */
+function heldLine(s: SimState, god: GodId, o: { held?: number }): string {
+  const band = o.held ? marchingWith(s, god) : '';
+  return band ? `<p class="ol-lh"><b>Waiting</b> ${esc(`${GODS[god].name} marches with ${band}: the curse waits until a week after they have gone.`)}</p>` : '';
 }
 
 /** Where a curse will strike: "at the agora on the flood plain", "by the harbour". */

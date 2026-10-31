@@ -139,6 +139,31 @@ export function moveIn(s: SimState, b: Building, n: number): void {
   tell(s, f, 'joined', b.level, joined.map((p) => p.name));
 }
 
+/**
+ * Merge of slice 57: a child born into a household (Hera's blessing,
+ * blessings.ts): a son or daughter of the youngest of its families whose lead
+ * is of an age to have one (the head's, if none is), placed with that family
+ * and told in its story as born, not moved in. The caller counts them in
+ * (`b.people`). A household with nobody in it yet gets one moved in instead.
+ */
+export function bornInto(s: SimState, b: Building): void {
+  const f = b.family;
+  const units = f ? unitsOf(f) : [];
+  if (!f || !units.length) return moveIn(s, b, 1);
+  let u = 0;
+  for (let k = 0; k < units.length; k++) {
+    const a = ageOf(s, f.members[units[k][0]]);
+    if (a >= 17 && a <= 45) u = k;
+  }
+  const [first, end] = units[u];
+  const parent = f.members[first];
+  const r = s.folk;
+  const girl = nextInt(r, 2) === 0;
+  const child: Person = { name: freshName(r, girl, f.members), female: girl, born: s.tick, role: girl ? 'daughter' : 'son', kin: parent.name };
+  f.members.splice(end, 0, child);
+  tell(s, f, 'born', b.level, [child.name, parent.name]);
+}
+
 /** A household's members by family unit: [first, end) index ranges, the head's unit first. */
 function unitsOf(f: Family): Array<[number, number]> {
   const out: Array<[number, number]> = [];

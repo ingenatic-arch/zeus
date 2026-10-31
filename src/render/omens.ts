@@ -32,6 +32,9 @@ const CLOUD_HIGH = 7.5;
 const PUFFS_FROM = 14;
 const PUFFS_TO = 30;
 
+/** Merge of slice 57: the clouds' size under the free camera (-modern, -plain), as a share of the original look's (tuned by eye). */
+export const OMEN_CLOUD_FREE = 0.6;
+
 let glowTex: THREE.Texture | null = null;
 /** A soft round glow (the lightning in the cloud, the ring). */
 function glow(): THREE.Texture {
@@ -96,6 +99,12 @@ export class OmensView {
   private readonly flat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
   /** Where the storm gathers for a curse that comes from outside (a monster): over the town's middle, kept per omen. */
   private readonly hearts = new Map<number, [number, number]>();
+  /**
+   * Merge of slice 57: how big the clouds are drawn, set by main.ts: 1 in the
+   * original look (its far, high camera), smaller in the free camera's looks
+   * (-modern, -plain), where a low view put the cloud over the buildings.
+   */
+  cloudScale = 1;
   /** What was drawn last frame (for the probes). */
   drawn = { clouds: 0, puffs: 0, rings: 0, birds: 0, patches: 0, flashes: 0 };
 
@@ -104,7 +113,8 @@ export class OmensView {
     this.ground = (x, z) => map.heightAt(x, z);
     const cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.82, flatShading: true, emissive: '#06040a' });
     this.puffs = this.instanced(new THREE.IcosahedronGeometry(1, 1), cloudMat, PUFFS, 'omen-cloud');
-    this.puffs.castShadow = true;
+    // (Merge of slice 57: no shadow: the cloud's shadow darkened the very buildings the omen was about.)
+    this.puffs.castShadow = false;
     const add = (map: THREE.Texture, side: THREE.Side): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side, fog: false, toneMapped: false });
     const quad = new THREE.PlaneGeometry(1, 1);
     this.flashes = this.instanced(quad, add(glow(), THREE.FrontSide), 8, 'omen-flash');
@@ -143,7 +153,8 @@ export class OmensView {
       // (A curse on a place gathers over it; one that comes from outside, a monster, over the town's middle.)
       const [cx, cz] = C.local ? [o.x, o.z] : this.heart(s, o.at);
       const gy = this.ground(cx, cz);
-      this.cloud(d, cx, gy + CLOUD_HIGH, cz, 2 + 2.4 * near, Math.round(PUFFS_FROM + (PUFFS_TO - PUFFS_FROM) * near), 0.24 - 0.12 * near, o.at, time, face, 0.35 + 0.65 * near);
+      const k = this.cloudScale;
+      this.cloud(d, cx, gy + CLOUD_HIGH, cz, (2 + 2.4 * near) * k, Math.round(PUFFS_FROM + (PUFFS_TO - PUFFS_FROM) * near), 0.24 - 0.12 * near, o.at, time, face, 0.35 + 0.65 * near);
       if (C.local && d.rings < RINGS) {
         const reach = o.curse === 'earthquake' ? QUAKE_REACH : o.curse === 'riot' ? RIOT_REACH : 3;
         const beat = 0.55 + 0.45 * Math.sin(time * (1.2 + 3 * near));
@@ -177,7 +188,7 @@ export class OmensView {
     // A god come in wrath: a small storm cloud over their head.
     for (const f of s.gods.walks.figures) {
       if (f.why !== 'wrath') continue;
-      this.cloud(d, f.x, this.ground(f.x, f.z) + 5.4, f.z, 1.3, 12, 0.16, f.id * 97, time, face, 1);
+      this.cloud(d, f.x, this.ground(f.x, f.z) + 5.4, f.z, 1.3 * this.cloudScale, 12, 0.16, f.id * 97, time, face, 1);
     }
     // Blight on the fields or groves: grey-brown patches, more of each footprint as the day nears.
     if (blight > 0 || olives > 0) {

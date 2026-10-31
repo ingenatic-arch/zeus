@@ -3913,7 +3913,8 @@ const SCENES: Record<string, Demo> = {
   // to ask; #wrath: #richtown with Poseidon angry (staged), standing over the harbour in wrath, his earthquake four days off.
   omen: { view: 'omen', setup: omenTown, overlay: 'missing', olympus: 'athena', unread: 6 * TICKS_PER_DAY },
   blessing: { view: 'blessing', setup: blessingTown, overlay: 'missing', building: (s) => sanctuaryOf(s, 'demeter')?.id ?? 0 },
-  wrath: { view: 'wrath', setup: wrathTown, overlay: 'missing', unread: TICKS_PER_MONTH },
+  // (Merge of slice 57: #wrath opens paused, so a slow load can't let the earthquake land before the page is ready.)
+  wrath: { view: 'wrath', speed: 'paused', setup: wrathTown, overlay: 'missing', unread: TICKS_PER_MONTH },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -5149,8 +5150,8 @@ function heroGodTown(sim: Sim): void {
  * (`honour`, named as set up for the demo) and the omen begun through the
  * hook (`beginOmen`); everything after plays as the sim has it.
  */
-/** #omen: Athena's staged anger: a little past angry, so one offering (+4) lifts her back to displeased. */
-export const OMEN_MOOD = -33;
+/** #omen: Athena's staged anger: a few points past angry, so nothing in the city appeases her by itself (she drifts to −34), and one offering (+4) lifts her back to displeased once it has. (Merge of slice 57: −36, from −33, which drifted to −31, a point from turning it alone.) */
+export const OMEN_MOOD = -36;
 export const OMEN_WHY = 'the sacred olive cut down to widen the agora (set up for this demo)';
 /** How far into the omen's month #omen opens. */
 const OMEN_OPENS = 5 * TICKS_PER_DAY;

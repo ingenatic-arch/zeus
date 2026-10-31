@@ -68,8 +68,21 @@ describe('each blessing', () => {
     const sim = rich();
     const s = sim.state;
     const before = s.population;
+    const had = new Map(s.buildings.filter((b) => b.family).map((b) => [b.id, b.family!.members.length]));
     giveBlessing(s, sim.map, 'hera', true);
     expect(s.population).toBeGreaterThan(before);
+    // (Merge of slice 57: born, a son or daughter of the house, not an adult moved in.)
+    const homes = s.buildings.filter((b) => b.family && b.family.members.length > (had.get(b.id) ?? 0));
+    expect(homes.length).toBe(s.population - before);
+    for (const b of homes) {
+      const f = b.family!;
+      const e = f.story[f.story.length - 1];
+      expect(e.what).toBe('born');
+      const child = f.members.find((p) => p.name === e.names[0])!;
+      expect(child.born).toBe(s.tick);
+      expect(['son', 'daughter']).toContain(child.role);
+      expect(f.members.some((p) => p.name === child.kin)).toBe(true);
+    }
   });
   it('Poseidon: fair seas, and the rubble cleared', () => {
     const sim = rich();

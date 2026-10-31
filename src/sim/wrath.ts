@@ -36,6 +36,8 @@
 import type { CoastMap } from '../map/bake';
 import { WATER_NONE, WATER_SEA } from '../map/bake';
 import { DISTRICTS, districtAt } from '../map/districts';
+// Merge of slice 57 with slice 60: the band a god marches with.
+import { PLACES } from '../map/greece';
 import { mapOf } from '../map/lands';
 import { datan2, dhypot } from '../map/dmath';
 import { burnable, ignite, unit } from './hazards';
@@ -45,12 +47,14 @@ import { held, setHeld, WHEAT, WINE } from './foods';
 import { moveOut } from './folk';
 import { startOutbreak } from './health';
 import { ALARM, NEWS, say, WARNING } from './messages';
-import { himOf, lairFor, sendMonster } from './monsters';
+import { himOf, lairFor, sendMonster, type Beast } from './monsters';
+// Merge of slice 57 with slice 59: the heroes who could answer a monster sent by a curse.
+import { isCome, lairReached, slayersOf } from './heroes';
 import { FESTIVAL_HONOUR, festivalOf, goodsWords, OFFERING_HONOUR, offeringOf } from './worship';
 // Review of slice 57: the ships and caravans that come to trade.
 import { tradingPost } from './trade';
 import { caravanYard } from './routes';
-import { GODS, GOD_IDS, herOf, MONSTERS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, type CurseId, type GodId, type MonsterId, type Omen, type Spell } from './pantheon';
+import { GODS, GOD_IDS, herOf, HEROES, MONSTERS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, type CurseId, type GodId, type HeroId, type MonsterId, type Omen, type Spell } from './pantheon';
 import { sendLeavers } from './settlers';
 import { note } from './stockbook';
 import { isStore } from './stores';
@@ -258,10 +262,35 @@ function monsterAim(kind: MonsterId): (s: SimState, map: CoastMap) => Target | n
 }
 
 function monsterLand(kind: MonsterId): Curse['land'] {
-  return (s, _map, o) => {
+  return (s, map, o) => {
     const m = sendMonster(s, kind, `${GODS[o.god].name} is ${moodWord(moodOfGod(s, o.god))}: ${o.why}`);
-    return m ? `${cap(MONSTERS[kind].name)} has come, sent by ${GODS[o.god].name}, as ${she(o.god)} warned. Your companies can wound ${himOf(kind)} and drive ${himOf(kind)} back to the lair; only a hero can slay ${himOf(kind)}.` : '';
+    // (Merge of slice 57 with slice 59: which hero could answer, and whether a hero of yours can walk to the lair.)
+    return m ? `${cap(MONSTERS[kind].name)} has come, sent by ${GODS[o.god].name}, as ${she(o.god)} warned. Your companies can wound ${himOf(kind)} and drive ${himOf(kind)} back to the lair. ${heroAnswer(s, kind, map, m)}` : '';
   };
+}
+
+/**
+ * Merge of slice 57 with slice 59: who could answer a monster a curse sends,
+ * in words: the heroes of yours who can slay it (and, once it has come,
+ * whether they can walk to its lair: in a walled town it may be out of
+ * reach), else who could, if you raised their hall.
+ */
+export function heroAnswer(s: SimState, kind: MonsterId, map?: CoastMap, m?: Beast): string {
+  // (Its own hero first, Heracles, who slays any, last.)
+  const can = slayersOf(kind).sort((a, b) => Number(a === 'heracles') - Number(b === 'heracles'));
+  const name = MONSTERS[kind].name;
+  const here = s.legends.heroes.filter((c) => can.includes(c.hero) && isCome(c) && c.state !== 'leaving');
+  const names = (cs: readonly HeroId[]): string => {
+    const w = cs.map((h) => HEROES[h].name);
+    return w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} or ${w[w.length - 1]}`;
+  };
+  if (!here.length) return `Only a hero can slay ${name}: raise a hall to ${names(can)} and meet what they ask.`;
+  const who = names(here.map((c) => c.hero));
+  if (!map || !m) return `Only a hero can slay ${name}, and ${who} ${here.length === 1 ? 'lives' : 'live'} in your city and could answer it.`;
+  const cut = here.filter((c) => !lairReached(map, s, c, m)).map((c) => c.hero);
+  if (cut.length === here.length) return `Only a hero can slay ${himOf(kind)}, but ${who} can’t reach ${himOf(kind) === 'it' ? 'its' : himOf(kind) === 'her' ? 'her' : 'his'} lair on foot: walls, buildings or water stand in the way.`;
+  const pro = himOf(kind) === 'it' ? 'it has' : himOf(kind) === 'her' ? 'she has' : 'he has';
+  return `Only a hero can slay ${himOf(kind)}: send ${names(here.map((c) => c.hero).filter((h) => !cut.includes(h)))} against ${himOf(kind)} once ${pro} settled in the lair.`;
 }
 
 /** Homes quarrel: some of each household leave the city (Hera's and Aphrodite's). The homes, and how many left. */
@@ -786,7 +815,7 @@ export function beginOmen(s: SimState, map: CoastMap, god: GodId, curse?: CurseI
   const pick = curse ? { curse, t: CURSES[curse].aim(s, map) } : choose(s, map, god);
   if (!pick || !pick.t) return null;
   const c = CURSES[pick.curse];
-  const o: Omen = { god, curse: pick.curse, at: s.tick, day: s.tick + lead, x: pick.t.x, z: pick.t.z, target: pick.t.target, why: grudgeWords(s, god), told: 0, figure: 0 };
+  const o: Omen = { god, curse: pick.curse, at: s.tick, day: s.tick + lead, x: pick.t.x, z: pick.t.z, target: pick.t.target, why: grudgeWords(s, god), told: 0, figure: 0, held: 0 };
   s.gods.wrath.omens.push(o);
   s.rev++;
   const G = GODS[god];
@@ -797,7 +826,7 @@ export function beginOmen(s: SimState, map: CoastMap, god: GodId, curse?: CurseI
     kind: 'wrath',
     u: ALARM,
     title: `Ominous signs: ${G.name} is ${moodWord(m)}`,
-    words: `Ominous signs: ${c.signs.toLowerCase()}. ${G.name} is ${moodWord(m)}: ${o.why}. On ${dayWords(o.day)}, ${inWords(o.day - s.tick)}, ${she(god)} will ${c.verb}${c.local ? where : ''}. An offering, a festival or anything that lifts ${herOf(god) === 'her' ? 'her' : 'him'} back to displeased will turn it.`,
+    words: `Ominous signs: ${c.signs.toLowerCase()}. ${G.name} is ${moodWord(m)}: ${o.why}. On ${dayWords(o.day)}, ${inWords(o.day - s.tick)}, ${she(god)} will ${c.verb}${c.local ? where : ''}. An offering, a festival or anything that lifts ${herOf(god) === 'her' ? 'her' : 'him'} back to displeased will turn it.${c.monster ? ` ${heroAnswer(s, c.monster)}` : ''}`, // (Merge of slice 57 with slice 59: a monster's slayers.)
     at: o.target ? { building: o.target } : { tile: Math.floor(o.z) * map.size + Math.floor(o.x) },
   });
   return o;
@@ -927,6 +956,8 @@ export function stepWrath(s: SimState, map: CoastMap, fall: (b: Building, how: F
       appease(s, map, o);
       continue;
     }
+    // (Merge of slice 57 with slice 60: never in the same week as the god marching with a rival's band: the curse waits.)
+    if (holdForWar(s, map, o)) continue;
     if (s.tick >= o.day) {
       land(s, map, o, fall);
       continue;
@@ -951,13 +982,68 @@ export function stepWrath(s: SimState, map: CoastMap, fall: (b: Building, how: F
   }
 }
 
+// ---------------------------------------------------------------------------
+// Merge of slice 57 with slice 60: a god's curse and the same god marching
+// with a rival's band (godwar.ts) never fall on the city in the same week,
+// and the god is only ever one figure on the map.
+
+/** How long the curse waits after the band its god marched with is gone (and how long after a curse the god may rise with a band: godwar.ts). */
+export const WAR_CLEAR = 7 * TICKS_PER_DAY;
+
+/** The band a god marches with against you now, in words ("Sparta’s raiders"), or '' (godwar.ts' record, read). */
+export function marchingWith(s: SimState, god: GodId): string {
+  const m = s.gods.war?.marches.find((x) => x.god === god);
+  if (!m) return '';
+  const r = s.world.raids.find((x) => x.id === m.raid);
+  if (!r) return 'a rival’s band';
+  const n = PLACES[r.city].name;
+  return `${n.endsWith('s') ? `${n}’` : `${n}’s`} ${r.loan ? 'army' : 'raiders'}`;
+}
+
+/**
+ * Once a day, for each omen: while its god marches with a band the curse
+ * waits (its day kept at least WAR_CLEAR off, the god in person sent from
+ * the place to go to the band), said once; when the band is gone, the day is
+ * set at least WAR_CLEAR on, said. Whether the omen waits today.
+ */
+function holdForWar(s: SimState, map: CoastMap, o: Omen): boolean {
+  const band = marchingWith(s, o.god);
+  const G = GODS[o.god];
+  const her = herOf(o.god) === 'her' ? 'her' : 'his';
+  const at = o.target ? { building: o.target } : { tile: Math.floor(o.z) * map.size + Math.floor(o.x) };
+  if (band) {
+    if (o.day - s.tick < WAR_CLEAR) o.day = s.tick + WAR_CLEAR;
+    if (o.figure) {
+      release(s, o);
+      o.figure = 0;
+    }
+    if (!o.held) {
+      o.held = s.tick;
+      s.rev++;
+      say(s, { kind: 'wrath', u: WARNING, title: `${G.name}’s curse waits`, words: `${G.name} marches with ${band} against you, and ${her} curse waits for them: ${CURSES[o.curse].name} will not fall until a week after the band has gone. It can still be turned.`, at });
+    }
+    return true;
+  }
+  if (o.held) {
+    o.held = 0;
+    o.day = Math.max(o.day, s.tick + WAR_CLEAR);
+    s.rev++;
+    say(s, { kind: 'wrath', u: WARNING, title: `${G.name}’s curse is coming again`, words: `The band ${G.name} marched with is gone, and ${she(o.god)} turns back to ${her} curse: on ${dayWords(o.day)}, ${inWords(o.day - s.tick)}, ${she(o.god)} will ${CURSES[o.curse].verb}. It can still be turned.`, at });
+  }
+  return false;
+}
+
 /** Words for a wrath figure's hover tip and panel (epiphany.ts' doingWords for the reason 'wrath'). */
 export function wrathDoing(s: SimState, f: GodFigure): string | null {
   if (f.why !== 'wrath') return null;
   const o = s.gods.wrath.omens.find((x) => x.figure === f.id);
   const b = f.stops[0] ? s.buildings.find((x) => x.id === f.stops[0].id) : undefined;
   const what = o ? CURSES[o.curse].name : 'their curse';
-  if (f.state === 'leaving') return 'leaving your city, wrath spent';
+  if (f.state === 'leaving') {
+    // (Merge of slice 57 with slice 60: sent from the place to march with a band, the curse waiting.)
+    const band = s.gods.wrath.omens.some((x) => x.god === f.god && x.held) ? marchingWith(s, f.god) : '';
+    return band ? `leaving the place to march with ${band}, the curse waiting` : 'leaving your city, wrath spent';
+  }
   if (f.state === 'blessing') return `standing over ${b ? named(mapOf(s), b) : 'the place'}, the storm gathering: ${what}${o ? ` on ${dayWords(o.day)}` : ''}`;
   return `come in wrath${o ? `: ${what} on ${dayWords(o.day)}` : ''}`;
 }
