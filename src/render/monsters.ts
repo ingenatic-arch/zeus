@@ -109,9 +109,9 @@ function rig(kind: MonsterId, beast: boolean, stride: number): Rig {
   const body = new THREE.Group();
   root.add(body);
   const bar = new THREE.Group();
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1), new THREE.MeshBasicMaterial({ color: col('#2a1d16'), depthTest: false, transparent: true, opacity: 0.85 }));
-  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.07).translate(0.5, 0, 0), new THREE.MeshBasicMaterial({ color: col('#d8452e'), depthTest: false }));
-  fill.position.set(-0.48, 0, 0.001);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 0.17), new THREE.MeshBasicMaterial({ color: col('#2a1d16'), depthTest: false, transparent: true, opacity: 0.85 }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.11).translate(0.5, 0, 0), new THREE.MeshBasicMaterial({ color: col('#d8452e'), depthTest: false }));
+  fill.position.set(-0.5, 0, 0.001);
   back.renderOrder = 10;
   fill.renderOrder = 11;
   bar.add(back, fill);
@@ -735,8 +735,9 @@ export class MonstersView {
     if (show) {
       r.bar.position.set(x, r.root.position.y + make.tall + 0.35, z);
       r.bar.quaternion.copy(face);
-      const w = Math.max(0.6, make.tall * 0.45);
-      r.bar.scale.set(w, w, 1);
+      // (A tile wide or more, and thick enough to read at the usual zoom: the review found the first one a hairline over a roof.)
+      const w = Math.max(1, make.tall * 0.6);
+      r.bar.scale.set(w, Math.min(w, 1.3), 1);
       r.fill.scale.x = Math.max(0.01, hurt);
       (r.fill.material as THREE.MeshBasicMaterial).color.set(hurt < 0.4 ? '#c2281c' : hurt < 0.7 ? '#d8862e' : '#7aa83e');
     }
