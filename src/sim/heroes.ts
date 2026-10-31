@@ -49,7 +49,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { held, HORSES } from './foods';
 import { ALARM, NEWS, say, WARNING } from './messages';
 import { beastName, denNoun, himOf as monsterHim, itOf, itsOf, lairSpot, MAKES, monsterOf, nearestWalkable, reach, slayMonster, type Beast } from './monsters';
-import { GODS, HERO_IDS, HEROES, honour, MONSTERS, moodAtLeast, moodOfGod, moodWord, type GodId, type HeroId, type MonsterId } from './pantheon';
+import { festivalHeld, GODS, HERO_IDS, HEROES, honour, MONSTERS, moodAtLeast, moodOfGod, moodWord, type GodId, type HeroId, type MonsterId } from './pantheon';
 import type { Building, Expedition, SimState } from './state';
 import { GRANARY_CAP } from './stores';
 import { tradingPost } from './trade';
@@ -57,6 +57,11 @@ import { income } from './treasury';
 import { offRoadPath, prunePath, walkable } from './wild';
 // (Slice 54, at the second merge of the trunk.)
 import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
+// (Merge of slice 59: the ground under a hero's place in a fight. Last, so it changes no module's order: wild.ts has
+// brought build.ts in already.)
+import { Ground, mapIndex } from './build';
+import { mapOf } from '../map/lands';
+import { TILE_EMPTY, TILE_ROAD } from './state';
 
 // ---------------------------------------------------------------------------
 // The state (in the line's `legends`).
@@ -215,16 +220,6 @@ export interface Demand {
  */
 export const sanctuaryStands = (s: SimState, god: GodId): boolean => sanctuaryDone(s, god);
 
-/**
- * Slice 53's festivals at home, read loosely: the tick of the last festival
- * held to a god (-1 none). INTEGRATOR: replace with `festivalHeld(s, god)`
- * from './worship' once slice 53 is on the trunk.
- */
-export function lastFestival(s: SimState, god: GodId): number {
-  const last = (s.gods as { lastFestival?: Partial<Record<GodId, number>> }).lastFestival;
-  return last?.[god] ?? -1;
-}
-
 const standing = (s: SimState, kind: Building['kind']): Building[] => s.buildings.filter((b) => b.kind === kind);
 const hasOne = (s: SimState, kind: Building['kind'], what: string): Demand => {
   const n = standing(s, kind).length;
@@ -293,7 +288,8 @@ export interface Wish {
 export function wishOf(s: SimState, c: Champion): Wish {
   switch (c.hero) {
     case 'heracles': {
-      const t = lastFestival(s, 'zeus');
+      // (Slice 53's record, read at the merge: the day Zeus's last festival began.)
+      const t = festivalHeld(s, 'zeus');
       return { words: 'A festival to Zeus, his father, each year', yearly: true, met: t >= 0 && s.tick - t < TICKS_PER_YEAR, done: t };
     }
     case 'perseus':
@@ -688,13 +684,46 @@ export function sendRefusal(s: SimState, h: HeroId, id: number): string {
   if (m.state === 'leaving') return `${Cap(beastName(m.kind))} is leaving your land`;
   const other = s.legends.heroes.find((o) => o !== c && o.foe === id && (o.state === 'hunting' || o.state === 'waiting' || o.state === 'fighting'));
   if (other) return `${nameOf(other.hero)} is on ${hisOf(other.hero)} way to it already`;
+  // (Merge of slice 59: a hero walks there, and never over water or through buildings.)
+  if (!lairReached(mapOf(s), s, c, m)) return `${name} can’t reach ${beastName(m.kind)}’s ${denNoun(m.den)} on foot: walls, buildings or water stand in the way`;
   return '';
+}
+
+/** Merge of slice 59: lairReached's answers for the town as it stands (the state, its tick and rev), by where from and where to, so a panel asking again and again costs one search. */
+const reached = { s: null as SimState | null, tick: -1, rev: -1, ways: new Map<number, boolean>() };
+
+/**
+ * Merge of slice 59: can the hero walk from where they stand to the
+ * monster's lair? (wayTo would draw a straight line over anything where no
+ * way is found; a hero is never sent where that would happen.) Asked again
+ * with nothing changed, the last answer (for the panels: sendHero, the
+ * command, always searches afresh).
+ */
+export function lairReached(map: CoastMap, s: SimState, c: Champion, m: Beast): boolean {
+  const from = startAt(map, s, c.x, c.z);
+  const goal = lairSpot(s, m).tile;
+  if (from < 0 || goal < 0) return false;
+  if (from === goal) return true;
+  if (reached.s !== s || reached.tick !== s.tick || reached.rev !== s.rev) {
+    reached.s = s;
+    reached.tick = s.tick;
+    reached.rev = s.rev;
+    reached.ways.clear();
+  }
+  const key = from * map.size * map.size + goal;
+  const known = reached.ways.get(key);
+  if (known !== undefined) return known;
+  const yes = offRoadPath(map, s, [from], goal, map.size * map.size) !== null;
+  reached.ways.set(key, yes);
+  return yes;
 }
 
 const itsLair = (m: Beast): string => `${itsOf(m.kind)} ${denNoun(m.den)}`;
 
 /** Send a hero against a monster (a command; nothing if sendRefusal says no). */
 export function sendHero(s: SimState, map: CoastMap, h: HeroId, id: number): void {
+  // (The command never takes the panels' last answer: what it decides is the sim's alone.)
+  reached.tick = -1;
   if (sendRefusal(s, h, id) !== '') return;
   const c = heroOf(s, h) as Champion;
   const m = monsterOf(s, id) as Beast;
@@ -724,7 +753,7 @@ function waitAt(s: SimState, map: CoastMap, c: Champion): void {
   // Face the lair while waiting.
   c.face = datan2(spot.z - c.z, spot.x - c.x);
   const home = m.state === 'healing' || (m.state === 'lair' && dhypot(m.x - spot.x, m.z - spot.z) < 1.5);
-  if (home) startFight(s, c, m);
+  if (home) startFight(s, map, c, m);
 }
 
 /** The monster gone before the hero got to it (slain by another, called home): back to the hall. */
@@ -736,7 +765,7 @@ function giveUp(s: SimState, map: CoastMap, c: Champion, m: Beast | undefined): 
 }
 
 /** Hero and monster at the lair: the fight begins. The monster is held (it fights only the hero) and out of any battle. */
-function startFight(s: SimState, c: Champion, m: Beast): void {
+function startFight(s: SimState, map: CoastMap, c: Champion, m: Beast): void {
   const spot = lairSpot(s, m);
   m.held = HERO_IDS.indexOf(c.hero) + 1;
   m.state = 'lair';
@@ -760,10 +789,38 @@ function startFight(s: SimState, c: Champion, m: Beast): void {
   c.fight = s.tick;
   c.from = m.hp;
   c.path = [];
-  // The hero squares up to it before its den's mouth, out in the open, where the fight can be watched.
-  placeInFight(c, m, m.mouth);
+  // The hero squares up to it before its den's mouth, out in the open, where the fight can be watched (or the nearest
+  // way round from the mouth that is on land: a shore den's mouth may face the town across the water).
+  placeInFight(c, m, fightAngle(map, s, m));
   say(s, { kind: 'hero', u: ALARM, title: `${nameOf(c.hero)} fights ${beastName(m.kind)}`, words: `${nameOf(c.hero)} has met ${beastName(m.kind)} before ${itsLair(m)}, and they fight. It will be a long fight: watch it from here.`, at: { tile: m.lair }, of: 'fight' });
   s.rev++;
+}
+
+/**
+ * Merge of slice 59: which way round the monster the hero squares up from:
+ * its den's mouth, if the hero's place there is on land (no water, no
+ * building: steep rock before a cave is land); else the nearest way round
+ * from the mouth, either side, that is; else the mouth.
+ */
+export function fightAngle(map: CoastMap, s: SimState, m: Beast): number {
+  const r = MAKES[m.kind].bulk + FIGHT_GAP;
+  const n = map.size;
+  const ground = mapIndex(map).ground;
+  const land = (a: number): boolean => {
+    const x = Math.floor(m.x + dcos(a) * r);
+    const z = Math.floor(m.z + dsin(a) * r);
+    if (x < 0 || z < 0 || x >= n || z >= n) return false;
+    const t = z * n + x;
+    const on = s.tiles[t];
+    return (on === TILE_EMPTY || on === TILE_ROAD) && ground[t] !== Ground.Water && ground[t] !== Ground.OffMap;
+  };
+  for (let k = 0; k <= 16; k++) {
+    for (const side of k === 0 ? [0] : [1, -1]) {
+      const a = m.mouth + (side * k * Math.PI) / 16;
+      if (land(a)) return a;
+    }
+  }
+  return m.mouth;
 }
 
 /** The hero's place in the fight: at their distance from the monster, at angle `a` round it, the two facing. */

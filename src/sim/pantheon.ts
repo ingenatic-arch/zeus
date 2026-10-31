@@ -604,6 +604,15 @@ export function standing(s: SimState, god: GodId, kind: string, why: string, amo
   else forget(s, r, k);
 }
 
+/**
+ * The day a god's last festival began (its procession set out), or -1: for
+ * slice 56's visit on a festival and slice 59's Heracles, whose wish is a
+ * festival to Zeus each year. (It lives here, re-exported by worship.ts, so
+ * heroes.ts can read it without importing worship.ts, which imports folk.ts,
+ * which imports heroes.ts.)
+ */
+export const festivalHeld = (s: SimState, god: GodId): number => s.gods.lastFestival[god] ?? -1;
+
 /** How long a home a procession passed stays glad (a season), and how glad. */
 export const FESTIVE_LASTS = 90 * TICKS_PER_DAY;
 export const FESTIVE_MOOD = 2;

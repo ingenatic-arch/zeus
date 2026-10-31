@@ -52,7 +52,7 @@ import { moodOf } from './folk';
 import { canWorkIn } from './labour';
 import { NEWS, say, WARNING } from './messages';
 import { MONUMENT_KINDS, finished } from './monuments';
-import { FESTIVE_LASTS, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, standing, worship, type Festival, type GodId } from './pantheon';
+import { FESTIVE_LASTS, festivalHeld, GOD_IDS, GODS, herOf, honour, MOOD_MONTHS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, setStanding, standing, worship, type Festival, type GodId } from './pantheon';
 import { MAKERS } from './production';
 import { door, roadsBeside } from './rounds';
 import { nearestReached, roadSearch, tracePath } from './roads';
@@ -256,8 +256,8 @@ export function placeWords(map: CoastMap, b: Building, s?: SimState): string {
   return b.kind === 'sanctuary' && b.god ? sanctuaryName(b.god) : shrineWords(map, b, s);
 }
 
-/** The day a god's last festival began (its procession set out), or -1: for slice 56's visit on a festival. */
-export const festivalHeld = (s: SimState, god: GodId): number => s.gods.lastFestival[god] ?? -1;
+// (festivalHeld lives in pantheon.ts, re-exported here as before: slice 59's heroes read it without a module cycle.)
+export { festivalHeld } from './pantheon';
 /** Is a festival to the god announced or under way? */
 export const festivalOf = (s: SimState, god: GodId): Festival | undefined => s.gods.festivals.find((f) => f.god === god);
 /** Is the god's procession walking now (their festival under way)? */

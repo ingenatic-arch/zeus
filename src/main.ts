@@ -1240,18 +1240,28 @@ function start(preparedTown: string | null): void {
   };
   // Merge of slices 55 and 56: the god under a screen point, unless a monster is under it too and nearer the eye (it is
   // drawn in front): then the monster's tip and click, as it is the one seen there.
-  const godUnder = (sx: number, sy: number): number => {
-    const id = godsView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
-    if (!id) return 0;
-    const bm = beastUnder(sx, sy);
-    const a = godsView.at.get(id);
-    if (!bm || !a) return id;
-    const o = monstersView.shown.find((x) => x.id === bm.id);
-    const l = o ? undefined : monstersView.lairsShown.find((x) => x.id === bm.id);
-    const mid = o ? new THREE.Vector3(o.x, o.y + o.tall / 2, o.z) : l ? new THREE.Vector3(l.x, l.y, l.z) : null;
-    if (!mid) return id;
-    return camera.position.distanceToSquared(new THREE.Vector3(a.x, a.y + a.h / 2, a.z)) <= camera.position.distanceToSquared(mid) ? id : 0;
+  // (Merge of slice 59: a hero joins them. Of a god, a hero and a monster all under the point, the one nearest the eye
+  // wins; a god wins a tie, then a hero.)
+  const mythUnder = (sx: number, sy: number): { god: number; hero: HeroId | null } => {
+    const r = canvas.getBoundingClientRect();
+    const id = godsView.pick(camera, r, sx, sy);
+    const hero = heroesView.pick(camera, r, sx, sy);
+    const bm = id || hero ? beastUnder(sx, sy) : undefined;
+    const eye = (x: number, y: number, z: number): number => camera.position.distanceToSquared(new THREE.Vector3(x, y, z));
+    const a = id ? godsView.at.get(id) : undefined;
+    const ho = hero ? heroesView.shown.find((x) => x.hero === hero) : undefined;
+    const o = bm ? monstersView.shown.find((x) => x.id === bm.id) : undefined;
+    const l = bm && !o ? monstersView.lairsShown.find((x) => x.id === bm.id) : undefined;
+    // (One with no place known counts as nearest, as before.)
+    const dGod = !id ? Infinity : a ? eye(a.x, a.y + a.h / 2, a.z) : -1;
+    const dHero = !hero ? Infinity : ho ? eye(ho.x, ho.y + ho.tall / 2, ho.z) : -1;
+    const dBeast = !bm ? Infinity : o ? eye(o.x, o.y + o.tall / 2, o.z) : l ? eye(l.x, l.y, l.z) : Infinity;
+    if (id && dGod <= dHero && dGod <= dBeast) return { god: id, hero: null };
+    if (hero && dHero <= dBeast) return { god: 0, hero };
+    return { god: 0, hero: null };
   };
+  const godUnder = (sx: number, sy: number): number => mythUnder(sx, sy).god;
+  const heroUnder = (sx: number, sy: number): HeroId | null => mythUnder(sx, sy).hero;
 
   // With no tool picked, hovering a home says who lives there and what reaches it; a workplace, how it is doing; a walker, what she's doing.
   const hover = (world: { x: number; z: number } | null, sx: number, sy: number): void => {
@@ -1284,7 +1294,7 @@ function start(preparedTown: string | null): void {
     // Slice 59: a hero, or a place of legend.
     {
       const r = canvas.getBoundingClientRect();
-      const h = heroesView.pick(camera, r, sx, sy);
+      const h = heroUnder(sx, sy);
       const c = h ? heroOf(sim.state, h) : undefined;
       if (c) {
         const st = heroTip(sim.state, c);
@@ -1491,7 +1501,7 @@ function start(preparedTown: string | null): void {
       }
       // Slice 59: a hero: their hall's panel.
       {
-        const h = heroesView.pick(camera, canvas.getBoundingClientRect(), sx, sy);
+        const h = heroUnder(sx, sy);
         const c = h ? heroOf(sim.state, h) : undefined;
         const hall = c ? hallOf(sim.state, c) : undefined;
         if (hall) {

@@ -9,15 +9,18 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { dhypot } from '../src/map/dmath';
-import { buildingRefusal } from '../src/sim/build';
+import { buildingRefusal, Ground, mapIndex } from '../src/sim/build';
 import { beside, centreOf, findBuilding } from '../src/sim/buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { expeditionRefusal } from '../src/sim/expeditions';
-import { ARRIVE, courtyard, demandsOf, FETE, FIGHT, heroDoing, heroMoods, heroOf, LEAVE, LEGEND_COIN, RESTLESS, sendRefusal, type Champion } from '../src/sim/heroes';
-import { lairSpot, monsterOf, sendMonster, type Beast } from '../src/sim/monsters';
+import { ARRIVE, courtyard, demandsOf, FETE, FIGHT, FIGHT_GAP, fightAngle, heroDoing, heroMoods, heroOf, LEAVE, LEGEND_COIN, RESTLESS, sendRefusal, wishOf, type Champion } from '../src/sim/heroes';
+import { held, MEAT, setHeld } from '../src/sim/foods';
+import { totals } from '../src/sim/treasury';
+import { festivalGoods, festivalHeld, festivalRefusal } from '../src/sim/worship';
+import { lairSpot, MAKES, monsterOf, sendMonster, type Beast } from '../src/sim/monsters';
 import { honour, reasonsOf, type HeroId } from '../src/sim/pantheon';
 import { Sim } from '../src/sim/sim';
-import { SIM_STATE_VERSION, TILE_ROAD, type SimState } from '../src/sim/state';
+import { SIM_STATE_VERSION, TILE_EMPTY, TILE_ROAD, TILE_WALL, type SimState } from '../src/sim/state';
 import { RULED } from '../src/map/greece';
 import { demoSim } from './prepared';
 
@@ -68,6 +71,12 @@ function staged(s: SimState, c: Champion): void {
   c.by = 'road';
   c.wish = s.tick;
   c.next = s.tick + 20 * TICKS_PER_DAY;
+}
+
+/** The treasury filled for a test (staged: a hall costs more than #town keeps), the ledger kept whole. */
+function rich(s: SimState): void {
+  s.money = Math.max(s.money, 5000);
+  s.ledger.start = s.money - totals(s.ledger.now).net;
 }
 
 /** A monster sent and settled in its lair. */
@@ -219,6 +228,65 @@ describe('slaying', () => {
     };
     expect(run()).toBe(run());
   }, 240000);
+
+  it('a lair that can\'t be reached on foot: refused, with words, and sending does nothing (merge of slice 59)', () => {
+    const sim = demoSim('order');
+    const s = sim.state;
+    const n = sim.map.size;
+    const c = raise(sim, 'theseus');
+    staged(s, c);
+    const m = settled(sim, 'minotaur');
+    expect(until(sim, () => c.state === 'home' && m.state === 'lair', 2 * TICKS_PER_MONTH)).toBe(true);
+    c.next = s.tick + 99 * TICKS_PER_DAY;
+    m.next = s.tick + 99 * TICKS_PER_DAY;
+    expect(sendRefusal(s, 'theseus', m.id)).toBe('');
+    // (Staged: a ring of wall round its cave, three tiles out, with no gate.)
+    const spot = lairSpot(s, m);
+    const ring: Array<[number, number]> = [];
+    for (let dz = -3; dz <= 3; dz++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== 3) continue;
+        const u = (Math.floor(spot.z) + dz) * n + Math.floor(spot.x) + dx;
+        ring.push([u, s.tiles[u]]);
+        s.tiles[u] = TILE_WALL;
+      }
+    }
+    s.rev++;
+    expect(sendRefusal(s, 'theseus', m.id)).toBe('Theseus can’t reach the Minotaur’s cave on foot: walls, buildings or water stand in the way');
+    send(sim, { type: 'hero', hero: 'theseus', act: 'slay', monster: m.id });
+    expect(c.state).toBe('home');
+    expect(c.foe).toBe(0);
+    for (const [u, was] of ring) s.tiles[u] = was;
+    s.rev++;
+    expect(sendRefusal(s, 'theseus', m.id)).toBe('');
+  }, 240000);
+
+  it('at a shore den whose mouth faces the town across the water, the hero fights on land (merge of slice 59)', () => {
+    const sim = demoSim('richtown');
+    const s = sim.state;
+    const map = sim.map;
+    const n = map.size;
+    rich(s);
+    const c = raise(sim, 'heracles');
+    staged(s, c);
+    const m = settled(sim, 'cyclops');
+    const ground = mapIndex(map).ground;
+    const tileAt = (a: number): number => {
+      const r = MAKES[m.kind].bulk + FIGHT_GAP;
+      const spot = lairSpot(s, m);
+      return Math.floor(spot.z + Math.sin(a) * r) * n + Math.floor(spot.x + Math.cos(a) * r);
+    };
+    // (The point of the test: straight out of the mouth, the hero would stand in the water.)
+    expect(ground[tileAt(m.mouth)]).toBe(Ground.Water);
+    expect(until(sim, () => c.state === 'home' && m.state === 'lair', 2 * TICKS_PER_MONTH)).toBe(true);
+    m.next = s.tick + 99 * TICKS_PER_DAY;
+    send(sim, { type: 'hero', hero: 'heracles', act: 'slay', monster: m.id });
+    expect(until(sim, () => c.state === 'fighting', 3 * TICKS_PER_MONTH)).toBe(true);
+    const t = Math.floor(c.z) * n + Math.floor(c.x);
+    expect(ground[t]).not.toBe(Ground.Water);
+    expect([TILE_EMPTY, TILE_ROAD]).toContain(s.tiles[t]);
+    expect(fightAngle(map, s, m)).not.toBe(m.mouth);
+  }, 240000);
 });
 
 describe('wishes', () => {
@@ -249,6 +317,38 @@ describe('wishes', () => {
     expect(until(sim, () => c.state === 'awaited', 2 * TICKS_PER_MONTH)).toBe(true);
     expect(c.came).toBe(-1);
     expect(c.again).toBeGreaterThan(s.tick);
+  }, 240000);
+
+  it('Heracles\' wish is kept by a festival to Zeus (slice 53\'s, joined at the merge): restless before it, at peace after', () => {
+    const sim = demoSim('town');
+    const s = sim.state;
+    rich(s);
+    const c = raise(sim, 'heracles');
+    staged(s, c);
+    // No festival to Zeus yet: the wish is unkept, and a year on he is restless.
+    expect(festivalHeld(s, 'zeus')).toBe(-1);
+    expect(wishOf(s, c).met).toBe(false);
+    c.wish = s.tick - RESTLESS;
+    c.next = s.tick + 99 * TICKS_PER_DAY;
+    sim.run(TICKS_PER_DAY + 1);
+    expect(c.warned).toBe(1);
+    // A shrine given to Zeus, his meat in the granary and the coin: a festival, held as a player would.
+    const shrine = s.buildings.find((b) => b.kind === 'shrine')!;
+    send(sim, { type: 'dedicate', id: shrine.id, god: 'zeus' });
+    rich(s);
+    const g = s.buildings.find((b) => b.kind === 'granary')!;
+    setHeld(g, MEAT, held(g, MEAT) + festivalGoods(MEAT));
+    expect(festivalRefusal(s, sim.map, shrine.id)).toBe('');
+    send(sim, { type: 'festival', id: shrine.id });
+    expect(until(sim, () => festivalHeld(s, 'zeus') >= 0, 2 * TICKS_PER_MONTH)).toBe(true);
+    const held0 = festivalHeld(s, 'zeus');
+    c.state = 'home';
+    c.next = s.tick + 99 * TICKS_PER_DAY;
+    sim.run(TICKS_PER_DAY + 1);
+    expect(wishOf(s, c).met).toBe(true);
+    expect(wishOf(s, c).done).toBe(held0);
+    expect(c.wish).toBe(held0);
+    expect(c.warned).toBe(0);
   }, 240000);
 });
 
