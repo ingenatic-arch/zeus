@@ -4060,7 +4060,7 @@ await open('#omen-paused');
   const m57 = await zeus(() => window.__zeus.messages());
   if (!m57.log.some((m) => m.kind === 'wrath' && /^Ominous signs: [\s\S]*Athena is angry[\s\S]*Medusa/.test(m.words))) fail(`#omen: the omen not said: ${JSON.stringify(m57.log.slice(-3))}`);
   const o57 = await zeus(() => window.__zeus.olympus());
-  if (!(o57.open && o57.god === 'athena' && /Omens: Medusa[\s\S]*days? left[\s\S]*Why[\s\S]*To turn it[\s\S]*offering/.test(o57.text))) fail(`#omen: Athena's page: ${JSON.stringify(o57).slice(0, 900)}`);
+  if (!(o57.open && o57.god === 'athena' && /Omens: Medusa[\s\S]*days? left[\s\S]*Why[\s\S]*To turn it[\s\S]*offering/i.test(o57.text))) fail(`#omen: Athena's page: ${JSON.stringify(o57).slice(0, 900)}`);
   await page.click('.olympus [data-act="offer"]');
   await frames(2);
   await zeus(() => window.__zeus.skip(200));
@@ -4074,7 +4074,7 @@ await open('#blessing-paused');
 {
   await frames(3);
   const b57 = await zeus(() => window.__zeus.building());
-  if (!(b57.open && /Blessing[\s\S]*Ask Demeter’s blessing/.test(b57.text))) fail(`#blessing: the sanctuary's panel: ${JSON.stringify(b57).slice(0, 900)}`);
+  if (!(b57.open && /Blessing[\s\S]*Ask Demeter’s blessing/i.test(b57.text))) fail(`#blessing: the sanctuary's panel: ${JSON.stringify(b57).slice(0, 900)}`);
   await page.click('.household.building [data-act="bless"]');
   await frames(2);
   await zeus(() => window.__zeus.skip(20));

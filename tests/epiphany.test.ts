@@ -162,6 +162,8 @@ describe('the gods walk your streets (slice 56)', () => {
     const sim = town();
     const s = sim.state;
     expect(s.gods.on).toBe(true);
+    // (Slice 57: wrath's switch off, so a loving Demeter's unasked blessing, a visit of its own, can't come in the weeks played.)
+    s.gods.wrath.on = false;
     honour(s, 'demeter', 80, 'staged', 'your full granaries', 0);
     const day = (): void => sim.run(TICKS_PER_DAY);
     day();
