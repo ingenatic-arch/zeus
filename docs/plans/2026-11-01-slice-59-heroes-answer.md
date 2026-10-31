@@ -152,5 +152,5 @@ A wish unmet for a year makes them restless (a warning); a month before two year
 - Trunk lines changed at the merges, only to append: slice 56's `visit` command and slice 54's `sanctuary` command, and slice 54's `'sanctuary'` in the building kinds' and the tools' unions, each lost its closing semicolon (it moved to the new last entry); `JOBS` and `BUILDING_KINDS`, single-line lists, end with `herohall` after slice 54's `sanctuary`.
 
 **Checks** (numbers in the check-in's Measurements):
-- Every one of the 168 earlier demos' prepared towns, decoded and brought up through the migrations from the starting build (`afd1461`), is identical to this build's, key for key (`scratch-59/t/sametowns.test.ts`).
+- Every one of the 168 earlier demos' prepared towns, decoded and brought up through the migrations from the starting build (`afd1461`), is identical to this build's, key for key (`scratch-59/t/sametowns.test.ts`); after the third merge, so are all 173 of the main line's (`fd44330`, built in a scratch worktree).
 - A version 48 save (the groundwork fixture) and the same as a version 47 save load through every migration and play on (`epiphany.test.ts`, `monsters.test.ts`); a version 50 state comes up through `fromSlice59` with no hero (`heroes.test.ts`).

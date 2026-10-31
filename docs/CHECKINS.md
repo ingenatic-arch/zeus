@@ -8,7 +8,7 @@ The seven heroes can come to your city now: raise a hero's hall, meet what they 
 
 What breaks, or moves:
 - **State version 52** (50 on this line; renumbered as slices 56 and 54 reached the main line first). Older saves load: a version 51 save comes up with no hero, and the groundwork's `#town` save (version 48) and the same as a phase 6 save (version 47) load through every step and play on.
-- **Nothing in any earlier demo changes**: every one of the 168 earlier demos' prepared towns is identical to before, key for key, once brought up to this version. No hero exists unless you raise their hall.
+- **Nothing in any earlier demo changes**: every one of the 173 earlier demos' prepared towns (the main line's, with slices 54 and 56) is identical to before, key for key, once brought up to this version. No hero exists unless you raise their hall.
 - **A monster's raid is now announced three days before it sets out** (it was one day: about a second at normal speed). The raids themselves come when they did.
 - **A monster stung by a tower's arrows before its lair now comes out for that tower** and wrecks it. Towers still shoot it on its raids at no cost.
 - **Medusa and the Chimera look different**: Medusa is brighter and a quarter larger, and the Chimera has a big goat's head and a long serpent tail.
@@ -42,25 +42,25 @@ What breaks, or moves:
 - `#town`'s save budget in the save test went up by 75 characters for the heroes' list and the fête.
 
 ### Measurements
-The starting build (`afd1461`: the main line with slice 55, before slice 56) and this slice's (with slice 56 merged in), measured with the same shortened `measure.mjs` on this machine: headless, software WebGL, with other lines building at the same time (load 8 to 22 on 4 cores). Every time below is noise; only the sizes, triangles and draw calls mean anything.
+The main line as it stands (`fd44330`, with slices 54, 55 and 56) and this slice's build, measured with the same shortened `measure.mjs` back to back on this machine: headless, software WebGL, with other lines building at the same time (load 22 to 28 on 4 cores). Every time below is noise; only the sizes, triangles and draw calls mean anything.
 
-| What | Before (`afd1461`) | After |
+| What | Before (`fd44330`) | After |
 |---|---|---|
-| Tests | 816 in 61 files | 838 in 63 files (with slice 56's). In the full run 837 passed and 1 timed out: the treasury's check that no demo leaves wages unpaid while it is set up, which plays every demo's history (20 minutes under load). Its file passes alone, 17 of 17, and `#hero` and `#slay` on their own leave no wages unpaid |
-| Build | | 8 min 34 s, and 13 min when every demo's town is made again (under load) |
-| The game itself | 1,018 KB gzipped | 1,053 KB gzipped (slice 56's gods and this slice's heroes together) |
-| Prepared towns | 128 files, 4,651 KB gzipped (largest 82 KB) | 132 files, 4,813 KB gzipped (largest 82 KB): `#epiphany`, `#pantheon`, `#hero` and `#slay` |
-| Every earlier demo's town | | identical: all 168, decoded and brought up to this version, key for key |
-| The bare link, ready (page's clock) | 3.0 s | 3.8 s (the machine's load: the scene is the same) |
-| `#town` / `#richtown` / `#empire` ready | 4.3 / 3.2 / 2.6 s | 3.3 / 3.0 / 3.2 s |
+| Tests | 838 in 63 files on this line before the last merge | 846 in 64 files. In the full run (load 30 to 35) 839 passed and 7 failed on time: three over their own 60 s limits (in `prices`, `routes` and `trade`), two of `lands`' bake-time budgets, `culture`'s "quickly" check, and the treasury's check that no demo leaves wages unpaid while it is set up (it plays all 175 demos' histories). Run alone, `culture`, `prices`, `routes` and `trade` pass; one large land baked in 6.3 s against `lands`' 6 s budget; the treasury's check ran out of its 20 minutes again, so I ran it on the five newest demos (`#hero`, `#slay`, `#sanctuaries`, `#sanctuary`, `#twelve`), which pass, and it passed whole, alone, after the slice 56 merge |
+| Build | 15 min 51 s, every demo's town made (under load) | 17 min 49 s, every demo's town made (under load) |
+| The game itself | 1,054 KB gzipped | 1,071 KB gzipped |
+| Prepared towns | 133 files, 4,819 KB gzipped (largest 82 KB) | 135 files, 4,939 KB gzipped (largest 82 KB): `#hero` and `#slay` |
+| Every earlier demo's town | | identical: all 173, decoded and brought up to this version, key for key |
+| The bare link, ready (page's clock) | 8.1 s | 8.1 s |
+| `#town` / `#richtown` / `#empire` ready | 5.9 / 7.8 / 6.3 s | 6.3 / 6.5 / 11.0 s (the load: the scenes are the same) |
 | Triangles and draw calls in the coast's five views and `#streets`', `#water`'s, `#food`'s, `#town`'s, `#richtown`'s and `#empire`'s | | identical (with no hall, the heroes draw nothing) |
 | `#bestiary` | 1,336,071 triangles, 144 draws | 1,336,239 triangles, 147 draws (the new Medusa and Chimera) |
 | `#hero` | (new) | 1,446,201 triangles, 88 draws |
-| `#slay` | (new) | 1,704,346 triangles, 106 draws |
-| A save of `#town` | 190 KB | 190 KB (194,581 characters; the save test's budget is now 194,700) |
+| `#slay` | (new) | 1,706,982 triangles, 106 draws |
+| A save of `#town` | 190 KB | 190 KB (194,581 characters; the save test's budget is now 194,700, from 194,625) |
 | A save of `#empire` | 300 KB | 300 KB |
-| A frame's work before drawing | `#empire` 45, `#town-shot` 22, `#richtown-shot` 29, `#monsterraid-shot` 149 ms | `#empire` 61, `#town-shot` 36, `#richtown-shot` 22, `#monsterraid-shot` 48, `#slay-shot` 84 ms (2 to 9 frames in 8 s: not a measurement) |
-| The smoke (loosened, on this build) | | this slice's checks, slice 55's (`#monster`, `#monsterraid`, `#bestiary`), slice 56's (`#epiphany`, `#pantheon`), slice 52's `#order`, slice 50's `#companies`, and `#town`, `#richtown`, `#battle`, `#order`, `#physicians`, `#empire` and `#streets` opening: all pass, no page errors |
+| A frame's work before drawing | `#empire` 125, `#town-shot` 33, `#richtown-shot` 123, `#monsterraid-shot` 121 ms | `#empire` 55, `#town-shot` 57, `#richtown-shot` 94, `#slay-shot` 249 ms; `#monsterraid-shot` drew no frame in 8 s (0 to 6 frames each: not a measurement) |
+| The smoke (loosened, on this build) | | this slice's checks, slice 54's (`#sanctuaries`, `#sanctuary`, `#twelve`), slice 55's (`#monster`, `#monsterraid`, `#bestiary`) and slice 56's (`#epiphany`, `#pantheon`), and `#town`, `#richtown`, `#battle`, `#order`, `#quarry`, `#empire`, `#streets` and `#epiphany` opening: all pass, no page errors. Before the last merge, slices 50's and 52's checks passed too |
 
 ## Slice 54 — Sanctuaries rise (31 Oct)
 
