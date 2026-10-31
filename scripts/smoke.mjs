@@ -4165,7 +4165,7 @@ await open('#godwar-paused');
     await page.mouse.click(p60.x, p60.y);
     await frames(3);
     const panel60 = (await zeus(() => window.__zeus.gods())).panel ?? '';
-    if (!/Ares[\s\S]*Against your city[\s\S]*Why he fights against you[\s\S]*Now/.test(panel60)) fail(`#godwar: his panel: ${panel60.slice(0, 800)}`);
+    if (!/Against your city[\s\S]*Ares[\s\S]*Why he fights against you[\s\S]*Now/.test(panel60)) fail(`#godwar: his panel: ${panel60.slice(0, 800)}`);
     await page.keyboard.press('Escape');
     await frames(2);
   }
@@ -4186,7 +4186,7 @@ await open('#godduel-paused');
     await page.mouse.move(p.x, p.y);
     await frames(3);
     const t = await tip();
-    if (!/^Athena, [\s\S]*fighting Ares[\s\S]*Athena’s love \(\d+\) against Ares’ anger \(\d+\): Athena will win/.test(t ?? '')) fail(`#godduel: her hover: ${t}`);
+    if (!/^Athena, [\s\S]*Fighting Ares[\s\S]*Athena’s love \(\d+\) against Ares’ anger \(\d+\): Athena will win/.test(t ?? '')) fail(`#godduel: her hover: ${t}`);
   }
 }
 if (errors.length > err60) fail('page errors (slice 60):\n' + errors.slice(err60).join('\n'));
