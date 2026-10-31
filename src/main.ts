@@ -1241,7 +1241,8 @@ function start(preparedTown: string | null): void {
   // Merge of slices 55 and 56: the god under a screen point, unless a monster is under it too and nearer the eye (it is
   // drawn in front): then the monster's tip and click, as it is the one seen there.
   // (Merge of slice 59: a hero joins them. Of a god, a hero and a monster all under the point, the one nearest the eye
-  // wins; a god wins a tie, then a hero.)
+  // wins; a god wins a tie, then a hero. Each is measured from where they stand on the ground: their middles favoured the
+  // tallest, so a hero standing in front of the Minotaur lost to it, its middle being so much higher up and nearer the eye.)
   const mythUnder = (sx: number, sy: number): { god: number; hero: HeroId | null } => {
     const r = canvas.getBoundingClientRect();
     const id = godsView.pick(camera, r, sx, sy);
@@ -1253,9 +1254,9 @@ function start(preparedTown: string | null): void {
     const o = bm ? monstersView.shown.find((x) => x.id === bm.id) : undefined;
     const l = bm && !o ? monstersView.lairsShown.find((x) => x.id === bm.id) : undefined;
     // (One with no place known counts as nearest, as before.)
-    const dGod = !id ? Infinity : a ? eye(a.x, a.y + a.h / 2, a.z) : -1;
-    const dHero = !hero ? Infinity : ho ? eye(ho.x, ho.y + ho.tall / 2, ho.z) : -1;
-    const dBeast = !bm ? Infinity : o ? eye(o.x, o.y + o.tall / 2, o.z) : l ? eye(l.x, l.y, l.z) : Infinity;
+    const dGod = !id ? Infinity : a ? eye(a.x, a.y, a.z) : -1;
+    const dHero = !hero ? Infinity : ho ? eye(ho.x, ho.y, ho.z) : -1;
+    const dBeast = !bm ? Infinity : o ? eye(o.x, o.y, o.z) : l ? eye(l.x, l.y, l.z) : Infinity;
     if (id && dGod <= dHero && dGod <= dBeast) return { god: id, hero: null };
     if (hero && dHero <= dBeast) return { god: 0, hero };
     return { god: 0, hero: null };
