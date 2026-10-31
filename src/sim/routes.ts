@@ -101,6 +101,9 @@ import { tributeDoing, unload as unloadTribute } from './vassals';
 import { sizeOf } from '../map/lands';
 // Slice 57: Hermes's blessing on your prices.
 import { godPrice } from './pantheon';
+// Review of slice 57: Poseidon's storms and Hermes's robbers (each loss said as news of the gods' wrath).
+import { roadsCursed, wrecks } from './pantheon';
+import { say, WARNING } from './messages';
 
 export type RouteKind = 'land' | 'sea';
 
@@ -510,6 +513,12 @@ function stepCaravanRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     homeward(s, r);
     return;
   }
+  // (Review of slice 57: under Hermes's curse it is set on by robbers before it reaches you, and lost, with its goods.)
+  if (roadsCursed(s)) {
+    const yd = caravanYard(s);
+    say(s, { kind: 'wrath', u: WARNING, title: 'A caravan is lost', words: `The caravan from ${cityName(r.city)} was set on by robbers on the road and lost, with its goods, under Hermes’s curse: it will not trade with you this time.`, at: yd ? { building: yd.id } : undefined });
+    return;
+  }
   const yard = caravanYard(s);
   const entry = yard ? caravanEntry(s, map.size, yard, r.city) : null;
   if (!yard || !entry) {
@@ -898,6 +907,16 @@ function stepShipRoute(s: SimState, map: CoastMap, r: TradeRoute): void {
     // Slice 38: a blockade holds the harbour: she waits off your gulf, and sails in at once when it ends.
     if (post && blockaded(s)) {
       r.next = s.tick + SAIL_IN;
+      return;
+    }
+    // (Review of slice 57: under Poseidon's curse she is lost at sea on her way: the visit is missed, and the next comes as usual.)
+    if (post && wrecks(s)) {
+      v.since = s.tick;
+      const every = everyOf(s, r);
+      r.next = onSchedule(s, `${r.city}-sea`, r.next);
+      while (r.next - SAIL_IN - voyageTicks(r.city) < s.tick + voyageTicks(r.city)) r.next += every;
+      r.next += stormDelay(s, `${r.city}-sea`, r.next);
+      say(s, { kind: 'wrath', u: WARNING, title: 'A ship is lost', words: `The ship from ${cityName(r.city)} was lost at sea in Poseidon’s storms, with her cargo and her crew: she will not trade with you this time.`, at: { building: post.id } });
       return;
     }
     if (post && setSailVisitor(s, map, r, v, post)) return;

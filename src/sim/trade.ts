@@ -58,6 +58,9 @@ import { landed, quarantined } from './health';
 import { PLACES, type CityId } from '../map/greece';
 // Slice 57.
 import { FAIR_SAIL, fairSeas } from './pantheon';
+// Review of slice 57: Poseidon's storms wreck the ship on her way (said as news of the gods' wrath).
+import { wrecks } from './pantheon';
+import { say, WARNING } from './messages';
 /** "Troy’s", "Athens’". */
 const whoseCity = (id: CityId): string => (PLACES[id].name.endsWith('s') ? `${PLACES[id].name}’` : `${PLACES[id].name}’s`);
 
@@ -729,7 +732,10 @@ export function stepTrade(s: SimState, map: CoastMap): void {
 /** She sets sail for the post from over the horizon (or, if it has no berth, the visit is missed). */
 function setSail(s: SimState, map: CoastMap, post: Building, ship: Ship): void {
   const berth = berthOf(map, post);
-  if (!berth) {
+  // (Review of slice 57: under Poseidon's curse she is lost at sea on her way, and the visit is missed, as with no berth.)
+  const wrecked = !!berth && wrecks(s);
+  if (wrecked) say(s, { kind: 'wrath', u: WARNING, title: 'The merchant ship is lost', words: 'The merchant ship from Tyre was lost at sea in Poseidon’s storms, with her crew: she will not call at your quay this time, and buys nothing from you.', at: { building: post.id } });
+  if (!berth || wrecked) {
     // (Slice 36: three months after she was due before any storm held her back; slice 35: two while the Lighthouse burns.)
     ship.due = onSchedule(s, 'tyre', ship.due) + shipEvery(s);
     ship.due += stormDelay(s, 'tyre', ship.due);

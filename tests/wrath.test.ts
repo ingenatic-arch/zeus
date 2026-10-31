@@ -19,6 +19,7 @@ import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
 import { worship } from '../src/sim/worship';
 import { beginOmen, CURSES, GOD_CURSES, OMEN_LEAD, omenOf, stepWrath } from '../src/sim/wrath';
 import { demoSim } from './prepared';
+import { TRADE_TICKS } from '../src/sim/routes';
 
 const wrathOf = (s: SimState) => s.gods.wrath;
 const said = (s: SimState, from: number) => s.messages.log.filter((m) => m.id >= from && m.kind === 'wrath');
@@ -95,6 +96,35 @@ describe('omens', () => {
     expect(curseNow(s, 'blight')).toBeUndefined();
   });
 
+  it('a festival announced in the omen’s month turns it at once, though it begins a month later (review of slice 57)', () => {
+    const sim = demoSim('omen');
+    const s = sim.state;
+    expect(omenOf(s, 'athena')).toBeTruthy();
+    const shrine = s.buildings.find((b) => b.kind === 'shrine' && b.god === 'athena')!;
+    const m0 = s.messages.next;
+    sim.enqueue({ type: 'festival', id: shrine.id });
+    sim.flush();
+    expect(s.gods.festivals.some((f) => f.god === 'athena')).toBe(true);
+    sim.run(2 * TICKS_PER_DAY);
+    expect(omenOf(s, 'athena')).toBeUndefined();
+    expect(said(s, m0).find((m) => m.title === 'Athena is appeased')?.words).toMatch(/by the festival you announced/);
+    sim.run(OMEN_LEAD);
+    expect(s.legends.monsters.some((m) => m.kind === 'medusa')).toBe(false);
+  });
+
+  it('an offering turns it as soon as it sets out, however far its porter walks (review of slice 57)', () => {
+    const sim = demoSim('omen');
+    const s = sim.state;
+    const shrine = s.buildings.find((b) => b.kind === 'shrine' && b.god === 'athena')!;
+    const m0 = s.messages.next;
+    sim.enqueue({ type: 'offer', id: shrine.id });
+    sim.flush();
+    expect(s.walkers.some((w) => w.kind === 'offering')).toBe(true);
+    sim.run(2 * TICKS_PER_DAY);
+    expect(omenOf(s, 'athena')).toBeUndefined();
+    expect(said(s, m0).find((m) => m.title === 'Athena is appeased')?.words).toMatch(/by the offering on its way/);
+  });
+
   it('a curse never lands before its month is out', () => {
     const sim = rich();
     const s = sim.state;
@@ -125,6 +155,7 @@ describe('curses', () => {
     forge: (s) => expect(s.buildings.filter((b) => b.fire === 2).length).toBeGreaterThan(0),
     thieves: (s) => expect(godCrime(s)).toBe(2),
     riot: (s, b) => expect(s.crime.broken.length).toBeGreaterThan(b.crime.broken.length),
+    shipwreck: (s) => expect(curseNow(s, 'shipwreck')).toBeTruthy(),
   };
   for (const c of Object.keys(CURSES) as CurseId[]) {
     it(`${c} lands, says what it did, and does it`, () => {
@@ -133,8 +164,8 @@ describe('curses', () => {
       const C = CURSES[c];
       honour(s, C.god, -50, 'staged', 'angry', 0);
       const o = beginOmen(s, sim.map, C.god, c, 3 * TICKS_PER_DAY);
-      // (Brawls want a barracks, which #richtown hasn't: it can't be aimed there.)
-      if (c === 'brawls') {
+      // (Brawls want a barracks, and the caravans a caravan yard, which #richtown hasn't: they can't be aimed there.)
+      if (c === 'brawls' || c === 'caravans') {
         expect(o).toBeNull();
         return;
       }
@@ -150,6 +181,45 @@ describe('curses', () => {
       expect(s.ledger.start + s.ledger.now.reduce((a, l) => a + l.amount, 0)).toBe(s.money);
     });
   }
+});
+
+describe('ships and caravans lost (review of slice 57)', () => {
+  it('under Poseidon’s storms the merchant ship sailing for your quay is lost, and said; after the season she comes again', () => {
+    const sim = rich();
+    const s = sim.state;
+    honour(s, 'poseidon', -50, 'staged', 'angry', 0);
+    expect(beginOmen(s, sim.map, 'poseidon', 'shipwreck', 2 * TICKS_PER_DAY)).toBeTruthy();
+    const m0 = s.messages.next;
+    sim.run(3 * TICKS_PER_DAY);
+    // (She was already in the bay as it landed: she trades. Every ship that sets sail after it is lost.)
+    sim.run(TICKS_PER_MONTH);
+    const v = s.trade.ship.visits;
+    sim.run(2 * TICKS_PER_MONTH - 5 * TICKS_PER_DAY);
+    expect(curseNow(s, 'shipwreck')).toBeTruthy();
+    expect(s.trade.ship.visits).toBe(v);
+    expect(said(s, m0).map((m) => m.title)).toContain('The merchant ship is lost');
+    expect(s.ledger.start + s.ledger.now.reduce((a, l) => a + l.amount, 0)).toBe(s.money);
+    sim.run(10 * TICKS_PER_DAY);
+    expect(curseNow(s, 'shipwreck')).toBeUndefined();
+  });
+
+  it('under Hermes’s robbers every caravan on its way to you is lost, and said', () => {
+    const sim = demoSim('buywine');
+    const s = sim.state;
+    sim.enqueue({ type: 'gods', on: true });
+    sim.enqueue({ type: 'wrath', on: true });
+    sim.flush();
+    honour(s, 'hermes', -50, 'staged', 'angry', 0);
+    expect(beginOmen(s, sim.map, 'hermes', 'caravans', 2 * TICKS_PER_DAY)).toBeTruthy();
+    const m0 = s.messages.next;
+    // (A caravan already in your streets as it lands still trades: every one that comes to your map's edge after it is lost.)
+    sim.run(3 * TICKS_PER_DAY + 2 * TRADE_TICKS);
+    const visits = s.world.routes.map((r) => r.visits);
+    sim.run(3 * TICKS_PER_MONTH - 3 * TICKS_PER_DAY - 2 * TRADE_TICKS - TICKS_PER_DAY);
+    expect(curseNow(s, 'caravans')).toBeTruthy();
+    expect(s.world.routes.map((r) => r.visits)).toEqual(visits);
+    expect(said(s, m0).filter((m) => m.title === 'A caravan is lost').length).toBeGreaterThan(0);
+  });
 });
 
 describe('determinism and saves', () => {

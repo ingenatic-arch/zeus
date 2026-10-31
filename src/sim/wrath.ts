@@ -46,7 +46,10 @@ import { moveOut } from './folk';
 import { startOutbreak } from './health';
 import { ALARM, NEWS, say, WARNING } from './messages';
 import { himOf, lairFor, sendMonster } from './monsters';
-import { goodsWords, offeringOf } from './worship';
+import { FESTIVAL_HONOUR, festivalOf, goodsWords, OFFERING_HONOUR, offeringOf } from './worship';
+// Review of slice 57: the ships and caravans that come to trade.
+import { tradingPost } from './trade';
+import { caravanYard } from './routes';
 import { GODS, GOD_IDS, herOf, MONSTERS, moodOfGod, moodRank, moodWord, noticed, reasonsOf, type CurseId, type GodId, type MonsterId, type Omen, type Spell } from './pantheon';
 import { sendLeavers } from './settlers';
 import { note } from './stockbook';
@@ -666,13 +669,39 @@ export const CURSES: Record<CurseId, Curse> = {
       return parts.length || soured ? `A drunken riot ran through the streets ${whereAt(map, o.x, o.z)}, as Dionysus warned: his revellers ${parts.length ? andList(parts) : 'broke nothing'}.${sour} Smashed places send nobody until they are mended.` : '';
     },
   },
+  // Review of slice 57: Oliver's "sink ships". Poseidon's storms wreck every ship sailing for your quay for a season (trade.ts
+  // and routes.ts read wrecks(), each said as she is lost); Hermes's robbers take every caravan on its way to you (roadsCursed()).
+  shipwreck: {
+    god: 'poseidon',
+    name: 'storms that wreck the ships',
+    signs: 'Gulls fly inland, and the sea runs black under a clear sky',
+    does: 'storms at sea for a season: every ship that sails for your quay is lost on her way, with her cargo',
+    verb: 'wreck the ships that sail for your quay',
+    local: true,
+    person: false,
+    lasts: SEASON,
+    aim: (s) => at(tradingPost(s)),
+    land: () => 'Storms rise at sea, as Poseidon warned: until the season turns, every ship that sails for your quay is lost on her way, with her cargo and her crew. No ship trades with you until the storms are over.',
+  },
+  caravans: {
+    god: 'hermes',
+    name: 'caravans lost on the road',
+    signs: 'The herms by the roads are found overturned, and merchants dream of robbers',
+    does: 'robbers on the roads for a season: every caravan on its way to you is lost, with its goods',
+    verb: 'turn the roads against your caravans',
+    local: false,
+    person: false,
+    lasts: SEASON,
+    aim: (s) => (s.world.routes.some((r) => r.kind === 'land' && r.closed === 0) ? at(caravanYard(s)) : null),
+    land: () => 'Hermes has turned the roads against you, as he warned: until the season turns, every caravan on its way to your city is set on by robbers and lost, with its goods. None trades with you until the roads are safe.',
+  },
 };
 
 /** Each god's curses, in the order they are offered to the hash. */
 export const GOD_CURSES: Record<GodId, readonly CurseId[]> = {
   zeus: ['lightning'],
   hera: ['hydra', 'quarrels'],
-  poseidon: ['earthquake', 'cyclops'],
+  poseidon: ['earthquake', 'cyclops', 'shipwreck'],
   demeter: ['blight'],
   athena: ['medusa', 'olives'],
   apollo: ['plague'],
@@ -680,7 +709,7 @@ export const GOD_CURSES: Record<GodId, readonly CurseId[]> = {
   ares: ['chimera', 'brawls'],
   aphrodite: ['heartbreak'],
   hephaestus: ['talos', 'forge'],
-  hermes: ['thieves'],
+  hermes: ['thieves', 'caravans'],
   dionysus: ['riot'],
 };
 
@@ -708,12 +737,35 @@ export function turnWords(s: SimState, god: GodId): string {
   const G = GODS[god];
   const m = moodOfGod(s, god);
   const him = herOf(god) === 'her' ? 'her' : 'him';
-  const need = -30 - m;
-  return `Lift ${him} ${need > 0 ? `${need} or more, ` : ''}back to displeased (−30) and it is turned: an offering of ${goodsWords(G.sacred, offeringOf(G.sacred))} (+4), a festival to ${him} (+15), a shrine dedicated to ${him}, a stage of ${herOf(god)} sanctuary.`;
+  // (Review of slice 57: an offering on its way and a festival announced count at once, as wrathMood has it.)
+  const p = promised(s, god);
+  const need = -30 - m - p.n;
+  const already = p.words ? ` (${cap(p.words)} counted already.)` : '';
+  return `Lift ${him} ${need > 0 ? `${need} or more, ` : ''}back to displeased (−30) and it is turned: an offering of ${goodsWords(G.sacred, offeringOf(G.sacred))} (+${OFFERING_HONOUR}, counted as soon as it sets out), a festival to ${him} (+${FESTIVAL_HONOUR}, counted as soon as it is announced), a shrine dedicated to ${him}, a stage of ${herOf(god)} sanctuary.${already}`;
 }
 
 // ---------------------------------------------------------------------------
 // The step.
+
+/**
+ * Review of slice 57: the worship promised a god and not yet given, which
+ * their wrath counts at once: offerings on their way (a porter can walk for
+ * weeks from a far storehouse) and a festival announced (it begins, and is
+ * honoured, a month later). Without it an offering sent late or any festival
+ * called in an omen's month would come too late to turn it.
+ */
+export function promised(s: SimState, god: GodId): { n: number; words: string } {
+  const gi = GOD_IDS.indexOf(god);
+  let offerings = 0;
+  for (const w of s.walkers) if (w.kind === 'offering' && w.steps === gi && w.load > 0) offerings++;
+  const f = festivalOf(s, god);
+  const fest = !!f && !f.walker && s.tick < f.day;
+  const words = andList([offerings ? (offerings === 1 ? 'the offering on its way' : `the ${offerings} offerings on their way`) : '', fest ? 'the festival you announced' : ''].filter(Boolean));
+  return { n: offerings * OFFERING_HONOUR + (fest ? FESTIVAL_HONOUR : 0), words };
+}
+
+/** Review of slice 57: a god's mood as their wrath reckons it, the worship promised them counted (promised). */
+export const wrathMood = (s: SimState, god: GodId): number => moodOfGod(s, god) + promised(s, god).n;
 
 /** A curse chosen for a god now (by a hash of the seed, the god and the day, among those the city can feel), with its aim, or null. */
 function choose(s: SimState, map: CoastMap, god: GodId): { curse: CurseId; t: Target } | null {
@@ -820,7 +872,10 @@ function appease(s: SimState, map: CoastMap, o: Omen): void {
   s.rev++;
   const G = GODS[o.god];
   const c = CURSES[o.curse];
-  say(s, { kind: 'wrath', u: NEWS, title: `${G.name} is appeased`, words: `${G.name} is appeased (${moodWord(moodOfGod(s, o.god))} now): the signs fade, and ${c.monster ? `${MONSTERS[c.monster].name} will not come` : `${c.name} will not fall`}.`, at: { tile: Math.floor(o.z) * map.size + Math.floor(o.x) } });
+  const m = moodOfGod(s, o.god);
+  const p = promised(s, o.god);
+  const by = wrathful(m) && p.words ? `by ${p.words}` : `(${moodWord(m)} now)`;
+  say(s, { kind: 'wrath', u: NEWS, title: `${G.name} is appeased`, words: `${G.name} is appeased ${by}: the signs fade, and ${c.monster ? `${MONSTERS[c.monster].name} will not come` : `${c.name} will not fall`}.`, at: { tile: Math.floor(o.z) * map.size + Math.floor(o.x) } });
 }
 
 /** The day: the curse lands, said with what it destroyed. */
@@ -852,7 +907,7 @@ function lapse(s: SimState): void {
     w.spells.splice(i, 1);
     s.rev++;
     const G = GODS[x.god];
-    const END: Partial<Record<CurseId, string>> = { blight: 'The blight lifts from your fields: they yield as they should again.', olives: 'The olives flower again: Athena’s curse on your groves is over.', thieves: 'The season of thieves is over: Hermes has called them off.', heartbreak: 'Aphrodite’s curse lifts: the streets are friendlier again.' };
+    const END: Partial<Record<CurseId, string>> = { blight: 'The blight lifts from your fields: they yield as they should again.', olives: 'The olives flower again: Athena’s curse on your groves is over.', thieves: 'The season of thieves is over: Hermes has called them off.', heartbreak: 'Aphrodite’s curse lifts: the streets are friendlier again.', shipwreck: 'The storms at sea are over: Poseidon lets the ships through to your quay again.', caravans: 'The roads are safe again: Hermes has called off the robbers, and your caravans come through.' };
     say(s, { kind: 'wrath', u: NEWS, title: `${G.name}’s curse lifts`, words: END[x.curse] ?? `${G.name}’s curse is over.` });
   }
 }
@@ -868,7 +923,7 @@ export function stepWrath(s: SimState, map: CoastMap, fall: (b: Building, how: F
   if (!s.gods.on || s.tick % TICKS_PER_DAY !== 0) return;
   if (w.spells.length) lapse(s);
   for (const o of w.omens.slice()) {
-    if (!wrathful(moodOfGod(s, o.god))) {
+    if (!wrathful(wrathMood(s, o.god))) {
       appease(s, map, o);
       continue;
     }
@@ -888,7 +943,7 @@ export function stepWrath(s: SimState, map: CoastMap, fall: (b: Building, how: F
   }
   if (!w.on || w.omens.length || !noticed(s)) return;
   for (const god of GOD_IDS) {
-    if (!wrathful(moodOfGod(s, god))) continue;
+    if (!wrathful(wrathMood(s, god))) continue;
     const last = w.cursed[god];
     if (last !== undefined && s.tick - last < WRATH_GAP) continue;
     if (curseInForce(s, god)) continue;

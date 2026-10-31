@@ -634,7 +634,10 @@ export function festiveMood(s: SimState, homeId: number): { w: number; text: str
 // hunting, trade, the seas, loyalty), so each of them imports only this leaf.
 
 /** A god's curse (wrath.ts' table says what each does). */
-export type CurseId = 'lightning' | 'hydra' | 'quarrels' | 'earthquake' | 'cyclops' | 'blight' | 'medusa' | 'olives' | 'plague' | 'boar' | 'herds' | 'chimera' | 'brawls' | 'heartbreak' | 'talos' | 'forge' | 'thieves' | 'riot';
+export type CurseId = 'lightning' | 'hydra' | 'quarrels' | 'earthquake' | 'cyclops' | 'blight' | 'medusa' | 'olives' | 'plague' | 'boar' | 'herds' | 'chimera' | 'brawls' | 'heartbreak' | 'talos' | 'forge' | 'thieves' | 'riot'
+  // (Review of slice 57: Poseidon's storms that wreck the ships, Hermes's robbers on the roads.)
+  | 'shipwreck'
+  | 'caravans';
 
 /** An omen: a god's curse chosen, landing on `day`, over a spot (and a building, if one is its target). */
 export interface Omen {
@@ -745,6 +748,11 @@ export function godPrice(s: SimState, price: number, sell: boolean): number {
   if (!blessingFrom(s, 'hermes')) return price;
   return Math.max(1, Math.round(sell ? (price * 8) / 7 : (price * 6) / 7));
 }
+
+/** Review of slice 57: Poseidon's storms (trade.ts, routes.ts): every ship sailing for your quay is lost on her way while the curse lasts. */
+export const wrecks = (s: SimState): boolean => !!curseNow(s, 'shipwreck');
+/** Review of slice 57: Hermes's robbers (routes.ts): every caravan on its way to you is lost on the road while the curse lasts. */
+export const roadsCursed = (s: SimState): boolean => !!curseNow(s, 'caravans');
 
 /** Loyalty from Hera's blessing on the ties between you (vassals.ts, colonies.ts), or 0. */
 export const HERA_BOND = 15;
