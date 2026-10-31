@@ -209,7 +209,7 @@ describe('saves from before', () => {
     //  a second shape with every key. So the budget goes up once, by the least that holds it.)
     // (Phase 7 at the merge of slices 55 and 56: 194,557. Each adds only its own empty record: the monsters' ("legends",
     //  58 characters) and the gods in the city ("walks", 67). The budget goes up by those 125.)
-    // Slice 59: the heroes' list, the fete and each monster's hold and tower, empty in #town: a little over a dozen characters more.
+    // Slice 59: the heroes' list and the fete, empty in #town's "legends" (24 characters): 194,581. The budget goes up by 75.
     expect(text.length).toBeLessThan(194_700);
     const f = JSON.parse(text);
     expect(f.save).toBe(3);

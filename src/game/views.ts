@@ -210,8 +210,9 @@ export const VIEWS: Record<string, CameraView> = {
   monsterraid: { x: 54, z: 44, yaw: -0.785, dist: 18, tilt: -0.05 },
   // Slice 59, #hero: Perseus' hall in #richtown, west of the core's agora.
   hero: { x: 60, z: 39, yaw: -0.785, dist: 13, tilt: -0.05 },
-  // #slay: the Minotaur's cave on #order's west shore, from before its mouth, the way Theseus comes from his hall.
-  slay: { x: 23, z: 142, yaw: 2.356, dist: 11, tilt: -0.05 },
+  // #slay: the Minotaur's cave on #order's west shore and Theseus walking to it from his hall, side on, the cave's mouth
+  // (where they fight) towards the town.
+  slay: { x: 27.4, z: 137.9, yaw: 0.785, dist: 13, tilt: -0.05 },
   // #bestiary: the seven before their lairs in a row on the open ground below #town, facing the camera.
   bestiary: { x: 75.5, z: 58.5, yaw: -0.785, dist: 27, tilt: -0.05 },
   // Slice 56, #epiphany: over #town's fields where Demeter rises, her farms and the granary about her.

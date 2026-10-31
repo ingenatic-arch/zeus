@@ -4118,6 +4118,9 @@ await open('#slay-paused');
   const a = await zeus(() => window.__zeus.heroes());
   const t = a.list.find((c) => c.hero === 'theseus');
   if (!(t && t.state === 'hunting' && t.foe > 0 && a.drawn.heroes === 1 && a.drawn.halls === 1)) fail(`#slay: ${JSON.stringify(a)}`);
+  // (The smoke's window is smaller than the view was framed for: bring him to the middle first.)
+  await zeus((c) => window.__zeus.jump({ x: c.x, z: c.z, yaw: 0.785, dist: 13, tilt: -0.05 }), t);
+  await frames(3);
   const at = await zeus(() => window.__zeus.heroOnScreen('theseus'));
   if (!at) fail('#slay: Theseus not on screen');
   else {

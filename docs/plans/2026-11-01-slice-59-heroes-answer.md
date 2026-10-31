@@ -41,8 +41,8 @@ At `afd1461`, the machine lightly loaded at the start (load 3 to 9 on 4 cores, r
 |---|---|
 | Tests | 816 in 61 files (the merge's run) |
 | Download (gzipped) | 5,669 KB in all; the game itself 1,018 KB; prepared towns 4,651 KB in 128 files |
-| Bare link ready (page's clock), `#town` / `#richtown` / `#empire` ready | (the shortened measure, filled in below) |
-| Triangles and draws, `#town`'s view / `#bestiary` | (filled in below) |
+| Bare link ready (page's clock), `#town` / `#richtown` / `#empire` ready | 2,979 ms; 4,349 / 3,249 / 2,636 ms (the full `measure.mjs` on the starting build, `scratch-59/base-dist`) |
+| Triangles and draws, `#town`'s view / `#bestiary` | 1,488,490 and 102 / 1,336,071 and 144 |
 
 ## Design decisions
 
@@ -120,4 +120,37 @@ A wish unmet for a year makes them restless (a warning); a month before two year
 
 ## As built
 
-(To be filled in.)
+*Commits on `claude/p7-legends`: `afd1461` (the trunk merged in), `ea01139` (this plan), `603d8fd` (the sim and its tests), `2cf4239` (the figures, halls, panels, chooser and demos), `5346f1b` (look and tune; the smoke and measure blocks), `8fe7f01` (the trunk merged again: slice 56), and the write-up.*
+
+**What was built, as planned**, with these differences:
+
+- **State version 51, not 50.** Slice 56 reached the trunk first and took 50, so `SIM_STATE_VERSION` is 51 and `fromSlice59` is hooked at 50 (`if (st.version === 50) fromSlice59(st);`), after slice 56's `fromSlice56` at 49. It fills only `legends.heroes` (`[]`), `legends.fete` (`null`) and each monster's `held` and `tower` (0), each only if absent.
+- **The hero stands in the middle of the courtyard** (`courtyard()`: the hall's centre, nudged), not by its gate: by the gate they were hidden behind the gateway from the classic view.
+- **The fight is at the den's mouth.** `startFight` places the hero before the lair's mouth (`m.mouth`), facing in, so the fight is seen from the town's side rather than behind the rocks. `#slay`'s view is side on (yaw 0.785, between the cave and where Theseus is as it opens), so his walk, the cave and the fight are all in it; at first it looked at the cave from in front, and he was off the bottom of the screen until he arrived (found by the smoke at the merge, and fixed then).
+- **The fête's crowd** is 22 dancers: 6 in the courtyard and the rest in a ring before the gate (they were all inside the walls at first and hard to see).
+- **Medusa and the Chimera** went further than the plan's words: Medusa in emerald scales with a gold belly, a purple chiton, twelve larger hair-snakes and bigger eyes, at 1.25 times her old size; the Chimera with a redder mane, a large white goat's head with dark horns and red eyes, and a thicker, longer green serpent tail with a red tongue.
+- **The Hero's hall button** is on the Mythology tab and under V (V V cycles shrine, hero's hall). The chooser opens from `tools.onChange` when `herohall` is picked, rather than through the build bar's tool routing, so it never touches the line slice 54 changes for its sanctuary chooser.
+- **A hall's tip** (`hallStatus`, read by `status.ts`) says what the hero is doing and either the demands still to meet or what they slay; the panel's own sections say all of it, so the "What it is doing" lines are quiet on a hall.
+- **Probes for looking and the smoke:** `__zeus.heroes(open?)`, `heroOnScreen(hero)` and `heroStage(hero, x, z, face)` (sets a hero down for a look at the figure, paused).
+- **The expedition's change is three small headed spots, not one block**: the import, the might (`+ heroMight(s, e)` on the line that sums `e.ours`) and the report line (`heroesFought`). Nine lines in all.
+- **The tower test in `monsters.test.ts`** keeps its staged tower manned each tick: the labour office took its archers away to other work before the monster came out.
+
+**Exported hooks** (`src/sim/heroes.ts`, for the other lines and the integrator):
+- `heroOf(s, hero)`: the record, if their hall stands; `heroHere(s, hero)`: come and in the city; `inCity(c)`, `isCome(c)`, `heroShown(c)` (drawn in the streets), `hallOf(s, c)`.
+- `demandsOf(s, hero)` (each named check with its progress), `demandsMet(s, hero)`, `wishOf(s, c)`, `unmetFor(s, c)`.
+- `canSlay(hero, monster)`, `slayersOf(monster)`, `sendRefusal(s, hero, monsterId)` (why not, or '') and `sendHero(s, map, hero, monsterId)`.
+- `heroMight(s, e)` and `heroesFought(s, e)` for expeditions (slice 60 can read `legends.heroes` for a hero abroad).
+- `hallRefusal(s, hero)`, `hallRaised(s, b, hero)` (a hall just built), `heroCommand(s, map, cmd)` (the `hero` command's orders), `stepHeroes(s, map)`.
+- `heroMoods(s, b)` (read by `folk.ts`: the fête and pride near a hall), `heroTip`, `legendTip`, `hallStatus`, `heroDoing`, `slaysWords`, `placeName`.
+- From `monsters.ts`: `slayMonster(s, id, by, quiet?)`, `STIR_WARN` (three days), `reach(map, s, from)` and `nearestWalkable(map, s, t, most)`.
+- For the integrator: `sanctuaryStands(s, god)` becomes slice 54's `sanctuaryDone(s, god)`, and `lastFestival(s, god)` becomes slice 53's `festivalHeld(s, god)`. Both are marked `INTEGRATOR` in `heroes.ts`. Until then a sanctuary demand can't be met (so `#hero`'s Perseus waits), and Heracles' festival wish can't be kept.
+
+**Touched outside the line** (every change in a block headed "Slice 59", new kinds appended at the ends of their lists):
+- Sim: `state.ts` (the `herohall` kind, a building's `hero`, the `legends` ledger kind, the version), `buildings.ts` (`JOBS` and `isLarge`: two single-line lists that end with the new kind), `build.ts` (its cost), `hazards.ts` (its fire and wear), `commands.ts` (`herohall` and `hero`), `messages.ts` (the `hero` kind), `sim.ts` (the step and the commands), `folk.ts` (`heroMoods`), `status.ts` (`hallStatus`), `expeditions.ts` (see above), `migrate.ts` (`fromSlice59`), `monsters.ts` (the line's own: held in a fight, the three-day stir, towers, the bulk, `slayMonster`).
+- Game and UI: `saves.ts` (the save check of heroes), `tools.ts` (the hall's tool and preview), `demos.ts` and `views.ts` (`#hero` and `#slay`), `main.ts` (the view, tips, clicks, chooser, probes), `buildingpanel.ts` (the registry entry and the button), `monsterpanel.ts` (its slayers), `buildbar.ts`, `categories.ts`, `help.ts`, `icons.ts`, `ledger.ts`, `minimap.ts`, `render/monsters.ts` (Medusa and the Chimera).
+- Scripts and tests: `smoke.mjs` and `measure.mjs` (a Slice 59 block each; the smoke's summary line), `saves.test.ts` (`#town`'s budget, 194,625 to 194,700), `monsters.test.ts` (the tower test, the old-save shape).
+- One trunk line changed at the merge: slice 56's `visit` command lost its closing semicolon, which moved to the end of the union after slice 59's two commands.
+
+**Checks** (numbers in the check-in's Measurements):
+- Every one of the 168 earlier demos' prepared towns, decoded and brought up through the migrations from the starting build (`afd1461`), is identical to this build's, key for key (`scratch-59/t/sametowns.test.ts`).
+- A version 48 save (the groundwork fixture) and the same as a version 47 save load through every migration and play on (`epiphany.test.ts`, `monsters.test.ts`); a version 50 state comes up through `fromSlice59` with no hero (`heroes.test.ts`).
