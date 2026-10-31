@@ -10,18 +10,18 @@ What breaks, or moves: nothing in a save (still **state version 51**: the deeds 
 
 ### What's new
 - **Patrons.** Athena watches over Athens, Ares over Sparta, Poseidon over Corinth, Apollo over Troy, Dionysus over Thebes, Hera over Argos, Zeus over Knossos and Hermes over Rhodes. Each god's emblem sits beside the city's name on its label and under the ruler on its page, and the Ruler tab has a section for the city's god: their mood towards you with its bar, the reasons (those from Greece first), and what it means for an expedition there.
-- **Deeds in Greece**, each remembered by the god it touches, fading over a year or two: a war on a patron's city (−8 with cause, −20 without), plunder from it (−20 more), a win for Ares (+6), a war won well or a foolish war lost for Athena (+4 / −4), a gift that arrives during a city's festival for the festival's god (half what it is worth to the ruler, 3 to 10), tribute or a raid's price paid (Ares −6), a promise broken (Zeus −8, Hera −5) or kept (Zeus +3), a band broken in your streets or sunk in your bay (Ares +6). The news line where each happens says what the god made of it ("Poseidon, whose feast it is, is pleased (+10)"), and so does an expedition's report.
+- **Deeds in Greece**, each remembered by the god it touches, fading over a year or two: a war on a patron's city (−8 with cause, −20 without), plunder from it (−20 more), a win for Ares (+6), a war won well or a foolish war lost for Athena (+4 / −4), a gift that arrives during a city's festival for the festival's god (half what it is worth to the ruler, 3 to 10, and no more than 20 from one feast's gifts together), tribute or a raid's price paid (Ares −6), a promise broken (Zeus −8, Hera −5) or kept (Zeus +3), a band broken in your streets or sunk in your bay (Ares +6). The news line where each happens says what the god made of it ("Poseidon, whose feast it is, is pleased (+10)"), and so does an expedition's report.
 - **Pious rulers** remember, each month, how their city's god feels about you: from +8 if the god loves you to −10 if furious ("Pious: Poseidon, Corinth's patron, is pleased with your city").
 - **The gods abroad.** The most loving god (60 or more) blesses an expedition: its strength counts a quarter more. A city's patron, angry with you, stands with its men (a fifth more; two fifths if furious). The odds before you send say so, and so does the report. Poseidon's mood tips every fight at sea, from 0.7 to 1.3 of your ships' strength, in your bay and on the lanes.
 - **Greece's festivals are held for their gods**: the Isthmian Games for Poseidon, the Panathenaia for Athena, the Karneia for Apollo. Their banners on the map fly in the god's colour, and the city's status line and Rivals tab name the god.
-- **Mount Olympus** on the map of Greece, north over Thessaly: a snowy massif with the twelve's gold temple on its summit, and a label with how many gods love you (♥) and are angry (⚡). Its hover card names the god warmest and coldest to you; a click opens its page, the twelve as cards, each with their emblem, the city they watch over, their mood word and bar, and their top three reasons.
+- **Mount Olympus** on the map of Greece, north over Thessaly: a snowy massif with the twelve's gold temple on its summit, and a label with how many gods love you (♥) and are angry (⚡). Its hover card names the god warmest and coldest to you; a click opens its page: the gods who think something of you first, as cards with their emblem, the city they watch over, their mood word and bar and their top three reasons, then the rest as short rows.
 - **Copper is kept for the sites.** A store keeps back the copper an unfinished statue or the Colossus still needs, so an armoury's smiths no longer empty it (slice 54's finding).
 
 ### What to try
-1. #greecegods — your town with an army, after two gifts of coin reached Corinth during the Isthmian Games and a full force went against Athens without cause and plundered it. It opens on the map of Greece with the Olympus page: Poseidon pleased, Athena angry, Ares a little pleased with the win, each with the reason.
+1. #greecegods — your town with an army, after two gifts of coin reached Corinth during the Isthmian Games and a full force went against Athens without cause and plundered it. It opens on the map of Greece with the Olympus page: Athena angry and Poseidon pleased, each with the reason, and Ares remembering the win (+6, not yet enough to move him from watchful).
 2. #greecegods — click Athens on the map: under the ruler, "Athena watches over Athens", her anger and why, and what she will do to your next expedition there (the odds on the Ruler tab say so too).
 3. #greecegods — click Corinth: Lord Periandros is pious, and Poseidon's mood is among his reasons; the Rivals tab says the Isthmian Games are held for Poseidon.
-4. #festival — with the Panathenaia on, send Athens a gift from its Ruler tab; if it arrives while the feast lasts, its news line says Athena is pleased, and she shows it on the Olympus page (click the mountain).
+4. #greecegods — a gift at a god's feast. Athens' page says the Panathenaia, held for Athena, is a few weeks off. Play on until it is about ten days off, then send Athens 500 dr from its Ruler tab: a gift takes about sixteen days on the road, so it arrives while the feast is on. Its news line says Athena, whose feast it is, is pleased (+10), and on the Olympus page (click the mountain) she is no longer angry. (In #festival the feast is nearly over as it opens, so a gift sent then arrives a week too late.)
 5. #companies — send a full force against Athens from its Ruler tab, then read the report on its Loans tab when they have fought: what Athena and Ares made of it comes after what Greece thinks of it.
 6. #greecegods-modern and #greecegods-plain — the other two looks.
 
@@ -29,12 +29,11 @@ What breaks, or moves: nothing in a save (still **state version 51**: the deeds 
 - **Mount Olympus on the map.** A grey massif with snow and a small gold temple, a little west of the true summit so it stays on land. Does it read as the gods' mountain from the opening view, or does it need to be bigger, or to glow?
 - **The weight of a deed.** A war without cause on a god's own city and plunder are each −20, enough for Athena to stay angry for months. Tribute is −6 for Ares, a broken promise −8 for Zeus. Too harsh, too mild?
 - **The blessing and the angry patron**: a quarter more strength with a loving god, a fifth or two fifths more for the defenders with an angry patron. Should they be felt more?
-- **The Olympus page**: twelve cards in a long column. Would you rather see only the gods who think something of you, first?
+- **The Olympus page**: the gods who think something of you come first as full cards (the most moved first), the rest as short rows under them, so all twelve fit on the screen. Is that the right order, or would you rather keep the twelve in their own order?
 
 ### Known rough edges
 - `#greecegods` plays its gifts and its war in the setup (as a player would, by commands): the gods' memories of them are real, but the war is staged to open the moment the force is home.
 - Slice 53's Olympus panel was not on this line: the Olympus page here has simple cards of its own, to be made one with slice 53's when the lines merge. When they do, Ares will count tribute twice (slice 53's monthly reading and this slice's deed) until one of the two is dropped.
-- Olympus's label hangs below the mountain in the opening view (as a city's does when it would stand under the lines below the top bar), so it covers the mountain's foot.
 - A festival's news line, when it begins, doesn't name its god (the groundwork's rule that the gods change nothing in a city that honours none of them covers the news); the god is named on the city's page and in a gift's arrival line.
 - The checks ran with three other lines building on the same 4 cores (load average about 30), so every time in Measurements is noise, and a handful of tests bound to the clock fail under it.
 
@@ -54,6 +53,17 @@ The base build (`4b3949c`) and this slice's, measured side by side with a shorte
 | `#greecegods` | (new) | 322,618 triangles, 58 draws |
 | The main thread's work a frame on the map, running | `#greece` 30 ms, `#rivalsmap` 128 ms | `#greece` 51 ms, `#rivalsmap` 160 ms, `#greecegods` 136 ms (noise: the same build measured minutes apart differs by more) |
 | The focused smoke (the map of Greece, labels under the lines at 1600 × 900, slice 58) | | passes |
+
+### What the review changed
+A second pair of eyes went through every step above at full-HD size in all three looks, and changed a few things:
+- **What to try 4 now works.** As first written it sent you to #festival, but that town opens with the Panathenaia nearly over, and a gift to Athens takes about sixteen days on the road, so it arrived a week late and Athena never heard of it. The step now starts from #greecegods, a few weeks before the feast; played through, the gift arrived while it was on, Athena was pleased (+10), and she went from angry to displeased.
+- **A feast's gifts can't buy a god outright.** Every gift that arrived during a festival pleased its god by at least 3, so a stream of small gifts could have bought a god's love for a few thousand drachmas. Now all the gifts of one feast together count for 20 at most, and a gift past that says the god has had gifts enough this feast. #greecegods' two gifts come to 16, so it opens as before.
+- **The Olympus page fits on the screen**: the gods who think something of you come first (the most moved first), and the rest are short rows under them.
+- **Olympus's label no longer covers the mountain.** Where it would sit under the top bar, it now stands beside the mountain's shoulder with a little stem to it (on a small window it keeps clear of the army's chip under the bar too).
+- **Conquering a city says when the gods are in its odds**, as sending soldiers already did: with Athena angry, the Conquer card on Athens' Empire tab says she would stand with its men.
+- Item 1 said Ares was a little pleased with the win; he remembers it (+6), but is still watchful. Corrected above.
+
+What I'd still like your eye on is as above; I haven't judged how any of it feels for you.
 
 ## Slice 54 — Sanctuaries rise (31 Oct)
 

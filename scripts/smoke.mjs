@@ -1769,7 +1769,8 @@ await frames(4);
 g = await gi();
 if (!(g.shown === 'athens' && g.feasts.includes('athens'))) fail(`#festival: ${g.shown} ${JSON.stringify(g.feasts)}`);
 if (!(await zeus(() => !!document.querySelector('.glabel.athens svg.ask.feast')))) fail('#festival: no wreath on the label');
-if (!/The Panathenaia is on, until 1 August: wine and meat dear; a gift that arrives now counts for more/.test(g.panel)) fail(`#festival: the page: ${g.panel.slice(0, 1200)}`);
+// (Slice 58's review: the line names the god the festival is held for.)
+if (!/The Panathenaia, for Athena, is on until 1 August: wine and meat dear; a gift that arrives now counts for more, and pleases Athena/.test(g.panel)) fail(`#festival: the page: ${g.panel.slice(0, 1200)}`);
 // (Slice 50: a kit panel's titles are its tip's words.)
 if (!(await zeus(() => [...document.querySelectorAll('.greece-panel button[data-gift]')].some((b) => /for the Panathenaia/.test(b.dataset.tip ?? b.title))))) fail('#festival: no gift tip names the festival');
 await page.click('.greece-panel button[data-tab="prices"]');

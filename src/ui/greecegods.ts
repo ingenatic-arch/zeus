@@ -145,12 +145,20 @@ function olympusCard(s: SimState, g: GodId): string {
   return kcard(inner, `gg-card${reasons.length ? '' : ' quiet'}`, ` style="--god:${godColourCss(g)}"`);
 }
 
-/** The Olympus page: the twelve's moods towards you as cards. */
+/** (Review of slice 58) The twelve in the order the page shows them: those with reasons to think something of you first, the most moved first; the rest after, in the twelve's own order. */
+function byWeight(s: SimState): GodId[] {
+  const weight = (g: GodId): number => (reasonsOf(s, g).length ? 1000 + Math.abs(moodOfGod(s, g)) : 0);
+  return GOD_IDS.map((g, i) => ({ g, i, w: weight(g) }))
+    .sort((a, b) => b.w - a.w || a.i - b.i)
+    .map((x) => x.g);
+}
+
+/** The Olympus page: the twelve's moods towards you as cards (those with reasons first; the quiet ones as short rows). */
 export function olympusPageHtml(s: SimState): string {
   const n = olympusCounts(s);
   const sum = !s.gods.on ? 'The gods are not watching this city.' : [n.loving ? `${n.loving === 1 ? 'one god loves' : `${n.loving} gods love`} your city` : '', n.warm ? `${n.warm === 1 ? 'one is' : `${n.warm} are`} warm` : '', n.angry ? `${n.angry === 1 ? 'one is' : `${n.angry} are`} angry with you` : ''].filter(Boolean).join(', ') || 'none of the twelve loves you or is angry with you yet';
   const noticed = s.gods.on && s.gods.noticedAt < 0 ? ' Your city is still beneath their notice: they take no great interest until it has 300 people.' : '';
   return `<header class="gg-olympus"><div class="kicker">Mount Olympus · the home of the twelve</div><h2>The gods of Olympus</h2><div class="from">${esc(cap(sum))}.${esc(noticed)}</div></header>
 <p class="gg-intro">Each god remembers what you do, in your city and in Greece: their shrines and sanctuaries, festivals and offerings, what they love and hate in your streets, and your deeds abroad. A god who loves you blesses your expeditions; a city’s patron who is angry with you stands with its men; Poseidon’s mood tips the fights at sea.</p>
-<div class="gg-cards">${GOD_IDS.map((g) => olympusCard(s, g)).join('')}</div>`;
+<div class="gg-cards">${byWeight(s).map((g) => olympusCard(s, g)).join('')}</div>`;
 }

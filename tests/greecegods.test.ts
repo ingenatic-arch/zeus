@@ -11,7 +11,7 @@ import { giftTo } from '../src/sim/diplomacy';
 import { expeditionPlan, oddsOf } from '../src/sim/expeditions';
 import { FESTIVALS, festivalOf, festivalOn, nextFestival } from '../src/sim/festivals';
 import { COPPER, held, setHeld } from '../src/sim/foods';
-import { abroadWords, bandBeaten, BLESSING, dealDeeds, expeditionDeeds, feastGift, godsAbroad, PATRON_ANGRY, PIETY, seaTilt, SEA_TILT, stepGreeceGods, tributePaid } from '../src/sim/greecegods';
+import { abroadWords, bandBeaten, BLESSING, dealDeeds, FEAST_ENOUGH, expeditionDeeds, feastGift, godsAbroad, PATRON_ANGRY, PIETY, seaTilt, SEA_TILT, stepGreeceGods, tributePaid } from '../src/sim/greecegods';
 import { sitesKeep, stagesOf } from '../src/sim/monuments';
 import { honour, moodOfGod, reasonsOf, setGods, type GodId } from '../src/sim/pantheon';
 import { sanctuaryOf } from '../src/sim/sanctuaries';
@@ -74,6 +74,10 @@ describe('deeds in Greece', () => {
     // A second, merged into the first.
     feastGift(s, 'corinth', 30);
     expect(reason(s, 'poseidon', /during the Isthmian Games/)).toBe(16);
+    // (Review of slice 58) One feast's gifts please its god FEAST_ENOUGH at most: a stream of small gifts can't buy a god's love.
+    expect(feastGift(s, 'corinth', 30)).toBe('Poseidon, whose feast it is, is pleased (+4)');
+    expect(feastGift(s, 'corinth', 30)).toBe('Poseidon has had gifts enough this feast');
+    expect(reason(s, 'poseidon', /during the Isthmian Games/)).toBe(FEAST_ENOUGH);
     // The Karneia is Apollo's, though Sparta's patron is Ares.
     s.tick = nextFestival('sparta', 0)!.start + TICKS_PER_DAY;
     feastGift(s, 'sparta', 4);

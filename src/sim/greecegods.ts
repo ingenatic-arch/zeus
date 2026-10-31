@@ -32,7 +32,7 @@
 import { PLACES, type CityId } from '../map/greece';
 import { TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { festivalOf, festivalOn, type Festival } from './festivals';
-import { GOD_IDS, GODS, goddess, honour, moodOfGod, moodRank, moodWord, patronOf, type GodId } from './pantheon';
+import { GOD_IDS, GODS, goddess, honour, moodOfGod, moodRank, moodWord, patronOf, reasonsOf, type GodId } from './pantheon';
 import type { Deal, Expedition, Memory, SimState, WorldCity } from './state';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +53,8 @@ export const ATHENA_FOOLISH = 4;
 export const FEAST_SHARE = 0.5;
 export const FEAST_LEAST = 3;
 export const FEAST_MOST = 10;
+/** (Review of slice 58) All the gifts of one festival together please its god this much at most, so a stream of small gifts can't buy a god's love. */
+export const FEAST_ENOUGH = 20;
 /** Tribute paid, or the price of peace to a band: against Ares. */
 export const TRIBUTE_ARES = 6;
 /** A promise broken: Zeus and Hera; one kept: Zeus. */
@@ -135,8 +137,12 @@ export function feastGift(s: SimState, city: CityId, worth: number): string {
   const g = feastGodOn(city, s.tick);
   const f = festivalOf(city);
   if (!g || !f) return '';
-  const n = Math.max(FEAST_LEAST, Math.min(FEAST_MOST, Math.round(worth * FEAST_SHARE)));
-  deed(s, g, n, `your gift reached ${name(city)} during ${f.name}`, DEED_FADE);
+  const why = `your gift reached ${name(city)} during ${f.name}`;
+  // (Review of slice 58: this feast's gifts already remembered count towards FEAST_ENOUGH.)
+  const had = reasonsOf(s, g).find((r) => r.kind === 'greece' && r.why === why)?.worth ?? 0;
+  const n = Math.min(Math.max(FEAST_LEAST, Math.min(FEAST_MOST, Math.round(worth * FEAST_SHARE))), FEAST_ENOUGH - had);
+  if (n <= 0) return `${GODS[g].name} has had gifts enough this feast`;
+  deed(s, g, n, why, DEED_FADE);
   return `${GODS[g].name}, whose feast it is, is pleased (${signed(n)})`;
 }
 

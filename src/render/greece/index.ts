@@ -157,6 +157,8 @@ export class GreeceMap {
   private olympus!: THREE.Mesh;
   private olympusTag!: HTMLElement;
   private olympusSize: [number, number] | null = null;
+  /** (Review of slice 58) What its label keeps clear of: the cities' bars and the chips under the top bar. */
+  private olympusBars: Array<[number, number, number]> | null = null;
   private pointer = { x: -1, y: -1 };
   private state: SimState | null = null;
   private readonly v = new THREE.Vector3();
@@ -727,20 +729,43 @@ export class GreeceMap {
     const off = this.v.z > 1 || this.v.x < -1.1 || this.v.x > 1.1 || this.v.y < -1.1 || this.v.y > 1.1;
     el.style.display = off ? 'none' : '';
     if (off) return;
-    const lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+    let lx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
     let ly = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
     if (refresh || !this.olympusSize) {
       morph(el, olympusLabelHtml(s));
       this.olympusSize = [el.offsetWidth, el.offsetHeight];
     }
     const [lw, lh] = this.olympusSize;
-    // (Like a site's, under the top bar or the lines under it, it hangs below the mountain.)
-    const below = (this.barRect ?? []).some(([barL, barR, barB]) => ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR);
-    if (below) {
-      this.v.set(m.position.x, m.position.y, m.position.z).project(this.camera);
-      ly = clearOf(this.barRect ?? [], lx, lw, lh, r.top + (-this.v.y * 0.5 + 0.5) * r.height + 10 + lh);
+    // (The bars a city's label keeps clear of, and the chips under the top bar too: at 1280 × 720 the army's chip hid it.)
+    if (refresh || !this.olympusBars) {
+      this.olympusBars = [...(this.barRect ?? [])];
+      for (const q of document.querySelectorAll('.chiprow > *')) {
+        const b = q.getBoundingClientRect();
+        if (b.height > 0) this.olympusBars.push([b.left, b.right, b.bottom]);
+      }
     }
-    el.classList.toggle('below', below);
+    const bars = this.olympusBars;
+    // (Under the top bar or the lines under it, it stands beside the mountain's shoulder, its stem to it, rather than
+    // over its foot as a site's label hangs below; review of slice 58.)
+    const beside = bars.some(([barL, barR, barB]) => ly - lh - 8 < barB && lx + lw / 2 > barL && lx - lw / 2 < barR);
+    if (beside) {
+      // Its right shoulder on the screen, whichever way the map is turned.
+      const R = 3.4 * OLYMPUS_SCALE;
+      const y = m.position.y + 1.4 * OLYMPUS_SCALE;
+      let right = -Infinity;
+      let at = 0;
+      for (const [dx, dz] of [[R, 0], [-R, 0], [0, R], [0, -R]]) {
+        this.v.set(m.position.x + dx, y, m.position.z + dz).project(this.camera);
+        const sx = r.left + (this.v.x * 0.5 + 0.5) * r.width;
+        if (sx > right) {
+          right = sx;
+          at = r.top + (-this.v.y * 0.5 + 0.5) * r.height;
+        }
+      }
+      lx = right + 7 + lw / 2;
+      ly = clearOf(bars, lx, lw, lh, at + lh / 2);
+    }
+    el.classList.toggle('beside', beside);
     el.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px) translate(-50%, -100%)`;
     el.classList.toggle('hot', this.hovered === 'trav:olympus' || (this.shown as string | null) === 'olympus');
   }
