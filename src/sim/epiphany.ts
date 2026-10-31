@@ -214,15 +214,15 @@ export function boonWords(kind: BuildingKind): string {
   if (kind === 'farm' || kind === 'grove' || kind === 'vineyard') return 'its crop grows a quarter faster';
   if (kind === 'armoury') return 'its smiths work a quarter faster';
   if (kind === 'dairy' || kind === 'press' || kind === 'pasture' || kind === 'winery' || kind === 'mine' || kind === 'horsefarm') return 'it works a quarter faster';
-  return 'no fire or wear can touch it';
+  return 'no fire risk or wear builds up in it';
 }
 
-/** A blessed building's line for its panel and tip: "Blessed by Demeter until autumn: its crop grows a quarter faster, and no fire or wear can touch it". */
+/** A blessed building's line for its panel and tip: "Blessed by Demeter until autumn: its crop grows a quarter faster, and no fire risk or wear builds up in it". (Only builds up: a fire next door can still spread to it, as the review of slice 56 found.) */
 export function blessingWords(s: SimState, b: Building): string | null {
   const x = blessingOn(s, b.id);
   if (!x) return null;
   const boon = boonWords(b.kind);
-  const also = boon.startsWith('no fire') ? '' : ', and no fire or wear can touch it';
+  const also = boon.startsWith('no fire') ? '' : ', and no fire risk or wear builds up in it';
   return `Blessed by ${GODS[x.god].name} until ${untilWords(x.until)}: ${boon}${also}`;
 }
 
@@ -259,7 +259,7 @@ export function nextWords(s: SimState, f: GodFigure): string | null {
   if (f.state === 'posing' || f.state === 'leaving') return null;
   const map = mapOf(s);
   const ahead = f.stops.slice(f.state === 'blessing' ? f.at + 1 : f.at).map((p) => findBuilding(s, p.id)).filter((b): b is Building => !!b);
-  if (ahead.length === 0) return 'nowhere: then leaving';
+  if (ahead.length === 0) return 'leaving your city';
   const [first, ...rest] = ahead;
   return `${placeName(map, first)}${rest.length ? `, then ${tally(rest.map((b) => b.kind))}` : ''}`;
 }

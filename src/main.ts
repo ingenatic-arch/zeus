@@ -1766,6 +1766,11 @@ function start(preparedTown: string | null): void {
   };
   const updateGodFollow = (): void => {
     if (!godFollow) return;
+    // (Following a walker since: she has the camera, and the chip.)
+    if (follow) {
+      godFollow = null;
+      return;
+    }
     const a = godsView.at.get(godFollow.id);
     if (!a || rig.pans !== godFollow.pans) return stopGodFollow();
     rig.follow(a.x, a.z);

@@ -7,7 +7,7 @@ import type { SimState } from '../sim/state';
 
 /**
  * Slice 56: the gods in the city, drawn from the sim's `gods.walks` (a pure
- * read). Each god is a figure about three storeys tall (1.5 tiles), built
+ * read). Each god is a figure over three storeys tall (GOD_HEIGHT), built
  * from low-poly parts dressed as that god (figureParts), glowing in their
  * colour (an emissive rim and a soft glow behind them), with a halo of light
  * on the ground under them and a trail of fading footprints of light. They
@@ -30,10 +30,12 @@ import type { SimState } from '../sim/state';
  * (main.ts plays their sound stings).
  */
 
-/** A god's height, in tiles (three storeys of a house). */
-export const GOD_HEIGHT = 1.8;
+/** A god's height, in tiles: three storeys and more, so they stand clear over a street of two-storey townhouses (whose ridges are about 1.45). */
+export const GOD_HEIGHT = 2.5;
+/** How much bigger than first tuned (at 1.8 tiles): their stride, footprints and ground halo grow with them. */
+const GROW = GOD_HEIGHT / 1.8;
 /** The length of a full stride (two steps), in tiles: legs swing with the distance walked. */
-const STRIDE = 1.1;
+const STRIDE = 1.1 * GROW;
 
 // ---------------------------------------------------------------------------
 // The figures' parts.
@@ -780,8 +782,8 @@ export class GodsView {
     if (walking && v.walked >= v.nextStep) {
       v.nextStep = v.walked + STRIDE / 2;
       v.foot = -v.foot;
-      const ox = Math.cos(v.yaw) * 0.12 * v.foot;
-      const oz = -Math.sin(v.yaw) * 0.12 * v.foot;
+      const ox = Math.cos(v.yaw) * 0.12 * GROW * v.foot;
+      const oz = -Math.sin(v.yaw) * 0.12 * GROW * v.foot;
       this.steps.push({ x: x + ox, y: this.floor(x + ox, z + oz) + 0.04, z: z + oz, yaw: v.yaw, born: time, color: new THREE.Color(GODS[f.god].colour) });
       if (this.steps.length > TRAIL_MOST) this.steps.shift();
     }
@@ -861,7 +863,7 @@ export class GodsView {
         ringOut(30, 0.5, 0xffe08a, 1.2, 0.4, 0.4, 1.8, 0);
         break;
       case 'athena':
-        this.bird(x, y + 2.4, z, 1.6, 2.2, 0, time, out ? 2.5 : 5, 0.9, 0x9a8a72, 0);
+        this.bird(x, y + GOD_HEIGHT + 0.6, z, 1.6, 2.2, 0, time, out ? 2.5 : 5, 0.9, 0x9a8a72, 0);
         ringOut(40, 0.4, 0xd8e2e8, 1.6, 1.2, 0.3, 1.6, 0.4);
         break;
       case 'apollo':
@@ -1051,7 +1053,7 @@ export class GodsView {
       const pulse = 0.85 + Math.sin(time * 1.7 + f.id) * 0.1;
       // The halo on the ground.
       const hy = this.floor(at.x, at.z) + 0.06;
-      this.sc.set(2.6, 2.6, 2.6);
+      this.sc.setScalar(2.6 * GROW);
       this.p.set(at.x, hy, at.z);
       this.m.compose(this.p, this.flat, this.sc);
       this.halos.setMatrixAt(n, this.m);
@@ -1122,7 +1124,7 @@ export class GodsView {
       const t = (time - st.born) / TRAIL_LIFE;
       this.e.set(-Math.PI / 2, 0, st.yaw);
       this.q.setFromEuler(this.e);
-      this.sc.set(0.32, 0.5, 1);
+      this.sc.set(0.32 * GROW, 0.5 * GROW, 1);
       this.p.set(st.x, st.y, st.z);
       this.m.compose(this.p, this.q, this.sc);
       this.trail.setMatrixAt(n, this.m);

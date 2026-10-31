@@ -250,7 +250,7 @@ describe('the gods walk your streets (slice 56)', () => {
     delete old.gods.walks;
     old.version = 48;
     expect(migrate(old)).toBe(48);
-    expect(old.version).toBe(49);
+    expect(old.version).toBe(SIM_STATE_VERSION);
     expect(old.gods.walks).toEqual(freshWalks());
     expect(old.gods.walks.last).toEqual({});
     // (Already there: kept as it is.)
