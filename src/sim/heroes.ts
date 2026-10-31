@@ -424,10 +424,10 @@ function besideOf(map: CoastMap, s: SimState, b: Building, x: number, z: number)
   return best;
 }
 
-/** Where a hero stands at home: in the hall's courtyard, beside the statue. */
+/** Where a hero stands at home: in the middle of the hall's courtyard (open whichever way the hall faces). */
 export function courtyard(b: Building): [number, number] {
   const [cx, cz] = centreOf(b);
-  return [cx + 0.7, cz + 0.55];
+  return [cx + 0.15, cz + 0.1];
 }
 
 /** Off to the hall: the way to its gate and into its courtyard. */
@@ -759,9 +759,8 @@ function startFight(s: SimState, c: Champion, m: Beast): void {
   c.fight = s.tick;
   c.from = m.hp;
   c.path = [];
-  // The hero squares up to it from where they came.
-  const a = datan2(c.z - m.z, c.x - m.x);
-  placeInFight(c, m, a);
+  // The hero squares up to it before its den's mouth, out in the open, where the fight can be watched.
+  placeInFight(c, m, m.mouth);
   say(s, { kind: 'hero', u: ALARM, title: `${nameOf(c.hero)} fights ${beastName(m.kind)}`, words: `${nameOf(c.hero)} has met ${beastName(m.kind)} before ${itsLair(m)}, and they fight. It will be a long fight: watch it from here.`, at: { tile: m.lair }, of: 'fight' });
   s.rev++;
 }
@@ -1087,6 +1086,19 @@ export function heroTip(s: SimState, c: Champion): { title: string; detail: stri
   const w = wishOf(s, c);
   const lines = [heroDoing(s, c), slaysWords(c.hero), c.slain.length ? `Has slain ${c.slain.map((k) => beastName(k)).join(' and ')} here` : '', `Wish: ${w.words}${w.met ? ' (kept)' : unmetFor(s, c) >= RESTLESS ? ' (restless: not kept for a year)' : ''}`];
   return { title: `${g.name}, ${g.epithet}`, detail: lines.filter(Boolean).join('\n') };
+}
+
+/** A hall's tip: whose, what they are doing, and the demands still to meet (or what they slay). */
+export function hallStatus(s: SimState, b: Building): { title: string; detail: string } {
+  const h = b.hero;
+  if (!h) return { title: 'A hero’s hall', detail: '' };
+  const c = heroOf(s, h);
+  const lines = [c ? heroDoing(s, c) : 'Awaited'];
+  if (!c || !isCome(c)) {
+    const left = demandsOf(s, h).filter((d) => !d.met);
+    if (left.length) lines.push(`Still to meet: ${left.map((d) => `${d.what[0].toLowerCase()}${d.what.slice(1)} (${d.have})`).join(', ')}`);
+  } else lines.push(slaysWords(h));
+  return { title: hallName(h), detail: lines.join('\n') };
 }
 
 /** A place of legend's tip. */

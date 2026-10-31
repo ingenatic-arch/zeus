@@ -112,6 +112,11 @@ import { lairSpot, sendMonster, STIR, type Beast } from '../sim/monsters';
 import { MONSTER_IDS, type MonsterId } from '../sim/pantheon';
 import { centreOf } from '../sim/buildings';
 import { walkable } from '../sim/wild';
+// Slice 59
+import { beside as besideTiles } from '../sim/buildings';
+import { HASTE, heroOf, type Champion } from '../sim/heroes';
+import { honour, type HeroId } from '../sim/pantheon';
+import { TILE_ROAD } from '../sim/state';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3644,6 +3649,11 @@ const SCENES: Record<string, Demo> = {
   monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
   monsterraid: { view: 'monsterraid', setup: monsterRaidTown, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner, unread: 3 * TICKS_PER_DAY },
   bestiary: { view: 'bestiary', speed: 'paused', setup: bestiaryTown, overlay: 'missing' },
+  // Slice 59: heroes answer. #richtown's town with Perseus' hall raised and Athena warm, a sanctuary to her the one demand
+  // left, its panel open; #order's town with Theseus come by sea and sent against the Minotaur, walking the last of the way
+  // to its cave.
+  hero: { view: 'hero', setup: heroTown, overlay: 'missing', building: heroHall('perseus'), unread: TICKS_PER_DAY },
+  slay: { view: 'slay', setup: slayTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4548,4 +4558,86 @@ function bestiaryTown(sim: Sim): void {
   // (Their sightings, staged, are not news.)
   s.messages.log = s.messages.log.filter((g) => g.kind !== 'monster');
   s.rev++;
+}
+
+// Slice 59
+/**
+ * Heroes answer (slice 59). Each hall is raised by its command, as a player
+ * would, on the nearest spot beside a road to HERO_SPOT; the rest is staged.
+ *
+ * #hero: #richtown's town, Athena warmed (staged, as a festival or gifts
+ * would) and Perseus' hall raised: his one demand left is a sanctuary to
+ * Athena. Its panel is open.
+ *
+ * #slay: #order's town (a court and ten fine houses: Theseus' demands met;
+ * a trading post: he comes by sea). The Minotaur is sent as Zeus would send
+ * it and settles in its cave; Theseus' hall is raised; he comes, walks home,
+ * and is sent against it (the command), and it opens as he has SLAY_LEFT
+ * tiles left to its cave, the Minotaur at home (its next raid put off).
+ */
+const HERO_SPOT: Record<'hero' | 'slay', { x: number; z: number }> = { hero: { x: 64, z: 40 }, slay: { x: 0, z: 0 } };
+/** How far (tiles) Theseus still has to walk when #slay opens. */
+const SLAY_LEFT = 10;
+
+/** Raise a hero's hall (the command) on the free spot beside a road nearest (x, z); its hero. */
+function raiseHall(sim: Sim, hero: HeroId, x0: number, z0: number): Champion | undefined {
+  const s = sim.state;
+  const n = sim.map.size;
+  const spots: Array<[number, number]> = [];
+  for (let t = 0; t < n * n; t++) {
+    const x = t % n;
+    const z = Math.floor(t / n);
+    if (Math.abs(x + 2 - x0) > 30 || Math.abs(z + 2 - z0) > 30) continue;
+    if (buildingRefusal(sim.map, s, 'herohall', x, z) === '' && besideTiles(n, x, z, 4).some((u) => s.tiles[u] === TILE_ROAD)) spots.push([t, dhypot(x + 2 - x0, z + 2 - z0)]);
+  }
+  spots.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  sim.enqueue({ type: 'herohall', hero, at: spots.slice(0, 40).map(([t]) => t) });
+  sim.flush();
+  return heroOf(s, hero);
+}
+
+/** A demo's hall (its building's id). */
+function heroHall(hero: HeroId): (s: SimState) => number {
+  return (s) => heroOf(s, hero)?.hall ?? 0;
+}
+
+function heroTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  honour(s, 'athena', 40, 'staged', 'Your city’s olive oil fills her lamps', 0);
+  // (Waiting for the money, as a player would.)
+  const end = s.tick + 6 * TICKS_PER_MONTH;
+  while (s.money < COST.herohall + wageBill(s) && s.tick < end) sim.run(30);
+  const spot = HERO_SPOT.hero;
+  raiseHall(sim, 'perseus', spot.x, spot.z);
+  sim.run(TICKS_PER_DAY);
+}
+
+function slayTown(sim: Sim): void {
+  orderTown(sim);
+  const s = sim.state;
+  const m = sendMonster(s, 'minotaur', MONSTER_WHY.minotaur);
+  if (!m) return;
+  let end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && m.state !== 'lair') sim.step();
+  const n = sim.map.size;
+  const agora = s.buildings.find((b) => b.kind === 'agora');
+  const [ax, az] = agora ? centreOf(agora) : [n / 2, n / 2];
+  const c = raiseHall(sim, 'theseus', HERO_SPOT.slay.x || ax, HERO_SPOT.slay.z || az);
+  if (!c) return;
+  end = s.tick + 3 * TICKS_PER_MONTH;
+  while (s.tick < end && c.state !== 'home') sim.step();
+  // (The Minotaur at home in its cave, its next raid put off a month: staged.)
+  end = s.tick + 2 * TICKS_PER_MONTH;
+  while (s.tick < end && m.state !== 'lair') sim.step();
+  m.next = Math.max(m.next, s.tick + TICKS_PER_MONTH);
+  // (The trees before its cave cleared, as a player would to watch the fight.)
+  const lx = m.lair % n;
+  const lz = Math.floor(m.lair / n);
+  sim.enqueue({ type: 'clear', x0: lx - 3, z0: lz - 3, x1: lx + 3, z1: lz + 3 });
+  sim.enqueue({ type: 'hero', hero: 'theseus', act: 'slay', monster: m.id });
+  sim.flush();
+  const spot = lairSpot(s, m);
+  end = s.tick + TICKS_PER_MONTH;
+  while (s.tick < end && c.state === 'hunting' && dhypot(c.x - spot.x, c.z - spot.z) > SLAY_LEFT + HASTE) sim.step();
 }

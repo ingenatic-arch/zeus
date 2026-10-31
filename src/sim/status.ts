@@ -106,6 +106,8 @@ import {
 import { AUTUMN, daysToNextSeason, lateDays, makerPace, PACES, paceLine, seasonOf, ticksToGrow, WINTER } from './seasons';
 // Slice 36: the bread line at this season's pace.
 import { SEASON_NAMES, seasonAt } from './seasons';
+// Slice 59: a hero's hall's tip.
+import { hallStatus } from './heroes';
 
 export interface Status {
   title: string;
@@ -183,6 +185,8 @@ function buildingStatus(s: SimState, map: CoastMap, b: Building, reach?: Search)
   if (b.kind === 'court' || b.kind === 'prison') return { title: BUILDING_NAMES[b.kind], detail: lines(workersLine(s, map, b), ...(b.kind === 'court' ? courtLines(s, b) : prisonLines(s, b))) };
   // Slice 49: the infirmary and the asklepieion.
   if (b.kind === 'infirmary' || b.kind === 'asklepieion') return { title: BUILDING_NAMES[b.kind], detail: lines(workersLine(s, map, b), ...(b.kind === 'infirmary' ? infirmaryLines(s, b) : templeLines(s, b))) };
+  // Slice 59: a hero's hall.
+  if (b.kind === 'herohall') return hallStatus(s, b);
   const size = map.size;
   const beside = roadsBeside(s, size, b);
   let road = '';

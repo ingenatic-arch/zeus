@@ -13,6 +13,10 @@ import { TICKS_PER_DAY } from '../sim/clock';
 import type { SimState } from '../sim/state';
 import { morph } from './morph';
 import { esc, kbar, khead, kitHtml, ksec } from './kit';
+// Slice 59: its slayers, each with Send.
+import type { Command } from '../sim/commands';
+import type { HeroId } from '../sim/pantheon';
+import { monsterHeroes } from './heroes';
 
 const cap = (t: string): string => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
@@ -44,7 +48,9 @@ export function monsterHtml(s: SimState, m: Beast): string {
     'What can be done',
     `<p>${esc(`Send a company: take its banner (on the Army tab, or click it), then click beside ${him}. A big company can wound ${him} badly, at the cost of men, and drive ${him} back to ${its} lair to heal for a season.`)}</p><p>${esc(`Win back ${god.name}’s favour and ${it} will be called home. Only a hero can slay ${him}.`)}</p>`,
   );
-  return [head, health, raids, what].join('');
+  // Slice 59: who can slay it, and Send.
+  const slayers = monsterHeroes(s, m);
+  return [head, health, raids, what, slayers].join('');
 }
 
 /** How often (seconds) the open panel is brought up to date. */
@@ -69,7 +75,17 @@ export class MonsterPanel {
     this.el = el;
     this.body = el.querySelector('.body') as HTMLElement;
     (el.querySelector('.close') as HTMLElement).addEventListener('click', () => this.show(0));
+    // Slice 59: a Send button sends its hero (a command).
+    el.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('button[data-act="hero"]') as HTMLButtonElement | null;
+      if (!b || b.disabled || !this.send) return;
+      this.send({ type: 'hero', hero: b.dataset.hero as HeroId, act: 'slay', monster: Number(b.dataset.monster) });
+      this.last = -Infinity;
+    });
   }
+
+  /** Slice 59: how its buttons send a command. */
+  send: ((c: Command) => void) | null = null;
 
   get id(): number {
     return this.shownId;

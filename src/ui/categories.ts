@@ -47,6 +47,9 @@ export const CATEGORIES: readonly CategoryInfo[] = [
   { id: 'monuments', title: 'Monuments', tip: 'Monuments: the masons’ yard, the Lighthouse, the Colossus and the Stadium, how far along each is and what it waits for', icon: COLUMN, tools: ['masons', 'lighthouse', 'colossus', 'stadium'], overlays: [] },
 ];
 
+// Slice 59: a hero's hall, on the Mythology tab (V V).
+CATEGORIES.find((c) => c.id === 'mythology')?.tools.push('herohall');
+
 /** The tools on the panel's head rather than in a tab. */
 export const HEAD_TOOLS: readonly ToolName[] = ['road', 'clear'];
 

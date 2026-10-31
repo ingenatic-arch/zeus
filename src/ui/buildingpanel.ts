@@ -52,6 +52,9 @@ import { actionIcon, buildingIcon, messageIcon } from './icons';
 // Merge of slice 50 with slice 49.
 import { walkerFigure } from './icons';
 import { kbar, kbtn, khead, kitHtml, kpips, kstep, ktoggle } from './kit';
+// Slice 59: a hero's hall (its hero, demands, wish, monsters to send them against).
+import { hallSections } from './heroes';
+import type { HeroId } from '../sim/pantheon';
 
 const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
@@ -89,6 +92,9 @@ export const PANELS: Partial<Record<BuildingKind, PanelEntry>> = {
   infirmary: { more: infirmarySections, quiet: HEALTH_QUIET },
   asklepieion: { more: asklepieionSections, quiet: HEALTH_QUIET },
 };
+
+// Slice 59: a hero's hall: no Pause or Workers (nobody works there), its hero's sections (which say all its tip does).
+PANELS.herohall = { noOrders: true, more: hallSections, quiet: /./ };
 
 /** Does a kind have a panel of its own elsewhere (which a click opens instead)? */
 export const ownPanel = (kind: BuildingKind): boolean => !!PANELS[kind]?.own;
@@ -453,6 +459,8 @@ export class BuildingPanel {
     else if (act === 'law') this.deps.send({ type: 'law', crime: t.dataset.row ?? '', punishment: t.dataset.p ?? '' });
     // (Slice 49: the quarantine, ordered or lifted from the infirmary's or the asklepieion's panel.)
     else if (act === 'quarantine') this.deps.send({ type: 'quarantine', on: t.dataset.on === '1' });
+    // Slice 59: a hero's order from their hall's panel (send against a monster, ride, sail).
+    else if (act === 'hero' && b.hero) this.deps.send({ type: 'hero', hero: (t.dataset.hero as HeroId) || b.hero, act: t.dataset.do as 'slay' | 'ride' | 'sail', monster: Number(t.dataset.monster) || undefined, on: t.dataset.on === '1' });
     else return;
     // (Drawn again at once, the order showing.)
     this.last = -Infinity;
