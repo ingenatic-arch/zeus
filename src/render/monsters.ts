@@ -621,7 +621,8 @@ export class MonstersView {
     for (const d of legends.slain) {
       const x = d.lair % n;
       const z = Math.floor(d.lair / n);
-      lairOf(`${d.kind}:${d.lair}`, d.lair, d.den, Math.atan2(n / 2 - z, n / 2 - x), d.lair * 7 + 1, 0);
+      // (Slice 61: turned as it was while the monster lived; a save from before kept no mouth, and its lair faces the map's middle.)
+      lairOf(`${d.kind}:${d.lair}`, d.lair, d.den, d.mouth ?? Math.atan2(n / 2 - z, n / 2 - x), d.lair * 7 + 1, 0);
     }
     for (const [key, mesh] of this.lairs) {
       if (want.has(key)) continue;

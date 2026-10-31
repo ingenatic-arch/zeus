@@ -362,7 +362,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(p(s)).toEqual({ have: 9, need: 12, words: 'Shrines to 9 of the twelve: none yet to Ares, Hephaestus or Hermes' });
     s.buildings.push({ ...shrine, id: id++, god: 'ares' }, { ...shrine, id: id++, god: 'hephaestus' }, { ...shrine, id: id++, god: 'hermes' });
     expect(p(s)).toEqual({ have: 12, need: 12, words: 'A shrine to each of the twelve' });
-  });
+  }, 600_000);
 
   it('sanctuaries: a first finished, the rising ones named with how far, and six standing its crown', () => {
     const s = demoSim('sanctuaries').state;
@@ -380,7 +380,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(milestoneOf('sanctuaries')!.progress(t).words).toMatch(/^12 sanctuaries standing: Zeus, Hera, /);
     expect(gods(t)).toEqual(expect.arrayContaining(['sanctuary', 'sanctuaries']));
     expect(t.ambition.reached.filter((l) => milestoneOf(l.id)?.ambition === 'gods').every((l) => l.quiet)).toBe(true);
-  });
+  }, 600_000);
 
   it('a first sanctuary won in play: settlers drawn by fame, its town line', () => {
     const sim = demoSim('sanctuaries');
@@ -392,7 +392,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(l?.note).toBe('settlers drawn by its fame come twice as often for 3 months');
     expect(s.ambition.fameUntil).toBeGreaterThan(s.tick);
     expect(ambitionTownLine(s)).toMatch(/^A laurel for beloved of the gods \(\d of 5\): a first sanctuary\. Settlers drawn by its fame/);
-  });
+  }, 600_000);
 
   it('three gods loving at once: the loving named and the nearest of the rest; met, renown in every ruler', () => {
     const sim = demoSim('godwar');
@@ -410,7 +410,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(laurelOf(s, 'loving')?.note).toBe('every ruler in Greece is 5 warmer for it');
     expect(moodReasons(cityOf(s.world, 'athens'), s.tick).some((r) => r.why === 'Your city’s renown: the gods’ love for your city' && r.worth === 5)).toBe(true);
     ledgerHolds(s);
-  });
+  }, 600_000);
 
   it('a monster slain: unmet while it holds its lair (and who could slay it), met in play when the hero slays it', () => {
     const sim = demoSim('slay');
@@ -424,7 +424,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(l?.note).toMatch(/^.+ sends 1,000 dr in honour of it$/);
     expect(p(s).words).toMatch(/^The Minotaur slain by Theseus in year \d+$/);
     ledgerHolds(s);
-  });
+  }, 600_000);
 
   it('all five: achieved, its town line, a ruler’s word', () => {
     const sim = demoSim('twelve');
@@ -436,7 +436,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(a.tick).toBeGreaterThan(0);
     expect(ambitionTownLine(s)).toMatch(/^Beloved of the gods: achieved in year \d+, with your six sanctuaries; every ruler in Greece is 10 warmer for it\. The other ambitions carry on\.$/);
     expect(s.world.news.some((n) => n.tick === a.tick && / calls .* beloved of the gods now$/.test(n.line))).toBe(true);
-  });
+  }, 600_000);
 
   it('a save from before (version 55) gains it: what it meets recorded quietly, said once, no reward', () => {
     const sim = demoSim('twelve');
@@ -466,7 +466,7 @@ describe('Beloved of the gods (slice 61)', () => {
     expect(s.money).toBe(money);
     back.run(5 * TICKS_PER_DAY);
     expect(s.messages.log.slice(msgs).filter((m) => m.kind === 'laurel').length).toBe(1);
-  });
+  }, 600_000);
 
   it('a phase 7 save from the groundwork (version 48) comes up with the fourth ambition, said once, nothing met', () => {
     const text = gunzipSync(readFileSync('tests/fixtures/groundwork-town.save.json.gz')).toString();

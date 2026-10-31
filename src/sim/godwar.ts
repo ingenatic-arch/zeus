@@ -153,6 +153,8 @@ export const DUEL_TICKS = 6 * TICKS_PER_DAY;
 export const DUEL_GAP = 2;
 /** A band with a champion upon it (within this many tiles) breaks once this share of its men have fallen (not half). */
 export const NEAR_BAND = 10;
+/** Slice 61: a god joins a band on the road only with at least this long before it reaches your edge. */
+export const JOIN_LEAST = 4 * TICKS_PER_DAY;
 export const BREAK_SHARE = 1 / 3;
 /** A band whose nerve has been shaken this many times breaks. */
 export const NERVE_BREAK = 5;
@@ -414,6 +416,9 @@ function marches(s: SimState): void {
     if (!m) {
       // (Review of slice 60: never with a band already broken and running, nor one settled: a god who went home with it stays gone.)
       if (r.broke || r.end !== '' || !noticed(s) || !angry(s, god) || war.marches.some((o) => o.god === god)) continue;
+      // (Slice 61, slice 60's finding: a god angered when the band was all but at your edge was said only just before rising.
+      // Now a god joins only with JOIN_LEAST or more left on the road, so the warning gives time to answer it; later, they stay home.)
+      if (r.phase === 'raiding' || (r.phase === 'marching' && r.start + r.dur - s.tick < JOIN_LEAST)) continue;
       war.marches.push({ raid: r.id, god, figure: 0, since: s.tick, cool: 0, lastFire: -BURN_GAP, fires: 0, felled: 0, hero: '', held: -1, wounded: [] });
       const st = STYLES[god];
       say(s, {
@@ -745,6 +750,8 @@ function breakSooner(s: SimState, map: CoastMap): void {
     const why = nerve >= NERVE_BREAK && lost < men * BREAK_SHARE ? `${GODS[g].name} has broken their nerve` : `${GODS[g].name} is among them, and a third of their men have fallen`;
     // (Review of slice 60: said once, by the raid's own news as it breaks: "Sparta's raiders break and run for the west edge: Athena is among them, ...".)
     breakNow(s, map, r, why);
+    // (Slice 61: and the news once it has gone says the god broke it.)
+    if (r.broke) r.brokeBy = g;
   }
 }
 
@@ -805,7 +812,11 @@ function stepDuel(s: SimState, map: CoastMap, d: Duel): void {
     leave(s, b);
     setState(s, a, 'walking');
     const band = r && raidersOf(s, r) && !r.broke ? r : undefined;
-    if (band) breakNow(s, map, band, `${GODS[b.god].name} has fled before ${GODS[a.god].name}`);
+    if (band) {
+      breakNow(s, map, band, `${GODS[b.god].name} has fled before ${GODS[a.god].name}`);
+      // (Slice 61: the news once it has gone says your god broke it.)
+      if (band.broke) band.brokeBy = a.god;
+    }
     say(s, {
       kind: 'godwar',
       u: WARNING,

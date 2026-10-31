@@ -5275,6 +5275,8 @@ export const OLYMPUS_HERA_WHY = 'a promise broken to Argos, her city (set up for
 export const OLYMPUS_ARES = -72;
 export const OLYMPUS_ARES_WHY = 'no shrine to him in a city of eleven, and tribute paid where he wanted war (set up for this demo)';
 export const OLYMPUS_DEVOTION = 'the city’s devotion all year (set up for this demo)';
+/** How long the staged angers take to fade to nothing (the loves half as long): as #wrath's, so an angry god left alone cools in time, as the gods' own grudges do. */
+const OLYMPUS_FADE = 2 * TICKS_PER_YEAR;
 /** How near Hera's curse and Sparta's band may come before #olympus opens, in days (it opens sooner if Athena walks with the band on the road). */
 const OLYMPUS_OMEN_LEFT = 10;
 const OLYMPUS_BAND_LEFT = 3;
@@ -5386,6 +5388,15 @@ function olympusTown(sim: Sim): void {
   waitFor(sim, s.tick, COST.herohall + wageBill(s));
   raiseHall(sim, 'atalanta', SACRED_WAY.x, SACRED_WAY.z0 - 3);
   month(OLYMPUS_MONTH.apollo);
+  // The sheep pasture the Boar wrecked, cleared and laid again where it stood (Hera's fleece comes from it).
+  const wrecked = s.buildings.find((b) => b.kind === 'rubble' && b.was === 'pasture');
+  if (wrecked && !s.buildings.some((b) => b.kind === 'pasture')) {
+    const side = sideOf('pasture');
+    const [px, pz] = [wrecked.x, wrecked.z];
+    send({ type: 'clear', x0: px, z0: pz, x1: px + side - 1, z1: pz + side - 1 });
+    waitFor(sim, s.tick, COST.pasture + JOBS.pasture * WAGE);
+    send({ type: 'build', kind: 'pasture', at: [O(px, pz)] });
+  }
   // Apollo's marked out last: its foundations and temple raised at once, its statue's materials put on its site, and a
   // masons' yard beside the way to raise it, so it rises when played on.
   const apollo = raise('apollo', 2);
@@ -5398,10 +5409,10 @@ function olympusTown(sim: Sim): void {
   offer('demeter');
   playOn(OLYMPUS_OMEN_AFTER * TICKS_PER_DAY);
   // Hera's anger, and her omen: families quarrelling, a month off.
-  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, 0);
+  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, OLYMPUS_FADE);
   beginOmen(s, sim.map, 'hera', 'quarrels');
   // Sparta's band threatened and refused (as #battle's), Ares furious with the city and marching with it.
-  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, 0);
+  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, OLYMPUS_FADE);
   stagedRaid(sim, 'sparta', 'the king will not suffer a city of temples that gives Ares none');
   // On until the band is on the road and Athena walks for her festival, with Hera's curse no nearer than
   // OLYMPUS_OMEN_LEFT days and the band no nearer than OLYMPUS_BAND_LEFT.
@@ -5411,13 +5422,13 @@ function olympusTown(sim: Sim): void {
   const walks = (): boolean => s.gods.walks.figures.some((f) => f.god === 'athena');
   const late = (): boolean => (!!omen && omen.day - s.tick <= OLYMPUS_OMEN_LEFT * TICKS_PER_DAY) || due() <= OLYMPUS_BAND_LEFT;
   const love = (): void => {
-    for (const g of ['demeter', 'athena'] as const) if (moodOfGod(s, g) < OLYMPUS_LOVE) honour(s, g, OLYMPUS_LOVE - moodOfGod(s, g), 'staged', OLYMPUS_DEVOTION, 0);
+    for (const g of ['demeter', 'athena'] as const) if (moodOfGod(s, g) < OLYMPUS_LOVE) honour(s, g, OLYMPUS_LOVE - moodOfGod(s, g), 'staged', OLYMPUS_DEVOTION, OLYMPUS_FADE / 2);
   };
   love();
   playOn(2 * TICKS_PER_MONTH, () => late() || (due() < 99 && walks()));
   // The loves the year leaves short, set up for this demo; the angers kept where they were set.
   love();
-  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, 0);
-  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, 0);
+  honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, OLYMPUS_FADE);
+  honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, OLYMPUS_FADE);
   sim.run(1);
 }

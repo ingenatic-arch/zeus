@@ -84,6 +84,7 @@ import { monstersAbout } from './monsters';
 import { bandBeaten, tributePaid } from './greecegods';
 // Slice 60: the god who marches with a band.
 import { marchWords } from './godwar';
+import { GODS, goddess } from './pantheon';
 
 // ---------------------------------------------------------------------------
 // The numbers.
@@ -1341,7 +1342,9 @@ function settle(s: SimState, r: Raid, how: string): void {
   const ares = (r.broke && r.brokeAt) || how === 'sunk' ? bandBeaten(s, r.city, how === 'sunk' && !(r.broke && r.brokeAt)) : '';
   if (r.broke && r.brokeAt) {
     const ours = [r.killed ? `${r.killed} of yours ${r.killed === 1 ? 'was' : 'were'} killed` : '', r.wounded ? `${r.wounded} wounded` : ''].filter(Boolean).join(' and ');
-    armyNews(s, `Your soldiers broke ${whose(r.city)} raiders ${r.brokeAt}: ${r.fallen} of their ${bandMen(r)} men fell${ours ? `; ${ours}` : ', and none of yours'}${ares ? `. ${ares}` : ''}`, 0);
+    // (Slice 61: or the god who was among them as they broke, your soldiers with them.)
+    const g = r.brokeBy;
+    armyNews(s, `${g ? GODS[g].name : 'Your soldiers'} broke ${whose(r.city)} raiders ${r.brokeAt}${g ? `, your soldiers beside ${goddess(g) ? 'her' : 'him'}` : ''}: ${r.fallen} of their ${bandMen(r)} men fell${ours ? `; ${ours}` : ', and none of yours'}${ares ? `. ${ares}` : ''}`, 0);
     r.brokeAt = '';
   } else if (ares) armyNews(s, `${whose(r.city)} ships sunk in your bay: ${ares}`, 0);
   s.rev++;

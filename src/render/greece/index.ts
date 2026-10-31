@@ -77,6 +77,8 @@ const GROW_LEAST = 0.75;
 const GROW_MOST = 1.4;
 /** A site's piece, a little larger than life as the towns are. */
 const SITE_SCALE = 1.6;
+/** Slice 61: a god marching with a band, against the band's own scale (0.62 until slice 60's finding that it read small at the usual zoom). */
+const GOD_ON_MAP = 0.95;
 /** (Slice 58) Mount Olympus: where it stands (lon, lat; a little west of the true summit, so its foot keeps off the coarse coast) and how large. */
 const OLYMPUS: [number, number] = [22.15, 40.1];
 const OLYMPUS_SCALE = 1.8;
@@ -983,12 +985,14 @@ export class GreeceMap {
         const q = alongLine(line, Math.max(sea ? 0.9 : 0.6, Math.min(L - (sea ? 1.1 : at.gathering ? 1.6 : 0.9), at.along)));
         const turn = at.gathering ? 0 : -Math.atan2(q.dz * dir, q.dx * dir);
         const k = 2.3 * far;
-        const lx = at.gathering ? 0.9 : 0.25;
-        const lz = at.gathering ? 0 : 0.62;
+        // (Slice 61, slice 60's finding that the god was small beside the band at the map's usual zoom: half as big again, and
+        // stood a little further off so the two don't run together.)
+        const lx = at.gathering ? 1.05 : 0.25;
+        const lz = at.gathering ? 0 : 0.78;
         const gx = q.x + (lx * Math.cos(turn) + lz * Math.sin(turn)) * k;
         const gz = q.z + (-lx * Math.sin(turn) + lz * Math.cos(turn)) * k;
         g.position.set(gx, sea ? 0.02 + Math.sin(time * 1.4) * 0.05 : this.relief.heightAt(gx, gz), gz);
-        g.scale.setScalar(0.62 * k);
+        g.scale.setScalar(GOD_ON_MAP * k);
         g.rotation.set(0, turn + Math.PI / 2, 0);
       }
     }

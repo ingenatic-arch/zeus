@@ -483,7 +483,7 @@ function legendsOk(l: unknown): boolean {
     Array.isArray(m.wrecked) &&
     (m.wrecked as unknown[]).every((w) => typeof w === 'string');
   const stone = (x: unknown): boolean => isObj(x) && ['x', 'z', 'face', 'tick'].every((k) => fin(x[k])) && typeof x.kind === 'string';
-  const slain = (x: unknown): boolean => isObj(x) && MONSTER_IDS.includes(x.kind as never) && LAIRS.includes(x.den as string) && fin(x.lair) && fin(x.tick) && typeof x.by === 'string';
+  const slain = (x: unknown): boolean => isObj(x) && MONSTER_IDS.includes(x.kind as never) && LAIRS.includes(x.den as string) && fin(x.lair) && fin(x.tick) && typeof x.by === 'string' && (x.mouth === undefined || fin(x.mouth));
   return (l.monsters as unknown[]).every(beast) && (l.stones as unknown[]).every(stone) && (l.slain as unknown[]).every(slain) && heroesOk(l);
 }
 
@@ -496,7 +496,7 @@ function heroesOk(l: Record<string, unknown>): boolean {
   for (const c of l.heroes as unknown[]) {
     if (!isObj(c) || !HERO_IDS.includes(c.hero as never) || seen.has(c.hero as string)) return false;
     seen.add(c.hero as string);
-    if (!HERO_STATES.includes(c.state as never) || !CHAMPION_NUMBERS.every((k) => fin(c[k]))) return false;
+    if (!HERO_STATES.includes(c.state as never) || !CHAMPION_NUMBERS.every((k) => fin(c[k])) || (c.rest !== undefined && !fin(c.rest))) return false;
     if (!nums(c.path) || (c.path as number[]).length % 2 !== 0 || typeof c.ride !== 'boolean' || !['', 'sea', 'road'].includes(c.by as string)) return false;
     if (!Array.isArray(c.slain) || !(c.slain as unknown[]).every((k) => MONSTER_IDS.includes(k as never))) return false;
   }

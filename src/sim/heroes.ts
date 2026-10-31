@@ -111,6 +111,13 @@ export interface Champion {
   away: number;
   /** Gone again (wish ignored): word may not go out before this tick. */
   again: number;
+  /**
+   * Slice 61 (slice 60's finding: a hero who withdrew wounded from a god was
+   * at once ready for anything): until when they rest at their hall, healing
+   * a god's wounds. Absent or past: not resting (and in every save from
+   * before).
+   */
+  rest?: number;
 }
 
 /** The city celebrating a monster slain: until when, by whom, which, and the hall the crowd gathers at. */
@@ -126,6 +133,15 @@ export interface Fete {
 
 /** From word sent to the hero's coming: ARRIVE[0] to ARRIVE[1] ticks (within a month). */
 export const ARRIVE: readonly [number, number] = [10 * TICKS_PER_DAY, 30 * TICKS_PER_DAY];
+/** Slice 61: how long a hero who withdrew wounded from a god rests at their hall (from reaching it) before they can be sent out again. */
+export const HERO_REST = TICKS_PER_MONTH;
+/** Resting at their hall from a god's wounds now? */
+export const resting = (s: SimState, c: Champion): boolean => (c.rest ?? 0) > s.tick;
+/** "rests 12 more days" for a resting hero. */
+const restWords = (s: SimState, c: Champion): string => {
+  const d = Math.max(1, Math.ceil(((c.rest ?? 0) - s.tick) / TICKS_PER_DAY));
+  return `${num(d)} more ${d === 1 ? 'day' : 'days'}`;
+};
 /** Days between walks out into the streets, and how long they stay out at the far end. */
 export const STROLL: readonly [number, number] = [6 * TICKS_PER_DAY, 12 * TICKS_PER_DAY];
 export const LINGER = TICKS_PER_DAY;
@@ -526,8 +542,10 @@ function stepOne(s: SimState, map: CoastMap, c: Champion): void {
       return;
     case 'home':
       if (!hall) return leave(s, map, c, '');
-      if (rideOut(s, map, c)) return;
+      // (Slice 61: a hero resting from a god's wounds stays in their hall: no riding out, no walks, until healed.)
+      if (!resting(s, c) && rideOut(s, map, c)) return;
       if (wishes(s, map, c)) return;
+      if (resting(s, c)) return;
       if (s.tick >= c.next && hall) stroll(s, map, c, hall);
       return;
     case 'strolling':
@@ -538,6 +556,8 @@ function stepOne(s: SimState, map: CoastMap, c: Champion): void {
       }
       return;
     case 'returning':
+      // (Slice 61: wounded by a god, the month's rest is counted from when they reach their hall, however long the walk.)
+      if (resting(s, c)) c.rest = s.tick + HERO_REST;
       if (walkOn(c)) {
         if (hall) atHome(s, c, false);
         else leave(s, map, c, '');
@@ -681,6 +701,7 @@ export function sendRefusal(s: SimState, h: HeroId, id: number): string {
   if (!c || !isCome(c)) return `${name} has not come to your city`;
   const m = monsterOf(s, id);
   if (!m) return 'There is no such monster on your land';
+  if (resting(s, c)) return `${name} is resting at ${hisOf(h)} hall from a god’s wounds: ${restWords(s, c)}`;
   if (!canSlay(h, m.kind)) {
     const who = slayersOf(m.kind).map(nameOf);
     return `${name} can slay only ${beastName(HEROES[h].slays[0])}; ${who.join(' or ')} can slay ${beastName(m.kind)}`;
@@ -929,6 +950,7 @@ export function faceRefusal(s: SimState, h: HeroId, figure: number): string {
   if (c.state === 'hunting' || c.state === 'waiting' || c.state === 'fighting') return `${name} is out against a monster`;
   if (m.hero) return `${nameOf(m.hero)} is ${m.held >= 0 ? 'fighting' : 'on the way to'} ${g} already`;
   if (m.wounded.includes(h)) return `${name} has fought ${g} already, and is nursing ${hisOf(h)} wounds`;
+  if (resting(s, c)) return `${name} is resting at ${hisOf(h)} hall from a god’s wounds: ${restWords(s, c)}`;
   const d = s.gods.war.duel;
   const a = d && d.b === figure ? godFigure(s, d.a) : undefined;
   if (a) return `${GODS[a.god].name} is fighting ${g} for you`;
@@ -963,6 +985,8 @@ function faceGod(s: SimState, map: CoastMap, c: Champion, m: GodMarch): void {
     m.hero = '';
     m.held = -1;
     if (wounded && !m.wounded.includes(c.hero)) m.wounded.push(c.hero);
+    // (Slice 61: and rests at their hall a while, healing.)
+    if (wounded) c.rest = s.tick + HERO_REST;
     c.fight = -1;
     if (words) say(s, { kind: 'hero', u, title, words, at: { tile: Math.floor(c.z) * map.size + Math.floor(c.x) }, of: 'fight' });
     goHome(s, map, c);
@@ -1005,7 +1029,7 @@ function faceGod(s: SimState, map: CoastMap, c: Champion, m: GodMarch): void {
   c.face = datan2(f.z - c.z, f.x - c.x);
   if (t % BLOW === 0) c.swung = s.tick;
   if (t >= HERO_HOLDS) {
-    end(`${nameOf(c.hero)} withdraws wounded`, `${nameOf(c.hero)} withdraws wounded from ${g} after ${days(held)} and walks home to ${hisOf(c.hero)} hall: no hero can beat a god. ${g} fights on with the band.`, true, WARNING);
+    end(`${nameOf(c.hero)} withdraws wounded`, `${nameOf(c.hero)} withdraws wounded from ${g} after ${days(held)} and walks home to ${hisOf(c.hero)} hall, to rest a month while ${heOf(c.hero)} heals: no hero can beat a god. ${g} fights on with the band.`, true, WARNING);
   }
 }
 
@@ -1082,6 +1106,7 @@ export function sailRefusal(s: SimState, h: HeroId): string {
   if (h !== 'odysseus') return `${nameOf(h)} has no wish to sail`;
   if (!c || !isCome(c)) return 'Odysseus has not come to your city';
   if (!(c.state === 'home' || c.state === 'strolling' || c.state === 'returning')) return 'Odysseus is not at home';
+  if (resting(s, c)) return `Odysseus is resting at his hall from a god’s wounds: ${restWords(s, c)}`;
   return '';
 }
 
@@ -1257,10 +1282,14 @@ export function heroDoing(s: SimState, c: Champion): string {
     case 'arriving':
       return `Just come ${c.by === 'sea' ? 'by sea' : 'by road'}, walking to ${hisOf(c.hero)} hall`;
     case 'home':
+      // (Slice 61.)
+      if (resting(s, c)) return `Resting in ${hisOf(c.hero)} hall, healing the wounds a god gave ${c.hero === 'atalanta' ? 'her' : 'him'}: ${restWords(s, c)}`;
       return `At home in ${hisOf(c.hero)} hall`;
     case 'strolling':
       return 'Out walking the streets, greeted wherever ' + he + ' goes';
     case 'returning':
+      // (Slice 61.)
+      if (resting(s, c)) return `Walking home to ${hisOf(c.hero)} hall, wounded, to rest a month`;
       return `Walking home to ${hisOf(c.hero)} hall`;
     case 'hunting':
       return m ? `On ${hisOf(c.hero)} way to ${placeName(m.kind, m.den)}, to slay it` : 'On a deed';

@@ -1317,6 +1317,13 @@ export interface Raid {
   landed: number;
   drowned: number;
   brokeAt: string;
+  /**
+   * Slice 61 (slice 60's finding: a band your own god broke was reported as
+   * "your soldiers broke"): the god among them as it broke, when it was a
+   * god who broke it. Absent: your soldiers did (and in every save from
+   * before).
+   */
+  brokeBy?: GodId;
   /** When it was settled (0 while it is live), and how: 'raided', 'paid', 'called' (their mood mended), 'nothing' (nothing to take). */
   ended: number;
   end: string;

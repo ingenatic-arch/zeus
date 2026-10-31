@@ -27,7 +27,7 @@ import { hash2 } from '../map/noise';
 import { centreOf, findBuilding } from '../sim/buildings';
 import { heroShown, HERO_TALL, type Champion } from '../sim/heroes';
 import type { HeroId } from '../sim/pantheon';
-import type { Building, SimState } from '../sim/state';
+import { TILE_EMPTY, type Building, type SimState } from '../sim/state';
 import { column, gable, slab } from './grand';
 import { cyl, facingOf, prism } from './homes';
 import { col, PAL } from './palette';
@@ -378,6 +378,9 @@ export interface HeroDrawn {
 /** How many dance at a hall at the fête (YARD_DANCERS of them in its courtyard), and their tunics. */
 const DANCERS = 22;
 const YARD_DANCERS = 6;
+/** Slice 61: how far from a hall's middle the fête's ring of dancers is set, and how far out from its own middle the ground must be open. */
+const RING_OUT = 3.6;
+const RING_CLEAR = 1.45;
 const DANCER_COLOURS = ['#d8452e', '#f0e4c8', '#3f6fae', '#e0b040', '#5f9a4a', '#a24d8f', '#f4f1ea'];
 const STRIDE = 0.4;
 
@@ -434,6 +437,32 @@ export class HeroesView {
     return { x: cx, y: y + 0.01, z: cz, yaw: facingOf(s, this.map.size, b) };
   }
 
+  /**
+   * Slice 61 (slice 59's finding: the dancers spilled onto the road among the
+   * ox carts): where the fête's ring of dancers goes beside a hall facing
+   * (gx, gz): the first of before its gate, either side and behind it whose
+   * whole ring stands on open ground (no road, building or water); none, and
+   * the ring dances in the hall's courtyard.
+   */
+  private ringOf(s: SimState, hx: number, hz: number, gx: number, gz: number): { x: number; z: number } {
+    const n = this.map.size;
+    const open = (x: number, z: number): boolean => {
+      const tx = Math.floor(x);
+      const tz = Math.floor(z);
+      if (tx < 0 || tz < 0 || tx >= n || tz >= n) return false;
+      const t = tz * n + tx;
+      return s.tiles[t] === TILE_EMPTY && !this.map.tileWater[t];
+    };
+    for (const [ax, az] of [[gx, gz], [-gz, gx], [gz, -gx], [-gx, -gz]]) {
+      const cx = hx + ax * RING_OUT;
+      const cz = hz + az * RING_OUT;
+      let ok = true;
+      for (let k = 0; k < 12 && ok; k++) ok = open(cx + Math.cos((k / 12) * Math.PI * 2) * RING_CLEAR, cz + Math.sin((k / 12) * Math.PI * 2) * RING_CLEAR);
+      if (ok && open(cx, cz)) return { x: cx, z: cz };
+    }
+    return { x: hx, z: hz };
+  }
+
   update(s: SimState, alpha: number, time: number): void {
     const L = s.legends;
     this.shown.length = 0;
@@ -479,11 +508,13 @@ export class HeroesView {
       const d = L.slain[i];
       const lx = (d.lair % n) + 0.5;
       const lz = Math.floor(d.lair / n) + 0.5;
-      // (Before its mouth, on the city's side: as MonstersView turns a slain one's lair.)
-      const mouth = Math.atan2(n / 2 - lz, n / 2 - lx);
+      // (Before its mouth: as MonstersView turns a slain one's lair. Slice 61: the mouth the monster's lair had, not the map's
+      // middle; and set on the lowest ground under its step, so it doesn't stand clear of a slope.)
+      const mouth = d.mouth ?? Math.atan2(n / 2 - lz, n / 2 - lx);
       const x = lx + Math.cos(mouth) * 2.1 + Math.sin(mouth) * 0.6;
       const z = lz + Math.sin(mouth) * 2.1 - Math.cos(mouth) * 0.6;
-      const y = this.ground(x, z);
+      let y = this.ground(x, z);
+      for (const [dx, dz] of [[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]]) y = Math.min(y, this.ground(x + dx, z + dz));
       this.q.setFromAxisAngle(this.up, -mouth);
       this.p.set(x, y, z);
       this.s.set(1, 1, 1);
@@ -501,19 +532,20 @@ export class HeroesView {
       const f = this.floorOf(s, fh);
       const gx = Math.cos(f.yaw);
       const gz = -Math.sin(f.yaw);
+      const ring = this.ringOf(s, f.x, f.z, gx, gz);
       for (let i = 0; i < DANCERS; i++) {
         const inner = i >= DANCERS - YARD_DANCERS;
         const k = inner ? i - (DANCERS - YARD_DANCERS) : i;
         const of = inner ? YARD_DANCERS : DANCERS - YARD_DANCERS;
         const r = inner ? 0.62 : 1.25 + 0.08 * Math.sin(time * 2 + i);
-        const cx = f.x + gx * (inner ? 0.7 : 3.1);
-        const cz = f.z + gz * (inner ? 0.7 : 3.1);
+        const cx = inner ? f.x + gx * 0.7 : ring.x;
+        const cz = inner ? f.z + gz * 0.7 : ring.z;
         const a = (k / of) * Math.PI * 2 + time * (inner ? -0.6 : 0.45);
         const x = cx + Math.cos(a) * r;
         const z = cz + Math.sin(a) * r;
         const hop = Math.max(0, Math.sin(time * 6 + i * 1.7)) * 0.05;
         this.q.setFromAxisAngle(this.up, -a);
-        this.p.set(x, (inner ? f.y + 0.06 : this.ground(x, z)) + hop, z);
+        this.p.set(x, (inner || (ring.x === f.x && ring.z === f.z) ? f.y + 0.06 : this.ground(x, z)) + hop, z);
         this.s.set(1.15, 1.15, 1.15);
         this.m.compose(this.p, this.q, this.s);
         this.dancers.setMatrixAt(i, this.m);

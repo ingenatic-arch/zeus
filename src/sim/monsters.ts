@@ -156,6 +156,13 @@ export interface Slain {
   den: Lair;
   tick: number;
   by: string;
+  /**
+   * Slice 61: which way its lair's mouth faced (as the monster's own), so the
+   * lair and the place of legend before it stay turned as they were. Absent
+   * in a save from before: the drawing turns those to the map's middle, as
+   * it always did.
+   */
+  mouth?: number;
 }
 
 export interface Legends {
@@ -409,7 +416,7 @@ export function slayMonster(s: SimState, id: number, by: string, quiet = false):
   if (!m) return false;
   dropFoe(s, m);
   s.legends.monsters = s.legends.monsters.filter((o) => o !== m);
-  s.legends.slain.push({ kind: m.kind, lair: m.lair, den: m.den, tick: s.tick, by });
+  s.legends.slain.push({ kind: m.kind, lair: m.lair, den: m.den, tick: s.tick, by, mouth: m.mouth });
   // (Slice 59: `quiet`, for a hero's own words of it.)
   if (!quiet) say(s, { kind: 'monster', u: ALARM, title: `${Cap(beastName(m.kind))} is slain`, words: `${Cap(beastName(m.kind))} has been slain by ${by}. ${Cap(itsOf(m.kind))} ${denNoun(m.den)} is quiet, and ${GODS[m.god].name} has nothing more to send against you for it.`, at: { tile: m.lair }, of: 'slain' });
   s.rev++;

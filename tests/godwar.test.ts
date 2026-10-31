@@ -16,8 +16,8 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../src/game/saves';
-import { TICKS_PER_DAY, TICKS_PER_YEAR } from '../src/sim/clock';
-import { callRefusal, DUEL_TICKS, invaders, marchOf, sanctuaryStands, STYLES, warStatus, type Champion } from '../src/sim/godwar';
+import { TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from '../src/sim/clock';
+import { callRefusal, DUEL_TICKS, invaders, JOIN_LEAST, marchOf, sanctuaryStands, STYLES, warStatus, type Champion } from '../src/sim/godwar';
 import { migrate } from '../src/sim/migrate';
 import { freshWars, GOD_IDS, honour, moodOfGod, type GodId } from '../src/sim/pantheon';
 import { SANCTUARY_COST } from '../src/sim/build';
@@ -98,6 +98,16 @@ const enemyRisen = (sim: Sim, r: Raid): boolean => {
 };
 
 describe('gods in war (slice 60)', () => {
+  it('slice 61: a god angered with the band all but at your edge stays home (its warning would come too late to answer)', () => {
+    const { sim, s, r } = battle(0);
+    expect(until(sim, () => r.phase === 'marching' && r.start + r.dur - s.tick < JOIN_LEAST, 30 * TICKS_PER_DAY)).toBe(true);
+    mood(s, 'ares', -75, 'you paid tribute to Athens');
+    const msgs = s.messages.log.length;
+    sim.run(2 * TICKS_PER_DAY);
+    expect(marchOf(s, r.id)).toBeUndefined();
+    expect(s.messages.log.slice(msgs).some((m) => m.kind === 'godwar')).toBe(false);
+  }, 600_000);
+
   it('no god is at war in any demo’s town as it opens', () => {
     for (const name of ['town', 'battle', 'siege', 'empire']) expect(demoSim(name).state.gods.war).toEqual(freshWars());
   }, 600_000);
@@ -372,6 +382,20 @@ describe('gods in war at the merge (slices 58 and 59)', () => {
     expect(faceRefusal(s, 'perseus', f.id)).toMatch(/nursing his wounds/);
     expect(s.messages.log.some((x) => x.kind === 'hero' && /^Perseus withdraws wounded from Ares/.test(x.words))).toBe(true);
     expect(f.state).not.toBe('leaving');
+    // Slice 61 (slice 60's finding): he rests a month at his hall, healing, and can't be sent out until he has; said so.
+    const said = s.messages.log.filter((x) => x.kind === 'hero' && /^Perseus withdraws wounded/.test(x.words)).map((x) => x.words);
+    expect(said[0]).toMatch(/^Perseus withdraws wounded from Ares after [\w-]+ days? and walks home to his hall, to rest a month while he heals/);
+    expect((c.rest ?? 0) - s.tick).toBeGreaterThan(TICKS_PER_DAY * 25);
+    expect(heroDoing(s, c)).toMatch(/^Walking home to his hall, wounded, to rest a month$/);
+    // (Home is across the town from the bridge: a long walk.)
+    expect(until(sim, () => c.state === 'home', 2 * TICKS_PER_MONTH)).toBe(true);
+    expect((c.rest ?? 0) - s.tick).toBeGreaterThanOrEqual(TICKS_PER_MONTH - 1);
+    expect(heroDoing(s, c)).toMatch(/^Resting in his hall, healing the wounds a god gave him: [\w-]+ more days?$/);
+    sim.run(10 * TICKS_PER_DAY);
+    expect(c.state).toBe('home');
+    expect(faceRefusal(s, 'perseus', f.id)).toMatch(/nursing his wounds/);
+    expect(until(sim, () => (c.rest ?? 0) <= s.tick, 30 * TICKS_PER_DAY)).toBe(true);
+    expect(until(sim, () => c.state === 'strolling' || c.state === 'hunting', 30 * TICKS_PER_DAY)).toBe(true);
     // A save mid-war keeps the hero's mark on the march.
     const back = decodeSave(encodeSave(s, 1));
     if (!back.ok) throw new Error(back.why);
@@ -406,5 +430,9 @@ describe('gods in war at the merge (slices 58 and 59)', () => {
     expect(until(sim, () => r.ended > 0, 90 * TICKS_PER_DAY)).toBe(true);
     const deeds = s.gods.memories.ares.filter((x) => x.kind === 'greece' && /broke Sparta’s raiders/.test(x.why));
     expect(deeds.length).toBe(1);
+    // Slice 61 (slice 60's finding): the army's news says Athena broke them, not your soldiers.
+    expect(r.brokeBy).toBe('athena');
+    expect(s.army.news.some((n) => /^Athena broke Sparta’s raiders .*, your soldiers beside her: \d+ of their \d+ men fell/.test(n.line))).toBe(true);
+    expect(s.army.news.some((n) => /^Your soldiers broke/.test(n.line))).toBe(false);
   }, 600_000);
 });
