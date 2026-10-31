@@ -380,6 +380,8 @@ interface Probe {
   heroes?: (open?: string) => { list: Array<{ hero: string; state: string; x: number; z: number; hall: number; foe: number }>; drawn: { halls: number; heroes: number; legends: number; dancers: number }; tip: string; panel: string; chooser: boolean };
   /** Where a hero is on screen (their middle), or null. */
   heroOnScreen?: (hero: string) => { x: number; y: number } | null;
+  /** For looking: a hero set down at (x, z), facing `face`, as if at home (paused, a look at their figure). */
+  heroStage?: (hero: string, x: number, z: number, face: number) => boolean;
 }
 
 const probe: Probe = { ready: false, frames: 0, bakeMs: 0, startMs: 0, updateMs: 0, sideMs: 0, demos: Object.keys(DEMOS) };
@@ -1834,6 +1836,18 @@ function start(preparedTown: string | null): void {
       panel: buildingPanel.text,
       chooser: heroChooser.open,
     };
+  };
+  probe.heroStage = (hero, x, z, face) => {
+    const s = sim.state;
+    if (!HERO_IDS.includes(hero as HeroId)) return false;
+    let c = heroOf(s, hero as HeroId);
+    if (!c) {
+      c = { hero: hero as HeroId, hall: 0, state: 'home', word: s.tick, came: s.tick, by: 'road', next: s.tick + 9999, x, z, face, walked: 0, path: [], seg: 0, along: 0, foe: 0, fight: -1, from: 0, swung: 0, wish: s.tick, warned: 0, slain: [], ride: false, away: 0, again: 0 };
+      s.legends.heroes.push(c);
+    }
+    Object.assign(c, { state: 'home', came: s.tick, x, z, face });
+    s.rev++;
+    return true;
   };
   probe.heroOnScreen = (hero) => {
     const o = heroesView.shown.find((x) => x.hero === hero);

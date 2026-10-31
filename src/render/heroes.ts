@@ -77,6 +77,8 @@ function heroPieces(h: HeroId): Pieces {
   const p: Pieces = { body: [], legL: [], legR: [], arm: [], wingL: [], wingR: [], mounted: h === 'bellerophon' };
   if (p.mounted) return pegasus(p, c);
   const woman = h === 'atalanta';
+  // (Heracles wears the lion's skin over all; Atalanta a huntress' green.)
+  const tunic = woman ? '#7aa35a' : h === 'heracles' ? LION : TUNIC;
   // Legs (bare, sandalled), hanging from the hips.
   for (const [arr, z] of [[p.legL, 0.045], [p.legR, -0.045]] as const) {
     arr.push({ geo: cyl(0.026, 0.022, HIP - 0.02, 5).translate(0, -(HIP - 0.02) / 2 - 0.02, 0), color: PAL.skin });
@@ -84,8 +86,8 @@ function heroPieces(h: HeroId): Pieces {
     void z;
   }
   // The tunic (short: a hero's), a belt, the chest; the head and hair.
-  p.body.push({ geo: cyl(0.075, 0.095, 0.1, 7).translate(0, HIP + 0.02, 0), color: woman ? '#7aa35a' : TUNIC });
-  p.body.push({ geo: box(0.12, 0.13, 0.17).translate(0, HIP + 0.12, 0), color: woman ? '#7aa35a' : TUNIC });
+  p.body.push({ geo: cyl(0.075, 0.095, 0.1, 7).translate(0, HIP + 0.02, 0), color: tunic });
+  p.body.push({ geo: box(0.12, 0.13, 0.17).translate(0, HIP + 0.12, 0), color: tunic });
   p.body.push({ geo: cyl(0.088, 0.088, 0.02, 7).translate(0, HIP + 0.07, 0), color: PAL.woodDark });
   p.body.push({ geo: cyl(0.025, 0.03, 0.04, 5).translate(0, SHOULDER + 0.02, 0), color: PAL.skin });
   p.body.push({ geo: ball(0.048).translate(0.005, SHOULDER + 0.08, 0), color: PAL.skin });
@@ -103,7 +105,7 @@ function heroPieces(h: HeroId): Pieces {
       p.body.push({ geo: ball(0.062).scale(1.1, 0.7, 1).translate(-0.01, SHOULDER + 0.115, 0), color: LION });
       p.body.push({ geo: box(0.03, 0.26, 0.22).rotateZ(-0.08).translate(-0.085, SHOULDER - 0.06, 0), color: LION });
       p.body.push({ geo: box(0.07, 0.04, 0.06).translate(0.06, SHOULDER + 0.13, 0), color: LION_DARK });
-      p.arm.push({ geo: cyl(0.02, 0.042, 0.3, 6).rotateZ(-1.1).translate(0.12, -0.13, 0), color: '#7a5532' });
+      p.arm.push({ geo: cyl(0.024, 0.055, 0.36, 6).rotateZ(-1.0).translate(0.14, -0.12, 0), color: '#6a4528' });
       break;
     case 'perseus':
       // The winged cap, the curved sword, the shield with the Gorgon's head on its face.
