@@ -204,4 +204,10 @@ export const VIEWS: Record<string, CameraView> = {
   plague: { x: 66, z: 58, yaw: -0.785, dist: 46, tilt: -0.12 },
   // Slice 52, #order: the town on the delta from over its south side, the quay and the farms in front, the streets up to the north street behind.
   order: { x: 45, z: 113, yaw: -0.785, dist: 64, tilt: -0.15 },
+  // Slice 55, #monster: the shore below #richtown's trading post, the Cyclops walking the last of the way to his den.
+  monster: { x: 63, z: 66, yaw: -0.785, dist: 24, tilt: -0.05 },
+  // #monsterraid: the Boar at the sheep pasture west of the town, the hoplites coming along the road from the barracks.
+  monsterraid: { x: 54, z: 44, yaw: -0.785, dist: 18, tilt: -0.05 },
+  // #bestiary: the seven before their lairs in a row on the open ground below #town, facing the camera.
+  bestiary: { x: 75.5, z: 58.5, yaw: -0.785, dist: 27, tilt: -0.05 },
 };

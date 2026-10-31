@@ -168,8 +168,8 @@ export const RAID_GAP: readonly [number, number] = [21 * TICKS_PER_DAY, 42 * TIC
 /** A raid is announced this long before it sets out. */
 export const STIR = TICKS_PER_DAY;
 /** How long it stays at its target, and how often it wrecks something there. */
-export const AT_TARGET = 3 * TICKS_PER_DAY;
-export const WRECK_EVERY = 7;
+export const AT_TARGET = 5 * TICKS_PER_DAY;
+export const WRECK_EVERY = 12;
 /** How long it takes to smash through a stretch of wall or a gate in its way. */
 export const SMASH = TICKS_PER_DAY;
 /** Below this share of its health it breaks off; inside its lair it heals for this long. */
@@ -220,9 +220,9 @@ export const MAKES: Record<MonsterId, Make> = {
   medusa: { hp: 1000, blow: 290, swing: 10, pace: 0.17, bulk: 0.55, wrecks: 0, kills: 0, sweep: false, tall: 1.9 },
   cyclops: { hp: 1700, blow: 360, swing: 13, pace: 0.18, bulk: 0.8, wrecks: 3, kills: 1, sweep: true, tall: 3.0 },
   minotaur: { hp: 1300, blow: 330, swing: 10, pace: 0.2, bulk: 0.6, wrecks: 3, kills: 2, sweep: false, tall: 2.1 },
-  chimera: { hp: 1300, blow: 300, swing: 10, pace: 0.2, bulk: 0.8, wrecks: 4, kills: 1, sweep: false, tall: 1.6 },
+  chimera: { hp: 1300, blow: 300, swing: 10, pace: 0.2, bulk: 0.8, wrecks: 4, kills: 1, sweep: false, tall: 2.0 },
   talos: { hp: 1900, blow: 380, swing: 14, pace: 0.15, bulk: 0.8, wrecks: 4, kills: 1, sweep: true, tall: 3.4 },
-  boar: { hp: 1100, blow: 300, swing: 9, pace: 0.24, bulk: 0.75, wrecks: 2, kills: 1, sweep: false, tall: 1.2 },
+  boar: { hp: 1100, blow: 300, swing: 9, pace: 0.24, bulk: 0.75, wrecks: 2, kills: 1, sweep: false, tall: 1.35 },
 };
 
 /** What each kind goes for, in order (TARGETS); "homes by water", "dense" and "busy" are worked out. */
@@ -1378,6 +1378,7 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
       if (!t || dx < d || x.id < t.id) [t, d] = [x, dx];
     }
     const calm = s.tick < m.calm;
+    let blocked = false;
     if (t && d > reachTo * 0.9) {
       // Closing with him (not while it pays soldiers no mind, nor into a building).
       const step = calm ? 0 : Math.min(d - reachTo * 0.85, mk.pace * 0.8);
@@ -1389,12 +1390,18 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
         m.z = nz;
         m.walked += step;
         d = dhypot(t.x - m.x, t.z - m.z);
-      } else if (d > reachTo) t = undefined;
+      } else if (d > reachTo) blocked = true;
     }
-    if (!t) {
+    if (!t || blocked) {
       f.state = 'with';
       f.foe = 0;
-      m.chase = 0;
+      // (Nobody in sight: the chase is over. One in sight it can't get at, or pays no mind: it goes on its way, and
+      // after a while of that gives soldiers no mind for a spell; it doesn't hover by them.)
+      if (!t) m.chase = 0;
+      else if (!calm && ++m.chase > STALL) {
+        m.calm = s.tick + CALM;
+        m.chase = 0;
+      }
       continue;
     }
     m.fought = s.tick;
@@ -1493,11 +1500,17 @@ export function beastTip(s: SimState, m: Beast): { title: string; detail: string
       `Why: ${m.why}`,
       `${beastDoing(s, m)} · health ${hp}%`,
       `${Cap(itsOf(m.kind))} lair: ${denWords(m.den)} ${whereWords(map, lx, lz)}`,
-      m.last >= 0 ? `Last raid: ${daysAgo(s, m.last)}${m.lastWords ? `; ${m.lastWords}` : ''}` : 'No raid yet',
+      m.state === 'raiding' ? `${outFor(s, m.last)}${m.wrecked.length ? `; it has wrecked ${m.wrecked.join(', ')}` : ''}` : m.last >= 0 ? `Last raid: ${daysAgo(s, m.last)}${m.lastWords ? `; ${m.lastWords}` : ''}` : 'No raid yet',
       `Your soldiers can wound ${himOf(m.kind)} and drive ${himOf(m.kind)} back. Only a hero can slay ${himOf(m.kind)}.`,
     ].join('\n'),
   };
 }
+
+/** "Out on this raid since today", "Out on this raid 4 days". */
+export const outFor = (s: SimState, tick: number): string => {
+  const d = Math.floor((s.tick - tick) / TICKS_PER_DAY);
+  return d <= 0 ? 'Out on this raid since today' : `Out on this raid ${d} ${d === 1 ? 'day' : 'days'}`;
+};
 
 const daysAgo = (s: SimState, tick: number): string => {
   const d = Math.floor((s.tick - tick) / TICKS_PER_DAY);
