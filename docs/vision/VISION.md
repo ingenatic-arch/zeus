@@ -95,3 +95,6 @@ Oliver first: a single-player game made to his taste. Getting it ready for other
 | Is the vision right, with Claude's pillar order? (15 Oct) | Yes, as written. |
 | What should it look like? (25 Oct) | Closer to the original Zeus: its fixed isometric view, its colours and hard pixels, with people visibly at work at every work and service building. Tried on its own page before it goes into the game. |
 | How should a new game choose its land? (25 Oct) | A new-game screen with a preview: a kind of land, a size and a seed, with the original bay kept as one choice. The city's place in Greece stays the same. |
+| Which gods watch over the city? (30 Oct) | All twelve Olympians, each with a mood, a sanctuary, gifts and a temper, with rivalries. |
+| How hard does an angry god hit, and who beats a monster? (30 Oct) | Real damage, always warned a month ahead by omens, and an offering can still turn it. Your army can drive a monster back to its lair at a cost; only a hero slays it. |
+| How do gods step into wars? (31 Oct) | On both sides, in your streets: a god who loves you can fight invaders on your map, and a rival's patron god can march with their army. |
