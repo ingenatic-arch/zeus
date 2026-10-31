@@ -6,7 +6,11 @@
  * month; every curse lands on a prepared town and does what it says;
  * determinism; the migration and a save round-trip.
  */
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { Sim } from '../src/sim/sim';
+import { bake } from '../scripts/bake';
 import { decodeSave, encodeSave } from '../src/game/saves';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { migrate } from '../src/sim/migrate';
@@ -170,6 +174,44 @@ describe('determinism and saves', () => {
     expect(st.version).toBe(SIM_STATE_VERSION);
     expect(st.gods.wrath).toEqual({ on: true, omens: [], spells: [], asked: {}, given: {}, cursed: {} });
   });
+
+  it('a groundwork save (state 48) and a phase 6 save (state 47) load, wrath on with the gods, and play on', () => {
+    const text = gunzipSync(readFileSync('tests/fixtures/groundwork-town.save.json.gz')).toString();
+    for (const strip of [false, true]) {
+      let t = text;
+      if (strip) {
+        const file = JSON.parse(t);
+        expect(file.state.version).toBe(48);
+        delete file.state.gods;
+        file.state.version = 47;
+        t = JSON.stringify(file);
+      }
+      const got = decodeSave(t);
+      if (!got.ok) throw new Error(got.why);
+      const s = got.file.state;
+      expect(s.version).toBe(SIM_STATE_VERSION);
+      expect(s.gods.wrath).toEqual({ on: s.gods.on, omens: [], spells: [], asked: {}, given: {}, cursed: {} });
+      const sim = new Sim();
+      sim.state = s;
+      sim.run(TICKS_PER_MONTH);
+      expect(s.gods.wrath.omens).toHaveLength(0);
+    }
+  });
+
+  it('the three demos keep as saves (a god come in wrath too), and a broken record of wrath is refused plainly', () => {
+    for (const n of ['omen', 'blessing', 'wrath']) expect(bake(n), n).toBeTruthy();
+    const file = JSON.parse(bake('wrath')!);
+    const st = decodeSave(JSON.stringify(file));
+    expect(st.ok && st.file.state.gods.walks.figures.some((f) => f.why === 'wrath')).toBe(true);
+    const sim = rich();
+    honour(sim.state, 'athena', -50, 'staged', 'angry', 0);
+    beginOmen(sim.state, sim.map, 'athena', 'medusa');
+    const broken = JSON.parse(JSON.stringify(sim.state));
+    broken.gods.wrath.omens[0].curse = 'locusts';
+    const d = decodeSave(encodeSave(broken, 0));
+    expect(d.ok).toBe(false);
+    if (!d.ok) expect(d.why).toMatch(/blessings and wrath/);
+  }, 1200000);
 
   it('a save round-trip keeps an omen running and a curse in force', () => {
     const sim = rich();
