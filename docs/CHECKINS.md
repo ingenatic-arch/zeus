@@ -49,8 +49,8 @@ Before is the trunk at `67cfde3` (where this line branched), after is this branc
 | #town's three views | 1,488,490 (102 draws), 1,279,497 (79), 1,626,312 (131) triangles | the same; its save 190 KB |
 | #battle, #siege | 1,823,779 (108 draws), 1,607,441 (91) | the same |
 | #battle update per frame | 6.95 ms | 7.10 ms |
-| #godwar | | 1,713,513 triangles, 107 draws, 8.5 ms update per frame |
-| #godduel | | 1,695,313 triangles, 111 draws, 10.6 ms update per frame |
+| #godwar | | 1,713,513 triangles, 107 draws, 8.5 ms update per frame (1,713,601 after the review, with the archers out too) |
+| #godduel | | 1,695,313 triangles, 111 draws, 10.6 ms update per frame (1,695,431 after the review) |
 | A god's figure | zeus 584 … dionysus 696 triangles | the same |
 
 - **Tests:** 844 in 64 files; 839 pass. The 5 that fail are timing budgets under the load: a culture call's time (5.05 ms against 2), two of the lands' bake times (12.6 s against 6), the routes replay's 60 s timeout, and the every-demo wages check's 20-minute timeout. Run again alone, the routes, culture and lands files pass (81 of 81); the wages check on #godwar and #godduel alone owes nothing. The new godwar tests pass (9 of 9), and the saves, epiphany, pantheon and monsters tests, so saves from versions 47 to 51 load.
