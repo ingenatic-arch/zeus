@@ -62,6 +62,14 @@ The starting build (`11f9290`) and this slice's, measured side by side with the 
 
 Still for your eye: whether fifteen months in `#sanctuary` feels right for a centrepiece, and whether the roofs' colours are too loud in the classic look (in `#twelve`).
 
+### At the merge
+Slices 55 (the monsters) and 56 (the gods in the city) joined the main line first, so this slice's saves are now version 51, not 49. Every older save still loads.
+- **A god comes to see their sanctuary.** When a sanctuary is finished, its god now rises at its altar, blesses it first and then walks on to the places they love: play `#sanctuaries` on for about a month and Poseidon rises in his court ("Poseidon rises at the altar of his new sanctuary, come to see it"), blesses it and then the trading post, and goes. At most three gods walk the city at once, as before, so a fourth sanctuary finished while three are about brings nobody. `#twelve` raises its twelve while the demo is being set up, so no god comes there.
+- **A god's own sanctuary is the first place they visit**, whenever they come.
+- **Monsters can wreck a sanctuary** like any other building: one that falls, finished or half built, leaves 5 × 5 rubble, its god's +18 honour goes with it, and ox carts on their way turn home with their loads.
+- **Every earlier town is as it was.** I played all 170 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on. The only difference is the new empty "idle" field on the monuments' sites. `#town`'s save is the same size as before.
+- **Checked on the merged game:** `#sanctuaries`, `#sanctuary`, `#twelve`, `#pantheon`, `#epiphany`, `#monster`, `#monument` and `#town` open with no errors, and the sanctuaries', monuments', monsters' and gods' own browser checks pass. All 835 tests pass. On this busy machine, 3 of them ran out of time or missed a timing budget in the full run, and their files passed when run alone.
+
 ## Slice 56 — The gods walk your streets (31 Oct)
 
 When a god's mood first reaches loving, the god comes to your city: towering over the townhouses, glowing, with a halo, rising at a fitting spot with their own flourish, then walking in straight lines over roofs and rivers to the places they love, blessing each for a season, and leaving as they came. You weren't here while it was built: every choice below is mine, from the spec's defaults.
