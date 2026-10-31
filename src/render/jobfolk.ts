@@ -12,6 +12,9 @@ import { col, PAL } from './palette';
 import { lumpy } from './trees';
 import { leg, mergeTinted, type TPart } from './walkers';
 import { ARM_Z, arms, body, mallet, rod, SHOULDER, type V3 } from './workfolk';
+// Slice 54: a sanctuary's priests in their god's colour, on its temple's floor.
+import { GODS } from '../sim/pantheon';
+import { SANCTUARY_FLOOR } from './sanctuary';
 
 /**
  * The people at work in the city's buildings (25 Oct, Oliver's ask: in the
@@ -459,6 +462,12 @@ export class Jobfolk {
         return [at(0.32, -0.25, E, P.architect, 16, col(HEALER_ROBE), { y: 0.05 }), at(0.72, 0.7, N, P.pick, 12, col(HEALER_ROBE), { y: 0.06 })];
       case 'asklepieion':
         return [at(1.05, 0.0, E, P.priestess, 30, col(PAL.priestessRobe), { y: 0.06 }), at(0.05, -1.28, S, P.pick, 12, col(ATTENDANT_TUNIC), { y: 0.06 }), at(0.55, 0.05, S, P.amphora, 70, col(ATTENDANT_TUNIC), { y: 0.06, to: [0.9, -1.28] }), at(0.75, -1.28, S, P.pick, 13, col(HEALER_ROBE), { y: 0.06 }), at(0.6, 1.25, N, P.pick, 12, d(1), { y: 0.06 })];
+      // Slice 54: once a sanctuary is finished, its priests in their god's colour at the altar and at the temple's door, a servant bringing an amphora from the gate.
+      case 'sanctuary': {
+        if (b.level <= 0) return [];
+        const robe = new THREE.Color(GODS[b.god ?? 'zeus'].colour);
+        return [at(1.18, 0.0, E, P.priestess, 30, robe, { y: 0.02 }), at(1.55, -0.5, N, P.priestess, 34, robe, { y: 0.02 }), at(2.05, 0.28, W, P.amphora, 70, d(1), { y: 0.02, to: [1.82, 0.42] }), at(0.3, 0.0, E, P.priestess, 40, robe, { y: SANCTUARY_FLOOR })];
+      }
       default:
         return [];
     }
@@ -474,7 +483,8 @@ export class Jobfolk {
       const mirror = b.kind !== 'fountain' && hash2(b.id, 2, 40) < 0.5 ? -1 : 1;
       return { x, y: this.map.heightAt(x, z) + 0.01, z, yaw: facingOf(s, this.map.size, b), mirror };
     }
-    const f = MONUMENT.has(b.kind) ? this.frames.monuments(s, b) : this.frames.works(s, b);
+    // (Slice 54: a sanctuary stands in the monuments' frame.)
+    const f = MONUMENT.has(b.kind) || b.kind === 'sanctuary' ? this.frames.monuments(s, b) : this.frames.works(s, b);
     return { ...f, mirror: 1 };
   }
 

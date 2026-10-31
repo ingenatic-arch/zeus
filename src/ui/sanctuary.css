@@ -1,0 +1,56 @@
+/* Slice 54: the sanctuary chooser (the Sanctuary button's card of the twelve) and a sanctuary's sections in the building panel, on the kit. */
+
+/* ------------------------------------------------------------------------ the chooser */
+.godchooser {
+  position: fixed; left: 312px; top: 96px; z-index: 40; width: 560px; max-width: calc(100vw - 340px);
+  padding: 14px 16px 16px; border-radius: 6px; color: var(--ink);
+  background: var(--k-parch);
+  box-shadow: 0 0 0 2px #8a6430, 0 0 0 3px #4a3216, 3px 8px 22px rgba(30, 18, 6, 0.45);
+}
+.godchooser[hidden] { display: none; }
+.godchooser .gc-head { position: relative; padding-right: 30px; }
+.godchooser .gc-head h2 { margin: 0; font: 700 20px/1.15 var(--display); letter-spacing: 0.035em; color: #2b2016; }
+.godchooser .gc-head p { margin: 5px 0 10px; font-size: 13.5px; line-height: 1.35; color: var(--ink-soft); }
+.godchooser .gc-close { position: absolute; right: 0; top: -2px; width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer; font-size: 19px; line-height: 1; color: #3a2814; background: var(--k-bronze); box-shadow: 0 1px 2px rgba(40, 24, 8, 0.4); }
+.godchooser .gc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.godchooser .gc-card {
+  appearance: none; border: 0; cursor: pointer; text-align: center; padding: 8px 6px 9px; border-radius: 5px; display: grid; justify-items: center; gap: 2px;
+  background: linear-gradient(rgba(255, 252, 240, 0.72), rgba(246, 234, 206, 0.72));
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--god) 70%, #4a3216), inset 0 -3px 0 color-mix(in srgb, var(--god) 55%, transparent), 0 2px 4px rgba(40, 24, 8, 0.25);
+  color: var(--ink);
+}
+.godchooser .gc-card:hover:not(:disabled) { background: linear-gradient(#fffaf0, #f6e8c6); transform: translateY(-1px); }
+.godchooser .gc-card:disabled { cursor: not-allowed; filter: grayscale(0.85); opacity: 0.55; }
+.godchooser .gc-em { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #fffaf0, color-mix(in srgb, var(--god) 22%, #eadbb8)); box-shadow: 0 0 0 2px #b8893a, inset 1px 2px 3px rgba(40, 28, 16, 0.3); }
+.godchooser .gc-em svg { width: 32px; height: 32px; }
+.godchooser .gc-name { font: 700 15px/1.15 var(--display); letter-spacing: 0.04em; margin-top: 3px; }
+.godchooser .gc-of { font: italic 12.5px/1.2 var(--serif); color: var(--ink-soft); }
+.godchooser .gc-sacred { font-size: 12px; line-height: 1.2; color: #5a4126; }
+
+/* ------------------------------------------------------------------------ the panel */
+.household.building:has(.sanctp) { width: 392px; }
+.household .sanctp .sn-god { display: flex; gap: 10px; align-items: center; margin-top: 8px; padding: 7px 9px; border-radius: 5px; background: color-mix(in srgb, var(--god) 12%, rgba(255, 252, 240, 0.6)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--god) 55%, transparent); }
+.household .sanctp .sn-god h3 { margin: 0; font: 700 15.5px/1.2 var(--display); letter-spacing: 0.035em; border: 0; }
+.household .sanctp .sn-god p { margin: 2px 0 0; font-size: 13px; line-height: 1.3; color: var(--ink-soft); }
+.household .sanctp .sn-em { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #fffaf0, #eadbb8); box-shadow: 0 0 0 2px #b8893a, 0 0 0 3px #6a4a1c, inset 1px 2px 3px rgba(40, 28, 16, 0.3); }
+.household .sanctp .sn-em svg { width: 32px; height: 32px; }
+.household .sanctp ol.sn-stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.household .sanctp ol.sn-stages li p { margin: 1px 0 0; font-size: 13px; line-height: 1.3; color: var(--ink-soft); }
+.household .sanctp ol.sn-stages li.later p, .household .sanctp ol.sn-stages li.later b { opacity: 0.7; }
+.household .sanctp .sn-row { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 8px; font-size: 13.5px; }
+.household .sanctp .sn-row b { font-weight: 600; }
+.household .sanctp .sn-row .k-bar { height: 10px; }
+.household .sanctp .sn-mood { display: grid; grid-template-columns: 1fr 40px; align-items: center; gap: 8px; }
+.household .sanctp .sn-mood .k-bar { height: 11px; }
+.household .sanctp .sn-mood .num { text-align: right; font-variant-numeric: lining-nums tabular-nums; font-size: 13.5px; }
+.household .sanctp ul.sn-why { list-style: none; margin: 5px 0 0; padding: 0; font-size: 13px; line-height: 1.3; }
+.household .sanctp ul.sn-why li { padding: 2px 0; border-top: 1px solid rgba(138, 100, 48, 0.2); }
+.household .sanctp ul.sn-why li b { display: inline-block; min-width: 30px; font-variant-numeric: lining-nums tabular-nums; }
+.household .sanctp ul.sn-why li.up b { color: var(--up, #3f7a3a); }
+.household .sanctp ul.sn-why li.down b { color: var(--down, #8c2f26); }
+.household .sanctp ul.sn-why small { color: var(--ink-soft); }
+.household .sanctp p { margin: 3px 0 0; font-size: 13px; line-height: 1.35; }
+.household .sanctp p.sn-dim { color: #8a3a1c; font-weight: 600; }
+.household .sanctp p.sn-none { font-style: italic; color: var(--ink-soft); }
+.household .sanctp p.sn-staff { color: var(--ink-soft); }
+.household .sanctp .sn-slot:empty { display: none; }

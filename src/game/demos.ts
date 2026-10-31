@@ -107,6 +107,13 @@ import type { BuildKind } from '../sim/commands';
 import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
 import { FOUND_WHEAT } from '../sim/colonies';
 import { REFUSE } from '../sim/stores';
+// Slice 54: sanctuaries.
+import { SANCTUARY_COST } from '../sim/build';
+import { needOf, siteMaterials, stagesOf, workOf, type Site } from '../sim/monuments';
+import { GOD_IDS, type GodId } from '../sim/pantheon';
+import { sanctuaryOf } from '../sim/sanctuaries';
+import { income } from '../sim/treasury';
+import { TILE_ROAD } from '../sim/state';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -2764,6 +2771,174 @@ const MONUMENT_TOWN = monumentTown('monument');
 const LIT_TOWN = monumentTown('lit');
 
 // ---------------------------------------------------------------------------
+// Slice 54: sanctuaries.
+
+/**
+ * #sanctuaries: #quarry's town (the headland's quarry, the storehouse by the
+ * bay road) with four sanctuaries east of its vineyards, beside the roads
+ * there: Athena's finished and staffed, her priests out; Poseidon's with its
+ * statue going up in its scaffold; Apollo's with its temple's columns rising;
+ * Demeter's just marked out, the ox carts bringing its marble. Three masons'
+ * yards and an armoury (for the bronze) are built for them, and the
+ * materials for the stages each is to reach are put on its site (set up for
+ * this demo, noted in the stock book as bought), so it opens in months, not
+ * years; the builders, the carts and the stages are played as they come.
+ * #sanctuary: the same town with only Demeter's marked out, one masons'
+ * yard, and the first ox carts on the road to it with marble.
+ */
+const SANCT_SPOTS: Record<'athena' | 'poseidon' | 'apollo' | 'demeter', number> = { athena: T(109, 66), poseidon: T(97, 69), apollo: T(103, 75), demeter: T(101, 63) };
+/** How long each may play on, at most, to its moment. */
+const SANCT_MOST = 2 * TICKS_PER_YEAR;
+/** #sanctuaries opens with Poseidon's statue about this far through its stage's work. */
+const SANCT_STATUE = 0.5;
+
+/** The nearest spot by a road for a building of this side and kind to a point (the nearest first, ties by row then column), or -1. */
+function spotNear(sim: Sim, kind: BuildKind, side: number, cx: number, cz: number, reach = 16): number {
+  const s = sim.state;
+  const n = sim.map.size;
+  let best = -1;
+  let bd = Infinity;
+  for (let tz = cz - reach; tz <= cz + reach; tz++) {
+    for (let tx = cx - reach; tx <= cx + reach; tx++) {
+      if (tx < 1 || tz < 1 || tx + side >= n || tz + side >= n) continue;
+      const d = Math.abs(tx - cx) + Math.abs(tz - cz);
+      if (d >= bd || buildingRefusal(sim.map, s, kind, tx, tz) !== '') continue;
+      let road = false;
+      for (let k = 0; k < side && !road; k++) road = [(tz - 1) * n + tx + k, (tz + side) * n + tx + k, (tz + k) * n + tx - 1, (tz + k) * n + tx + side].some((t) => s.tiles[t] === TILE_ROAD);
+      if (!road) continue;
+      best = tz * n + tx;
+      bd = d;
+    }
+  }
+  return best;
+}
+
+/** Put on a sanctuary's site what its stages from `from` to `to` (not including) need, noted as bought for the demo. */
+function stockSanctuary(sim: Sim, x: Site, from: number, to: number): void {
+  const s = sim.state;
+  const b = s.buildings.find((g) => g.id === x.id);
+  if (!b) return;
+  for (let k = from; k < to; k++) {
+    const st = stagesOf(x)[k];
+    if (!st) continue;
+    for (const w of siteMaterials(x)) {
+      const n = needOf(st, w);
+      if (n <= 0) continue;
+      setHeld(b, w, held(b, w) + n);
+      note(s, w, 'bought', 'for a sanctuary (set up for this demo)', n);
+    }
+  }
+}
+
+function sanctuariesTown(which: 'sanctuaries' | 'sanctuary'): (sim: Sim) => void {
+  return (sim) => {
+    WORKS_QUARRY_TOWN(sim);
+    const s = sim.state;
+    const seen = new Set(s.world.deals.map((d) => d.id));
+    const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+      sim.enqueue(c);
+      sim.flush();
+    };
+    const playOn = (most: number, done: () => boolean): void => {
+      const end = s.tick + most;
+      while (s.tick < end && !done()) {
+        sim.run(TICKS_PER_DAY);
+        answerAsMiddling(sim, seen);
+      }
+    };
+    const rolling = (god: GodId): boolean => {
+      const x = sanctuaryOf(s, god);
+      return !!x && cartsTo(s, x.id).some((k) => k.wait <= 0 && k.load > 0 && k.food === MARBLE);
+    };
+    const yards = which === 'sanctuary' ? 1 : 3;
+    // (The sanctuaries' coin and their yards': a gift for the demo, so it opens without years of saving.)
+    const gods = which === 'sanctuary' ? (['demeter'] as const) : (['athena', 'poseidon', 'apollo', 'demeter'] as const);
+    income(s, gods.length * SANCTUARY_COST + yards * (MASONS_COST + JOBS.masons * WAGE) + (which === 'sanctuaries' ? COST.armoury + JOBS.armoury * WAGE : 0), 'gifts', 'set up for this demo: the sanctuaries’ coin');
+    if (which === 'sanctuary') {
+      send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+      const at = spotNear(sim, 'masons', 2, 104, 70);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+      playOn(2 * TICKS_PER_MONTH, () => rolling('demeter'));
+      return;
+    }
+    for (const god of ['athena', 'poseidon', 'apollo'] as const) send({ type: 'sanctuary', god, at: [SANCT_SPOTS[god]] });
+    for (const [cx, cz] of [[104, 70], [100, 74], [108, 72]]) {
+      const at = spotNear(sim, 'masons', 2, cx, cz);
+      if (at >= 0) send({ type: 'build', kind: 'masons', at: [at] });
+    }
+    const forge = spotNear(sim, 'armoury', 3, 98, 64);
+    if (forge >= 0) send({ type: 'build', kind: 'armoury', at: [forge] });
+    const athena = sanctuaryOf(s, 'athena');
+    const poseidon = sanctuaryOf(s, 'poseidon');
+    const apollo = sanctuaryOf(s, 'apollo');
+    if (!athena || !poseidon || !apollo) return;
+    // Athena's all three stages, Poseidon's two, Apollo's one: each goes as far as its materials let it.
+    stockSanctuary(sim, athena, 0, 3);
+    stockSanctuary(sim, poseidon, 0, 2);
+    stockSanctuary(sim, apollo, 0, 1);
+    playOn(SANCT_MOST, () => !!athena.finished && poseidon.stage >= 2 && apollo.stage >= 1);
+    // Then Poseidon's statue and Apollo's temple, played until the statue is about half up.
+    stockSanctuary(sim, poseidon, 2, 3);
+    stockSanctuary(sim, apollo, 1, 2);
+    playOn(SANCT_MOST, () => poseidon.stage >= 2 && poseidon.building && poseidon.work >= SANCT_STATUE * workOf(stagesOf(poseidon)[2]));
+    // Demeter's marked out last, and played until its first marble is on the road.
+    send({ type: 'sanctuary', god: 'demeter', at: [SANCT_SPOTS.demeter] });
+    playOn(TICKS_PER_MONTH, () => rolling('demeter') && s.walkers.some((w) => w.kind === 'priest' && w.origin === athena.id));
+  };
+}
+const SANCTUARIES_TOWN = sanctuariesTown('sanctuaries');
+const SANCTUARY_TOWN = sanctuariesTown('sanctuary');
+
+/**
+ * #twelve: all twelve sanctuaries finished in two rows of six facing each
+ * other across a new road south of #quarry's town (the gods in their order,
+ * Zeus to Ares on the north side, Aphrodite to Dionysus on the south), to
+ * compare them. They are raised at once for the comparison, stage by stage
+ * as if their builders had just finished each (set up for this demo: no
+ * materials are hauled or used), so each god notices each stage as it would.
+ */
+const TWELVE_ROW = { x: 69, z: 50 };
+function twelveTown(sim: Sim): void {
+  WORKS_QUARRY_TOWN(sim);
+  const s = sim.state;
+  const n = sim.map.size;
+  const send = (c: Parameters<Sim['enqueue']>[0]): void => {
+    sim.enqueue(c);
+    sim.flush();
+  };
+  income(s, GOD_IDS.length * SANCTUARY_COST + 40 * ROAD_COST, 'gifts', 'set up for this demo: the sanctuaries’ coin');
+  const { x, z } = TWELVE_ROW;
+  const row: number[] = [];
+  for (let k = 0; k < 36; k++) row.push(z * n + x + k);
+  send({ type: 'road', tiles: row });
+  // Joined to the town's streets at its west end.
+  let near = -1;
+  let bd = Infinity;
+  for (let t = 0; t < n * n; t++) {
+    if (s.tiles[t] !== TILE_ROAD || row.includes(t)) continue;
+    const d = Math.abs((t % n) - x) + Math.abs(Math.floor(t / n) - z);
+    if (d < bd) {
+      bd = d;
+      near = t;
+    }
+  }
+  if (near >= 0) send({ type: 'road', tiles: roadRoute(sim.map, s, z * n + x, near) ?? [] });
+  GOD_IDS.forEach((god, i) => send({ type: 'sanctuary', god, at: [T(x + (i % 6) * 6, i < 6 ? z - 5 : z + 1)] }));
+  // (No ox carts called for materials they won't need.)
+  for (const b of s.buildings) if (b.kind === 'sanctuary') b.clock = TICKS_PER_MONTH;
+  for (let stage = 0; stage < 3; stage++) {
+    for (const god of GOD_IDS) {
+      const site = sanctuaryOf(s, god);
+      if (!site || site.finished) continue;
+      site.building = true;
+      site.work = workOf(stagesOf(site)[site.stage]);
+    }
+    sim.step();
+  }
+  sim.run(3 * TICKS_PER_DAY);
+}
+
+// ---------------------------------------------------------------------------
 // Slice 38: contested seas.
 
 /**
@@ -3633,6 +3808,12 @@ const SCENES: Record<string, Demo> = {
   // (see orderTown); a founded large wooded land, the heaviest kind, for the budgets.
   order: { view: 'order', setup: orderTown, overlay: 'missing' },
   bigwoods: { view: 'land', setup: kindTown('woods', 256, 'acorn') },
+  // Slice 54: sanctuaries rise. #quarry's town with four sanctuaries at four stages (Athena's finished and staffed, Poseidon's
+  // statue going up, Apollo's temple rising, Demeter's just marked out); Demeter's alone, its first marble on the road; and
+  // all twelve finished in two rows, to compare.
+  sanctuaries: { view: 'sanctuaries', setup: SANCTUARIES_TOWN, overlay: 'religion', building: (s) => sanctuaryOf(s, 'athena')?.id ?? 0 },
+  sanctuary: { view: 'sanctuary', setup: SANCTUARY_TOWN, overlay: 'religion', building: (s) => s.buildings.find((b) => b.kind === 'sanctuary')?.id ?? 0 },
+  twelve: { view: 'twelve', setup: twelveTown, overlay: 'religion' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
