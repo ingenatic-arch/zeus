@@ -200,6 +200,12 @@
  * no outbreak, fever or quarantine; and the physicians' round has walked
  * nowhere. Nothing else changes.
  *
+ * Phase 7 groundwork: the gods' moods are there now, switched on as a game
+ * loaded always is, with every one of the twelve watchful (nothing
+ * remembered yet); a town of 300 people or more is noticed as of the tick
+ * the save was made, a smaller one when it grows to that. Every shrine is
+ * "to all the gods", as it always was. Nothing in the city changes.
+ *
  * Pure: it only reshapes plain data (the herds are placed from the baked
  * map). What it can't recognise it leaves alone, for the save checks to
  * refuse in plain words.
@@ -242,6 +248,8 @@ import { WARES } from './foods';
 import { freshAnnals } from './annals';
 // Slice 49.
 import { freshHealth } from './health';
+// Phase 7 groundwork.
+import { freshGods, NOTICE_PEOPLE } from './pantheon';
 
 /** How long after loading a slice-8 save its homes' food can first count as missing (see the version 7 to 8 notes). */
 export const GRACE = 6 * TICKS_PER_MONTH;
@@ -307,6 +315,7 @@ export function migrate(st: unknown): number {
   if (st.version === 44) fromSlice46(st);
   if (st.version === 45) fromSlice51(st);
   if (st.version === 46) fromSlice49(st);
+  if (st.version === 47) fromSlice53g(st);
   return from;
 }
 
@@ -1171,6 +1180,20 @@ function fromSlice49(st: Record<string, unknown>): void {
   if (!isObj(st.health)) {
     const crime = st.crime;
     st.health = freshHealth(isObj(crime) && crime.on === true, tick);
+  }
+  st.version = (st.version as number) + 1;
+}
+
+/**
+ * Phase 7 groundwork (the first stage of slice 53): see the note above. Only
+ * its own field, only if it is missing: `gods`, on, nobody remembering
+ * anything, noticed as of the save's tick if the city has 300 people.
+ */
+function fromSlice53g(st: Record<string, unknown>): void {
+  if (!isObj(st.gods)) {
+    const tick = typeof st.tick === 'number' ? st.tick : 0;
+    const people = typeof st.population === 'number' ? st.population : 0;
+    st.gods = freshGods(true, people >= NOTICE_PEOPLE ? tick : -1);
   }
   st.version = (st.version as number) + 1;
 }

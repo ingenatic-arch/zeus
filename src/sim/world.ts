@@ -28,6 +28,8 @@ import { CITY_IDS, FIRST_CITIES, HORIZON_ALONG, lineLength, newcomer, PLACES, RU
 import { dateOfTick, START_MONTH, TICKS_PER_DAY, TICKS_PER_MONTH, TICKS_PER_YEAR } from './clock';
 import { nextFloat, nextInt, seedRng, type RngState } from './rng';
 import type { Memory, Ruler, SimState, Trait, World, WorldCity } from './state';
+// Phase 7 groundwork: the fading maths, shared with the gods' moods (pantheon.ts).
+import { memoryWorth } from './memory';
 import { FEAST_RAMP_DAYS, FEAST_SHARE, FEAST_WEAR_DAYS, feasting, feastWords } from './festivals';
 import { PRICES, SAIL_IN, SHIP_AWAY, SHIP_COMING, SHIP_LEAVING, SHIP_MOORED, shipAt, TRADE_GOODS } from './trade';
 // Slice 42: the land's size.
@@ -534,12 +536,8 @@ export const characterOf = (id: CityId): Readonly<Character> | undefined => CHAR
 /** A city's record. */
 export const cityOf = (w: World, id: CityId): WorldCity => w.cities[CITY_IDS.indexOf(id)];
 
-/** What a memory is worth at a tick: its amount, fading evenly to nothing (whole numbers, so the reasons add up to the mood). */
-export function memoryWorth(m: Memory, tick: number): number {
-  if (m.fade <= 0) return m.amount;
-  const left = 1 - (tick - m.tick) / m.fade;
-  return left <= 0 ? 0 : Math.round(m.amount * Math.min(1, left));
-}
+/** What a memory is worth at a tick (memory.ts: the gods' moods fade the same way). */
+export { memoryWorth };
 
 /** A ruler's mood towards you at a tick: what their memories add up to now. */
 export const moodOf = (c: WorldCity, tick: number): number => c.memories.reduce((a, m) => a + memoryWorth(m, tick), 0);

@@ -1954,7 +1954,17 @@ function calm(setup: (sim: Sim) => void): (sim: Sim) => void {
     ambition(sim, true);
     // Slice 49: and health (off while the history plays): every home at its fair level as it opens, nobody ill for four months, no plague for a year.
     health(sim, true);
+    // Phase 7 groundwork: and the gods (off while the history plays, so no history changes): watchful as it opens, a town of 300 people noticed.
+    gods(sim, true);
   };
+}
+
+// Phase 7 groundwork
+/** Switch the gods on or off now (a command, so a replay of the log does the same). */
+function gods(sim: Sim, on: boolean): void {
+  if (sim.state.gods.on === on) return;
+  sim.enqueue({ type: 'gods', on });
+  sim.flush();
 }
 
 // Slice 49

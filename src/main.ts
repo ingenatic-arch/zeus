@@ -426,6 +426,8 @@ function start(preparedTown: string | null): void {
     sim.enqueue({ type: 'crimes', on: true });
     // Slice 49: and health (no plague in the town's first year).
     sim.enqueue({ type: 'health', on: true });
+    // Phase 7 groundwork: and the gods, watching from the founding.
+    sim.enqueue({ type: 'gods', on: true });
     sim.flush();
     // Slice 46: on a land founded from the new-game screen, the road in is laid at once (from the edge nearest the city's ground).
     if (founding) {

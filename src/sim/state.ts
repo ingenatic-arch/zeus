@@ -19,13 +19,16 @@ import type { Land } from '../map/lands';
 import type { Annals } from './annals';
 // Slice 49
 import type { Health } from './health';
+// Phase 7 groundwork: the twelve gods and their moods (pantheon.ts).
+import type { GodId, Gods } from './pantheon';
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
 // (Slice 46: many lands, renumbered 45 at its merge.)
 // (Slice 51: the overview, renumbered 46 at its merge.)
 // (Slice 49: physicians and plague, renumbered 47 at its merge.)
-export const SIM_STATE_VERSION = 47;
+// (Phase 7 groundwork: the gods' moods, 48.)
+export const SIM_STATE_VERSION = 48;
 
 /** What stands on a map tile: nothing, a road, or a building (by id, > 0). */
 export const TILE_EMPTY = 0;
@@ -204,6 +207,9 @@ export interface Building {
   health: number;
   /** A home: the tick a physician last called (0: never). */
   physician: number;
+  // Phase 7 groundwork (pantheon.ts).
+  /** A shrine: the god it is dedicated to (absent: "to all the gods", honouring none of them; and for everything else). */
+  god?: GodId;
 }
 
 /** Slice 36: what a home can need: a service walked round the streets, or what an estate's porter fetches (estates.ts). */
@@ -572,6 +578,8 @@ export interface SimState {
   land?: Land;
   /** Slice 51: the town's annals, a figure for each month and the year's money and crime by kind (annals.ts). */
   annals: Annals;
+  /** Phase 7 groundwork: the gods' switch, when the city was first noticed, and each god's memories of it (pantheon.ts). */
+  gods: Gods;
 }
 
 /**

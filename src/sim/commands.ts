@@ -92,7 +92,10 @@ export type Command =
   /** Health's switch (health.ts): on as a game starts or a demo opens, off while a demo's history is played. */
   | { type: 'health'; on: boolean }
   /** A quarantine for a season (on), or lifted (off). */
-  | { type: 'quarantine'; on: boolean };
+  | { type: 'quarantine'; on: boolean }
+  // Phase 7 groundwork
+  /** The gods' switch (pantheon.ts): on as a game starts or a demo opens, off while a demo's history is played. */
+  | { type: 'gods'; on: boolean };
 
 /** What the build command builds. */
 export type BuildKind = 'farm' | 'granary' | 'agora' | 'shrine' | 'theatre' | 'taxoffice' | 'lodge' | 'dairy' | 'grove' | 'press' | 'storehouse' | 'pasture' | 'vineyard' | 'winery' | 'watchpost' | 'architect' | 'trading' | 'yard' | 'mine' | 'armoury' | 'barracks' | 'tower' | 'shipyard' | 'quarry' | 'loggers' | 'masons' | 'lighthouse' | 'colossus' | 'stadium' | 'horsefarm' | 'court' | 'prison' | 'infirmary' | 'asklepieion';

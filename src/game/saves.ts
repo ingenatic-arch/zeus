@@ -30,6 +30,8 @@ import { CITY_IDS, RULED } from '../map/greece';
 import { NEWS_KINDS } from '../sim/crime';
 // Slice 45: the court and the prison.
 import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
+// Phase 7 groundwork.
+import { GOD_IDS } from '../sim/pantheon';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -393,6 +395,8 @@ export function stateProblem(st: unknown): string {
     if (typeof b.estate !== 'boolean') return damaged('whether a home is an estate is missing');
     // Slice 48.
     if ((b.paused !== 0 && b.paused !== 1) || (b.first !== 0 && b.first !== 1) || !nums(b.rules)) return damaged('a building’s orders or a store’s rules are wrong');
+    // Phase 7 groundwork.
+    if (b.god !== undefined && !GOD_IDS.includes(b.god as never)) return damaged('a shrine is dedicated to no known god');
   }
   if (!Array.isArray(st.walkers)) return damaged('its walkers are missing');
   for (const w of st.walkers as unknown[]) {
@@ -425,7 +429,16 @@ export function stateProblem(st: unknown): string {
   if (!ambitionOk(st.ambition)) return damaged('its record of the ambitions is wrong');
   // Slice 49.
   if (!healthOk(st.health)) return damaged('its record of health and plague is wrong');
+  // Phase 7 groundwork.
+  if (!godsOk(st.gods)) return damaged('its record of the gods is wrong');
   return '';
+}
+
+/** Phase 7 groundwork: the gods' switch, when the city was noticed, and each of the twelve's memories. */
+function godsOk(g: unknown): boolean {
+  if (!isObj(g) || typeof g.on !== 'boolean' || !fin(g.noticedAt) || !isObj(g.memories)) return false;
+  const mem = g.memories;
+  return GOD_IDS.every((id) => Array.isArray(mem[id]) && (mem[id] as unknown[]).every((m) => isObj(m) && typeof m.kind === 'string' && typeof m.why === 'string' && fin(m.amount) && fin(m.tick) && fin(m.fade)));
 }
 
 /** Slice 49: health's switch, the sick, plague in Greece and in the city, the fever, the quarantine and the tallies. */

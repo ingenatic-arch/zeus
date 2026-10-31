@@ -55,6 +55,8 @@ import { freshMonuments, isMonument } from './monuments';
 import { markSite, moveBuilder, moveOxcart, moveVisitor, stepMonuments } from './monumentworks';
 // Slice 39.
 import { freshAmbition, setAmbition, stepAmbition } from './ambitions';
+// Phase 7 groundwork.
+import { freshGods, setGods, stepGods } from './pantheon';
 // Slice 37
 import { colonyCommand, moveColonist, stepColonies } from './colonies';
 // Slice 43.
@@ -142,6 +144,8 @@ export function createState(seed: number = DEFAULT_SEED, mapId = 'coast', worldS
     land: stampLand(land),
     // Slice 51
     annals: freshAnnals(),
+    // Phase 7 groundwork
+    gods: freshGods(),
   };
   if (mapId !== 'coast') throw new Error(`Unknown map "${mapId}"`);
   s.herds = freshHerds(mapOf(s), s);
@@ -297,6 +301,8 @@ export class Sim {
     stepErrands(s, map);
     // Slice 39: the ambitions' milestones, once a day, and settlers drawn by fame (nothing with the switch off).
     stepAmbition(s);
+    // Phase 7 groundwork: the gods notice the city, and forget what has faded (nothing with the switch off).
+    stepGods(s);
     // Daily systems.
     if (t % TICKS_PER_DAY === 0) driftWind(s);
     // Slice 44: last, what the town heard this tick, into its messages (it only reads the town, and writes the log).
@@ -359,6 +365,10 @@ function applyCommand(s: SimState, map: CoastMap, c: Command): void {
     // Slice 39.
     case 'ambition':
       setAmbition(s, c.on === true);
+      break;
+    // Phase 7 groundwork.
+    case 'gods':
+      setGods(s, c.on === true);
       break;
     // Slice 33.
     case 'seasons':
