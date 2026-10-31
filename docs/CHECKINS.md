@@ -20,7 +20,7 @@ What breaks, or moves:
 
 ### What to try
 1. #monster — the Cyclops walking the last stretch of the shore to his den below the trading post; he settles in a few seconds later. Read the two messages, hover him and click him.
-2. #monsterraid — the Boar at the sheep pasture, the hoplites (their banner in hand) marching to it. Watch the fight; it breaks off and limps home. Then try sending the archers too.
+2. #monsterraid — the Boar at the sheep pasture, the hoplites (their banner in hand) marching to it. Watch the fight; it breaks off and limps home. Then try sending the archers too: it turns on archers who shoot it, so they pay for their arrows as the hoplites do.
 3. #bestiary — all seven side by side before their lairs, paused. Zoom in on each.
 4. #bestiary-modern and #bestiary-plain — the other two looks.
 5. #monster, played on for a month or so — his first raid on the quay, announced the day before.
@@ -28,7 +28,7 @@ What breaks, or moves:
 ### What I'd like your eye on
 - **The seven figures.** Does each read as itself at the usual zoom, and are the sizes right against the houses and your soldiers? The Chimera and Medusa are the ones I am least sure of.
 - **The lairs.** Do the heap of rock with its dark mouth, the black pool in the reeds and the ring of jagged stones read as a cave, a marsh and a den?
-- **How hard they are.** Against 16 hoplites in my trial fights: Medusa broke off having killed 1, the Chimera 2, the Minotaur and the Boar 4, the Cyclops 8, and the Hydra broke the company (9 dead) before it broke off itself.
+- **How hard they are.** Against 16 hoplites in my trial fights, the men struck down (about half of them killed, the rest wounded): Medusa 1 or 2 before she broke off, the Chimera 2 or 3, the Minotaur and the Boar 4 or 5, the Cyclops 8, and the Hydra broke the company (half of it struck down, 4 killed) and walked home still above the mark where it breaks off.
 - **The warning.** The day's warning before a raid is about a second at normal speed, and the walk from its lair to its target five to twenty more. Enough to get a company there, or should the warning come two or three days ahead?
 
 ### Known rough edges
@@ -56,6 +56,14 @@ The starting build (11f9290) and this slice's, measured back to back with a shor
 - **Every earlier demo opens exactly as before.** I compared all 165 earlier demos' towns from the starting build and from this one: date, people, money, homes and levels, buildings, walkers, soldiers and messages, all the same.
 - **Saves**: they now carry the monsters; older saves load with none, and a save with a monster on the land loads back the same.
 - **The budgets**: nothing is drawn for monsters when there are none. With all seven on screen, #bestiary has about 40 more draw calls than #town's view, from fourteen figures and lairs; on a real machine I'd expect that to be fine, but I couldn't measure frame rate here, so I'd like you to watch #monsterraid's fight for stutter.
+
+### What the review changed
+- **Archers no longer get free shots.** A company of archers holding ground a few steps from a monster's lair could shoot it from beyond its reach, wearing it down without losing a man (16 archers took the Boar from full health to below two thirds in a few weeks, untouched). Now a monster stung by arrows goes for the archers as far as a bow carries, even away from its lair, and they pay for it as hoplites do (the same 16 archers had 9 men struck down by the Boar's charge). Towers still shoot it without loss: see below.
+- **Medusa's words.** At her target the tip and panel said she was "wrecking what she reaches"; she wrecks nothing, so they now say she is turning to stone whoever she catches in the street. Her raid's summary no longer begins "she wrecked nothing" when she turned people to stone.
+- **"He has wrecked", "she has wrecked".** A raid's line in the tip and panel said "it has wrecked" for the Cyclops, the Minotaur, Talos and Medusa too.
+- **The trial fights' numbers** above now say "struck down" (killed or wounded): the counts I gave first were all the men struck down, not the dead.
+- Checked and left as they are: a monster that can't get at a soldier gives up on soldiers for a while and goes on (it can't be held in place for ever, and it can't stall a company), the save check that lets a monster stand with no way to walk (nothing else gets through it), and no monster leaking into the raiders' code (their spread, blows, falls and drawing all skip it).
+- **For your eye** (I didn't change them): Medusa is hard to pick out at the usual zoom, a thin pale figure against the grey of her cave; the Chimera reads as a lion with a goat's head, its serpent tail as a green stick. A tower within range of a lair or a raid's path shoots the monster with no cost in men; that may be right (it is what towers are for) or may want a cost (the monster wrecking the tower, say).
 
 ## Slice 52 — A city in order (26 Oct)
 

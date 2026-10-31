@@ -653,6 +653,12 @@ export class MonstersView {
       r.root.traverse((o) => {
         if (o instanceof THREE.Mesh) o.geometry.dispose();
       });
+      // (Its health bar's planes and colours are its own: the review.)
+      r.bar.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      });
       this.figures.delete(id);
       this.was.delete(id);
     }

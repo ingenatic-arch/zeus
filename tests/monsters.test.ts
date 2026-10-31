@@ -188,6 +188,37 @@ describe('against the army', () => {
   });
 });
 
+describe('against archers (the review)', () => {
+  it('archers shooting it from out of its reach are charged and struck down: no free shots', () => {
+    const sim = demoSim('companies');
+    const s = sim.state;
+    const n = sim.map.size;
+    const m = sendMonster(s, 'boar', 'a test')!;
+    until(sim, () => m.state === 'lair', 60 * TICKS_PER_DAY);
+    m.next = s.tick + 400 * TICKS_PER_DAY;
+    const spot = lairSpot(s, m);
+    // (Their banner seven tiles from its lair: beyond where it guards, within a bow's shot.)
+    let tile = -1;
+    for (let a = 0; a < 64 && tile < 0; a++) {
+      const t = Math.floor(spot.z + 7 * Math.sin(a / 10)) * n + Math.floor(spot.x + 7 * Math.cos(a / 10));
+      if (walkable(sim.map, s, t)) tile = t;
+    }
+    const arc = s.army.companies.find((c) => c.kind === 'archer')!;
+    sim.enqueue({ type: 'banner', company: arc.id, tile });
+    let least = m.hp;
+    until(
+      sim,
+      () => {
+        least = Math.min(least, m.hp);
+        return m.men >= 3;
+      },
+      20 * TICKS_PER_DAY,
+    );
+    expect(least).toBeLessThan(m.full);
+    expect(m.men).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('the end of a monster', () => {
   it('its god warm to the city again calls it home: it walks off the land', () => {
     const sim = demoSim('town');

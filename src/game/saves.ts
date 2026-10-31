@@ -440,7 +440,7 @@ export function stateProblem(st: unknown): string {
 
 // Slice 55
 const BEAST_STATES = ['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving'];
-const BEAST_NUMBERS = ['chase', 'calm', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
+const BEAST_NUMBERS = ['chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
 const LAIRS = ['cave', 'marsh', 'shore'];
 /** Slice 55: the monsters on the land (each of a known kind, sent by one of the twelve, with its way, its lair and its numbers), Medusa's stones, and those slain. */
 function legendsOk(l: unknown): boolean {

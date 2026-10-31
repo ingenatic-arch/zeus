@@ -46,7 +46,7 @@ import { districtAt, districtTitle } from '../map/districts';
 import { mapOf } from '../map/lands';
 import { hash2 } from '../map/noise';
 import { companyOf } from './army';
-import { REACH, TAKES } from './battle';
+import { BOW, REACH, TAKES } from './battle';
 import { Ground, mapIndex } from './build';
 import { around, BUILDING_NAMES, centreOf, findBuilding, levelName, recountPopulation } from './buildings';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
@@ -127,6 +127,8 @@ export interface Beast {
   /** Ticks it has gone for soldiers without a blow; and until when it pays soldiers it can't reach no mind. */
   chase: number;
   calm: number;
+  /** When your archers last shot at it (-1 never): stung, it goes for them as far as a bow carries (the slice's review). */
+  shot: number;
 }
 
 /** A walker Medusa turned to stone: where it stood, which way it faced, when, and what it was. */
@@ -195,6 +197,8 @@ const HIT = 0.8;
 /** It gives up going for soldiers it can't strike after this many ticks, and pays them no mind for CALM. */
 const STALL = 40;
 const CALM = 60;
+/** Shot at by archers, it goes for soldiers as far as a bow carries (and from its lair too), while the last arrow was this recent (ticks); and gives a long chase twice STALL. (The review: archers holding ground a few tiles off shot it down from its lair, or at its target, and never lost a man.) */
+const STUNG = 30;
 
 /**
  * Each kind's make: its health, how hard and how often it strikes, its pace
@@ -366,6 +370,7 @@ export function sendMonster(s: SimState, kind: MonsterId, why: string): Beast | 
     cool: 0,
     chase: 0,
     calm: 0,
+    shot: -1,
   };
   s.legends.monsters.push(m);
   const where = whereWords(map, m.x, m.z);
@@ -1205,7 +1210,7 @@ function raidWords(m: Beast): string {
   const w = m.wrecked;
   const list = w.length === 0 ? '' : w.length === 1 ? w[0] : `${w.slice(0, -1).join(', ')} and ${w[w.length - 1]}`;
   const it = itOf(m.kind);
-  const parts = [list ? `${it} wrecked ${list}` : `${it} wrecked nothing`, m.stoned ? `${it} turned ${m.stoned} ${m.stoned === 1 ? 'walker' : 'walkers'} to stone` : '', m.killed ? `${m.killed} ${m.killed === 1 ? 'person was' : 'people were'} killed` : '', m.men ? `${m.men} of your soldiers ${m.men === 1 ? 'was' : 'were'} struck down` : ''].filter(Boolean);
+  const parts = [list ? `${it} wrecked ${list}` : m.stoned ? '' : `${it} wrecked nothing`, m.stoned ? `${it} turned ${m.stoned} ${m.stoned === 1 ? 'walker' : 'walkers'} to stone` : '', m.killed ? `${m.killed} ${m.killed === 1 ? 'person was' : 'people were'} killed` : '', m.men ? `${m.men} of your soldiers ${m.men === 1 ? 'was' : 'were'} struck down` : ''].filter(Boolean);
   return parts.join('; ');
 }
 
@@ -1368,10 +1373,14 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
     const n = mapOf(s).size;
     const lx = (m.lair % n) + 0.5;
     const lz = Math.floor(m.lair / n) + 0.5;
-    const ok = (x: Soldier): boolean => m.state !== 'lair' || dhypot(x.x - lx, x.z - lz) <= LAIR_GUARD;
+    // (Stung by your archers' arrows, not a tower's: it goes for them, wherever they shoot from.)
+    if (s.army.arrows.some((ar) => ar.foe === f.id && ar.h0 === undefined)) m.shot = s.tick;
+    const stung = m.shot >= 0 && s.tick - m.shot <= STUNG;
+    const stall = stung ? 2 * STALL : STALL;
+    const ok = (x: Soldier): boolean => stung || m.state !== 'lair' || dhypot(x.x - lx, x.z - lz) <= LAIR_GUARD;
     // The nearest soldier in its sight.
     let t: Soldier | undefined;
-    let d = reachTo + SEE;
+    let d = reachTo + (stung ? BOW + 1 : SEE);
     for (const x of men) {
       const dx = dhypot(x.x - m.x, x.z - m.z);
       if (dx > d || !ok(x)) continue;
@@ -1398,7 +1407,7 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
       // (Nobody in sight: the chase is over. One in sight it can't get at, or pays no mind: it goes on its way, and
       // after a while of that gives soldiers no mind for a spell; it doesn't hover by them.)
       if (!t) m.chase = 0;
-      else if (!calm && ++m.chase > STALL) {
+      else if (!calm && ++m.chase > stall) {
         m.calm = s.tick + CALM;
         m.chase = 0;
       }
@@ -1414,7 +1423,7 @@ export function monsterFight(s: SimState, men: readonly Soldier[]): void {
     if (m.cool > 0) m.cool--;
     if (d > reachTo) {
       // (Going for one it can't get at for a while: it gives up on soldiers for a spell, and goes on.)
-      if (++m.chase > STALL) {
+      if (++m.chase > stall) {
         m.calm = s.tick + CALM;
         m.chase = 0;
       }
@@ -1475,7 +1484,9 @@ export function beastDoing(s: SimState, m: Beast): string {
     case 'raiding':
       if (m.fought >= s.tick - 1) return 'Fighting your soldiers';
       if (m.siege >= 0 && m.smash > 0) return 'Smashing through your wall';
-      return m.wait > 0 ? `Wrecking what ${it} reaches by ${m.aim || `${its} target`}` : `Out on a raid, making for ${m.aim || 'the town'}`;
+      // (Medusa wrecks nothing: her gaze turns those still in the street to stone.)
+      if (m.wait > 0) return m.kind === 'medusa' ? `Turning to stone whoever ${it} catches in the street by ${m.aim || 'the town'}` : `Wrecking what ${it} reaches by ${m.aim || `${its} target`}`;
+      return `Out on a raid, making for ${m.aim || 'the town'}`;
     case 'returning':
       return m.broke ? `Badly wounded, limping back to ${its} ${den}` : `Going back to ${its} ${den}`;
     case 'healing': {
@@ -1500,7 +1511,7 @@ export function beastTip(s: SimState, m: Beast): { title: string; detail: string
       `Why: ${m.why}`,
       `${beastDoing(s, m)} · health ${hp}%`,
       `${Cap(itsOf(m.kind))} lair: ${denWords(m.den)} ${whereWords(map, lx, lz)}`,
-      m.state === 'raiding' ? `${outFor(s, m.last)}${m.wrecked.length ? `; it has wrecked ${m.wrecked.join(', ')}` : ''}` : m.last >= 0 ? `Last raid: ${daysAgo(s, m.last)}${m.lastWords ? `; ${m.lastWords}` : ''}` : 'No raid yet',
+      m.state === 'raiding' ? `${outFor(s, m.last)}${m.wrecked.length ? `; ${itOf(m.kind)} has wrecked ${m.wrecked.join(', ')}` : ''}` : m.last >= 0 ? `Last raid: ${daysAgo(s, m.last)}${m.lastWords ? `; ${m.lastWords}` : ''}` : 'No raid yet',
       `Your soldiers can wound ${himOf(m.kind)} and drive ${himOf(m.kind)} back. Only a hero can slay ${himOf(m.kind)}.`,
     ].join('\n'),
   };

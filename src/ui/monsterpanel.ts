@@ -36,7 +36,7 @@ export function monsterHtml(s: SimState, m: Beast): string {
   const lines = [
     `${cap(its)} lair: ${denWords(m.den)}.`,
     `${cap(it)} comes out for ${targetWords(m.kind)}.`,
-    m.state === 'raiding' ? `${outFor(s, m.last)}${m.wrecked.length ? `; it has wrecked ${m.wrecked.join(', ')}` : ''}.` : m.last >= 0 ? `Last raid ${ago(s, m.last)}${m.lastWords ? `: ${m.lastWords}` : ''}.` : 'No raid yet.',
+    m.state === 'raiding' ? `${outFor(s, m.last)}${m.wrecked.length ? `; ${it} has wrecked ${m.wrecked.join(', ')}` : ''}.` : m.last >= 0 ? `Last raid ${ago(s, m.last)}${m.lastWords ? `: ${m.lastWords}` : ''}.` : 'No raid yet.',
     m.raids ? `${m.raids} ${m.raids === 1 ? 'raid' : 'raids'}; ${m.dead ? `${m.dead} of your people dead` : 'nobody killed yet'}.` : '',
   ].filter((l) => l);
   const raids = ksec('Its raids', lines.map((l) => `<p class="k-why">${esc(l)}</p>`).join(''));
