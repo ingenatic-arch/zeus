@@ -354,6 +354,9 @@ LEDGER_KINDS.push('repairs', 'skimmed');
 LEDGER_KINDS.push('colonytrade');
 // Slice 53: festivals to the gods.
 LEDGER_KINDS.push('worship');
+// Slice 61: visitors' coin at the places of legend (slice 59's kind, missed here: a town with a monster slain and visitors
+// paying could not be saved, nor opened from a save).
+LEDGER_KINDS.push('legends');
 // Slice 49: a home's health and the physician's last call.
 BUILDING_NUMBERS.push('health', 'physician');
 /** A building's goods: one number per good. */

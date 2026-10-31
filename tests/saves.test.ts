@@ -416,3 +416,22 @@ describe('browser storage that isn’t there', () => {
     expect(saves.newest()).toBe('manual');
   });
 });
+
+describe('slice 61', () => {
+  it('a town with visitors paying at a place of legend saves and opens (slice 59’s ledger kind was refused)', () => {
+    const s = new Sim().state;
+    s.ledger.now.push({ kind: 'legends', what: 'visitors to the Minotaur’s cave', amount: 12, n: 3 });
+    const back = decodeSave(encodeSave(s, 1));
+    expect(back.ok).toBe(true);
+  });
+
+  it('the fields slice 61 adds may be absent (every older save) and are checked when there', () => {
+    const s = new Sim().state;
+    s.legends.slain.push({ kind: 'minotaur', lair: 100, den: 'cave', tick: 5, by: 'Theseus' });
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+    s.legends.slain[0].mouth = 1.25;
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+    (s.legends.slain[0] as unknown as Record<string, unknown>).mouth = 'east';
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(false);
+  });
+});
