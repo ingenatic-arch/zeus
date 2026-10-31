@@ -68,6 +68,21 @@ The starting build (`11f9290`) and this slice's, measured with the same loosened
 - **The month-by-month bars' tips** said the month before the one each bar was kept in; they now say the right month, and they use the game's own tip like every other panel rather than the browser's.
 - **Shift+G everywhere.** The help still said Shift steps back through G's stores, and about twenty tips (the storehouse in a press's, a pasture's, a mine's or a stall's hover, the full granary's warning, the new-need lines) still said "G twice" or "G ×3" for the stores; they all say Shift G now.
 
+### At the merge
+Slices 55 (the monsters), 56 (the gods in the city) and 54 (the sanctuaries) joined the main line first, so this slice's saves are now version 52, not 49. Every older save still loads: a `#town` saved on the main line just before this merge loads, plays on, and a shrine dedicated in it honours its god.
+- **A god comes to their festival.** As a festival's procession sets out, its god rises there and then walks on to the places they love: "Demeter rises where her procession sets out, come for her festival." `#procession` now opens with Demeter already walking from her shrine. At a god's own sanctuary they bless it first. As before, at most three gods walk the city at once, so a festival held while three are about brings nobody.
+- **A sanctuary is worship.** Its stages and the finished sanctuary honour its god the way a shrine or a festival does now: the god's rival minds it ("your sanctuary to Athena, his rival"), and while a sanctuary stands with its priests, its god is not neglected.
+- **Festivals and offerings at a sanctuary.** A finished sanctuary's panel has a "Festival and offering" section with the two buttons and a link to the god on Olympus. Its procession walks from the altar and home to it. An unfinished one says festivals wait for its consecration.
+- **Olympus shows the sanctuaries.** Each god's card says where their sanctuary stands: none, rising (2 of 3), standing, or dimmed. On a god's page the sanctuary comes first under Worship, with a link to it. The overview's Gods page links each sanctuary too. A god's page acts at the sanctuary first, then at a shrine.
+- **One drawing of the twelve.** The sanctuary chooser, the sanctuary's panel and a god's panel all use this slice's emblems now, so each god looks the same everywhere.
+- **Every earlier town is as it was.** I played all 173 earlier demos from the main line before and after the merge, as they open and 900 ticks on. Date, people and money were the same in every one, and so was the rest of the city. Two differences come from this slice's own gods:
+  - The gods read the city each month now, so their moods move where they didn't before.
+  - In `#sanctuaries` and `#twelve` the rivals already mind the sanctuaries as the demo opens. Played on about a month, `#sanctuaries` gets one new message: "Poseidon and Apollo are pleased with your city".
+- **Checked on the merged game:**
+  - `#gods`, `#procession`, `#sanctuaries` (with Athena's page on Olympus), `#twelve`, `#epiphany`, `#monster`, `#town` and `#order` open with no errors.
+  - The browser checks pass for the gods, the procession, the sanctuaries, the merge's own checks, the gods walking and the monsters. Shift+G still steps through the stores on `#town`.
+  - There are 857 tests. In the full run on this busy machine, 852 passed and 5 ran out of time or missed a timing budget. Four of those 5 passed when I ran their files alone. The fifth plays every demo through, checking that no wages go unpaid while each town is set up. Here it runs past its own 20-minute limit, as it already did before this slice. So I checked by hand the four demos the gods change (`#gods`, `#procession`, `#sanctuaries` and `#twelve`): no wages go unpaid in any of them.
+
 ## Slice 54 — Sanctuaries rise (31 Oct)
 
 The first slice on phase 7's Temples line: you can now raise a great sanctuary to any of the twelve gods from the Mythology tab, watch the ox carts and the masons' builders put it up in three stages, and see the god take notice as it rises. You weren't here while it was built: every choice below is mine, from the spec's defaults.
