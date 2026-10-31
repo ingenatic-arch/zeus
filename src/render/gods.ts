@@ -399,7 +399,7 @@ function wrathModelOf(g: GodId): Model {
     if (col) {
       const c = new THREE.Color();
       for (let i = 0; i < col.count; i++) {
-        c.setRGB(col.getX(i), col.getY(i), col.getZ(i)).lerp(STORM, 0.72);
+        c.setRGB(col.getX(i), col.getY(i), col.getZ(i)).lerp(STORM, 0.8);
         col.setXYZ(i, c.r, c.g, c.b);
       }
     }
@@ -407,7 +407,7 @@ function wrathModelOf(g: GodId): Model {
   };
   const rim = new THREE.Color(STORM_LIGHT).lerp(new THREE.Color(GODS[g].colour), 0.2);
   const glow = { value: 1 };
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0.05, emissive: new THREE.Color('#300808') });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0.05, emissive: new THREE.Color('#0c0406') });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uRim = { value: rim };
     shader.uniforms.uGlow = glow;
@@ -417,7 +417,7 @@ function wrathModelOf(g: GodId): Model {
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         float rimF = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
-        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.01 + 0.99 * rimF * rimF * rimF * rimF) * 0.8 * uGlow;`,
+        totalEmissiveRadiance = totalEmissiveRadiance * uGlow + uRim * (0.01 + 0.99 * rimF * rimF * rimF * rimF) * 0.45 * uGlow;`,
       );
   };
   mat.customProgramCacheKey = () => `god-wrath-${g}`;
