@@ -4179,7 +4179,7 @@ await open('#greecegods-paused');
   await zeus(() => window.__zeus.greece(true, 'athens', 'ruler'));
   await frames(3);
   const p58 = await gi();
-  if (!/Athena watches over Athens[\s\S]*Athens’ god[\s\S]*Angry[\s\S]*you made war on Athens/.test(p58.panel)) fail(`#greecegods: Athens' page: ${p58.panel.slice(0, 2000)}`);
+  if (!/Athena watches over Athens[\s\S]*Athens’ god[\s\S]*Angry[\s\S]*you made war on Athens/i.test(p58.panel)) fail(`#greecegods: Athens' page: ${p58.panel.slice(0, 2000)}`);
   // Corinth's page: Poseidon pleased, its ruler pious, its festival held for Poseidon.
   await zeus(() => window.__zeus.greece(true, 'corinth', 'rivals'));
   await frames(3);

@@ -104,4 +104,35 @@ The demo probe: every earlier demo opens exactly as at `4b3949c` (date, people, 
 
 ## As built
 
-(To be filled in.)
+Built as planned, at state version 51 (nothing new is saved: the deeds are the gods' memories, the piety a ruler's memory, the festivals' gods a table). Commits: the plan `c6c7dcd`, the sim `51851e8`, the map and pages `cd23608`, the check-in after them.
+
+**What changed from the plan, and why.**
+- **War without cause and plunder are 20 each** (the plan had 18 and 15). With 18 and 15, `#greecegods`' Athena opened at −32, a hair inside angry, and was displeased within a few weeks of play; at 20 and 20 she opens at −38 and stays angry for months. Plunder on a god's own city should weigh at least as much as the war.
+- **The festivals' news line does not name the god.** I had it say "...and pleases Poseidon, whose feast it is" with the gods on; the groundwork's test that the gods change nothing in a city that honours none of them caught it (a news line is state). The god is named where you read it instead: the city's status line ("The Isthmian Games, for Poseidon, are on..."), the Rivals tab's festival ("held for Poseidon"), a gift's arrival line ("Poseidon, whose feast it is, is pleased (+10)") and the banners' colour.
+- **`sitesKeep` is in `monuments.ts`**, not `monumentworks.ts` (there is no such file on this branch).
+- **Olympus stands a little west of the true summit** (22.15° E, 40.1° N, against 22.35°): at its true place its foot spilt over the map's coarse coast into the Thermaic Gulf.
+- **The mood's little word**: "angry with you", "watchful of you", "warm towards you" (`moodWith`), used by the reasons, the sea's line and the pages, so nothing reads "pleased towards you".
+
+**Touched outside the line** (each a call or a few lines, marked "Slice 58"):
+- `src/sim/expeditions.ts`: `expeditionPlan` returns the odds with the gods' factors and a `gods` line; `fight` uses `godsAbroad` and adds its words and `expeditionDeeds`' line to the report.
+- `src/sim/diplomacy.ts`: a gift arriving calls `feastGift`, its words appended to the news line.
+- `src/sim/favours.ts`: a deal remembered calls `dealDeeds`, its words appended.
+- `src/sim/raids.ts`: a band paid off calls `tributePaid`; a band broken or sunk calls `bandBeaten`.
+- `src/sim/fleet.ts`: `seaTilt` on the bay's rams (ours more often, theirs less, or the other way) and on lane fights and the expedition's sea fight, skipped when it is exactly 1; `seaWords` on the lines.
+- `src/sim/festivals.ts`: a `god` on each festival.
+- `src/sim/sim.ts`: `stepGreeceGods` after `stepEpiphany`.
+- `src/sim/monuments.ts`, `src/sim/army.ts`, `src/sim/food.ts`: `sitesKeep(s, ware)`; the smithy's `fetchWare` takes a `keep`; a porter from an armoury takes copper only above it.
+- `src/render/walkers.ts`: the priest's tint cached by building.
+- `src/render/greece/models.ts` (`olympusModel`), `src/render/greece/index.ts` (the mountain, its label, its pick and hover, the festival banners in the god's colour).
+- `src/ui/greece.ts` (the `olympus` page id, the patron's mark, kicker, section and hover line), `src/ui/loans.ts` (the gods' line under the odds), `src/ui/rivals.ts` (the festival named with its god).
+- `src/game/demos.ts` (`Demo.greece` may be `'olympus'`; `#greecegods`), `src/main.ts` (the cast for it), `scripts/smoke.mjs`, `scripts/measure.mjs`.
+
+**Exported hooks** (`src/sim/greecegods.ts`): `godsAbroad(s, city)` and `blesser`, `abroadWords`; `seaTilt(s)`, `seaWords`; `pietyOf(s, c)`, `pietyWhy`, `stepGreeceGods`; `festivalGod(f)`, `feastGodOn(city, tick)`; the deeds `expeditionDeeds`, `feastGift`, `tributePaid`, `dealDeeds`, `bandBeaten`; `patronWords`, `moodWith`; the amounts as constants. In `src/ui/greecegods.ts`: `patronMark`, `patronKicker`, `patronSection`, `patronHoverLine`, `feastMark`, `olympusLabelHtml`, `olympusCardHtml`, `olympusPageHtml`, `olympusCounts`, `citiesOf`, `watchesWords`. In `src/sim/monuments.ts`: `sitesKeep(s, ware)`.
+
+**For the integrator.**
+- **Tribute is counted twice once slice 53 merges**: its monthly reading of the city gives Ares −3 "you paid tribute" for tribute and raids paid, and this slice remembers each payment as it happens (−6 "you paid tribute to Sparta" / "you paid Corinth's raiders to go"). Keep one; I would keep this slice's (the deed, named with the city, when it happens) and drop the reading's.
+- **Hermes** is slice 53's alone (routes and trade): this slice adds nothing for him.
+- **Two Olympus panels**: slice 53's and this slice's page on the map of Greece (simple kit cards in `src/ui/greecegods.ts`). They should become one set of cards.
+- **Merged `switch` cases**: none of this slice's edits touch a `switch`.
+
+**Checks.** `npm run typecheck` clean. The full `vitest run` under load (four lines building, load average about 30): 839 of 846 pass; the 7 that fail are bound to the clock (two land-bake times, a culture "quickly", and four time-outs in trade, routes and treasury); those files rerun alone on 2 workers: 63 of 64 pass, the one left treasury's 20-minute run of every demo from its founding (timed out at that load; `#greecegods`' setup alone leaves no wages unpaid). `npm run build` succeeds (28 min with every prepared town baked again under this load). The focused smoke (the map of Greece's checks, the labels under the lines at 1600 × 900, and slice 58's) passes. Every one of the 175 earlier demos opens identically (date, money, people, homes, levels, buildings and every count in the probe's city), against the base build at `4b3949c`. Version 47 and 48 saves of `#monument` and `#town` load to 51, play a quarter on and save again.
