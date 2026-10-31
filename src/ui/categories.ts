@@ -59,4 +59,10 @@ export function categoryOf(t: ToolName): CategoryInfo | undefined {
 export const OLD_TABS: Record<string, Category> = { goods: 'distribution', people: 'population', services: 'safety', money: 'administration', army: 'military' };
 
 // Slice 54: the Sanctuary button on the Mythology tab, after the shrine (it opens the chooser of the twelve: godchooser.ts).
-CATEGORIES.find((c) => c.id === 'mythology')?.tools.push('sanctuary');
+{
+  const myth = CATEGORIES.find((c) => c.id === 'mythology');
+  if (myth) {
+    myth.tools.push('sanctuary');
+    myth.tip = 'Mythology: the shrines and the sanctuaries of the twelve gods, and the homes they bless';
+  }
+}

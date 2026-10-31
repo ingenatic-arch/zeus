@@ -335,6 +335,9 @@ for (const [hash, views] of [
   // Slice 49: the hut streets with their infirmary, a physician out and the sick at their doors, the health overlay on; the quay town warned of plague in Athens, the trade panel open.
   ['#physicians-paused-shot', [null, 'town']],
   ['#plague-paused-shot', [null, 'town']],
+  // Slice 54: four sanctuaries at four stages on #quarry's town, Athena's panel open; all twelve finished in two rows.
+  ['#sanctuaries-paused-shot', [null]],
+  ['#twelve-paused-shot', [null]],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

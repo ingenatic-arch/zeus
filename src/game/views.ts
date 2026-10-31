@@ -206,6 +206,6 @@ export const VIEWS: Record<string, CameraView> = {
   order: { x: 45, z: 113, yaw: -0.785, dist: 64, tilt: -0.15 },
   // Slice 54, #sanctuaries: the four sanctuaries east of #quarry's vineyards from over the bay road; #sanctuary: Demeter's site and the road up from the storehouse; #twelve: the two rows of six.
   sanctuaries: { x: 104, z: 71, yaw: -0.4, dist: 26, tilt: -0.05 },
-  sanctuary: { x: 103, z: 72, yaw: -0.4, dist: 22, tilt: -0.05 },
+  sanctuary: { x: 102.5, z: 67, yaw: -0.4, dist: 20, tilt: -0.05 },
   twelve: { x: 86.5, z: 50.5, yaw: -0.3, dist: 36, tilt: -0.05 },
 };

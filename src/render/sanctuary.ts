@@ -82,6 +82,31 @@ function shade(c: string, k: number): string {
 /** The god's own colour, and a deeper one for its shade. */
 const godColour = (god: GodId): string => hex(GODS[god].colour);
 
+/**
+ * Each temple's roof, glazed in a tone of its god's (the twelve told apart
+ * from afar: the roof is most of what shows at the classic zoom). Zeus's is
+ * of marble tiles, as the greatest temples' were.
+ */
+const ROOFS: Record<GodId, string> = {
+  zeus: '#e9e1cc',
+  hera: '#2f6f9a',
+  poseidon: '#2a8a78',
+  demeter: '#c09040',
+  athena: '#8c8f74',
+  apollo: '#e8b42a',
+  artemis: '#9fb0c8',
+  ares: '#8a2420',
+  aphrodite: '#dc8aa0',
+  hephaestus: '#4e4642',
+  hermes: '#5fb2d0',
+  dionysus: '#6e2e68',
+};
+/** The gods whose temple is a tholos: round, a ring of columns about a round hall under a cone of tiles. */
+const THOLOS: ReadonlySet<GodId> = new Set<GodId>(['aphrodite', 'hermes']);
+/** The tholos: its middle (where the long temple's is) and its outer columns' ring. */
+const TH_X = (-2.12 + 0.42) / 2;
+const TH_R = 1.18;
+
 // ---------------------------------------------------------------------------
 // The precinct.
 
@@ -151,6 +176,7 @@ const COLUMNS = columnSpots();
 
 /** The temple, its columns up to `h` of their height (0 to 1), its walls and its roof once `roof` (0 to 1: the beams, then the tiles). */
 function temple(h: number, roof: number, god: GodId, seed: number): Part[] {
+  if (THOLOS.has(god)) return tholos(h, roof, god);
   const parts: Part[] = [];
   const top = FLOOR + COL_H * h;
   // The cella's walls inside the ring (they rise with the columns), its door at the front.
@@ -203,14 +229,14 @@ function temple(h: number, roof: number, god: GodId, seed: number): Part[] {
     const mx = (TX0 + TX1) / 2;
     for (const side of [-1, 1]) {
       const g2 = new THREE.BoxGeometry(len, 0.035, slope).rotateX(side * a).translate(mx, EAVES + rise / 2, (side * half) / 2);
-      parts.push({ geo: g2, color: side < 0 ? TONE.tile : TONE.tileDark });
+      parts.push({ geo: g2, color: side < 0 ? ROOFS[god] : shade(ROOFS[god], 0.8) });
       // Rows of tiles: ridges down the slope.
       for (let k = 0; k <= 10; k++) {
         const x = TX0 - 0.04 + ((len - 0.04) * k) / 10;
-        parts.push({ geo: new THREE.BoxGeometry(0.025, 0.02, slope).rotateX(side * a).translate(x, EAVES + rise / 2 + 0.02, (side * half) / 2), color: TONE.tileDark });
+        parts.push({ geo: new THREE.BoxGeometry(0.025, 0.02, slope).rotateX(side * a).translate(x, EAVES + rise / 2 + 0.02, (side * half) / 2), color: shade(ROOFS[god], 0.7) });
       }
     }
-    parts.push({ geo: box(mx, 0, len / 2, 0.03, RIDGE - 0.02, RIDGE + 0.03), color: TONE.tileDark });
+    parts.push({ geo: box(mx, 0, len / 2, 0.03, RIDGE - 0.02, RIDGE + 0.03), color: shade(ROOFS[god], 0.7) });
     for (const x of [TX0 - 0.03, TX1 + 0.03]) {
       const tri = new THREE.BufferGeometry();
       const sx = x > 0 ? 1 : -1;
@@ -236,6 +262,177 @@ function temple(h: number, roof: number, god: GodId, seed: number): Part[] {
     parts.push({ geo: rodGeo([TX0, RIDGE, 0], [TX1, RIDGE, 0], 0.018), color: TONE.poleDark });
   }
   void seed;
+  return parts;
+}
+
+/** A ring (or, f < 1, the part of one laid so far) from y0 to y1. */
+const ringGeo = (x: number, z: number, r: number, y0: number, y1: number, f = 1, seg = 24): THREE.BufferGeometry => new THREE.CylinderGeometry(r, r, y1 - y0, seg, 1, false, 0, Math.PI * 2 * f).translate(x, (y0 + y1) / 2, z);
+
+/** The tholos's round platform: three steps, each laid in a sweep (f of them, 0 to 1). */
+function roundPlatform(f: number): Part[] {
+  const parts: Part[] = [];
+  const n = f * STEPS;
+  for (let step = 0; step < STEPS && step < n; step++) {
+    const r = TH_R + 0.1 + (STEPS - 1 - step) * 0.1;
+    parts.push({ geo: ringGeo(TH_X, 0, r, step * STEP, (step + 1) * STEP, Math.min(1, n - step), 28), color: step % 2 ? TONE.marbleShade : TONE.marble });
+  }
+  return parts;
+}
+
+/** The tholos: its ring of columns up to `h` of their height, its round hall, and its roof once `roof` (the rafters, then the cone of tiles). */
+function tholos(h: number, roof: number, god: GodId): Part[] {
+  const parts: Part[] = [];
+  const top = FLOOR + COL_H * h;
+  const rc = TH_R - 0.1;
+  if (h > 0) {
+    parts.push({ geo: ringGeo(TH_X, 0, 0.66, FLOOR, top, 1, 18), color: TONE.marbleWarm });
+    // Its door, facing the gate.
+    parts.push({ geo: slab(TH_X + 0.6, -0.15, TH_X + 0.675, 0.15, FLOOR, Math.min(top, FLOOR + 0.5)), color: TONE.window });
+    const n = 12;
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + Math.PI / n;
+      const x = TH_X + Math.cos(a) * rc;
+      const z = Math.sin(a) * rc;
+      const drums = Math.max(1, Math.round(h * 5));
+      for (let d = 0; d < drums; d++) {
+        const y0 = FLOOR + (COL_H * d) / 5;
+        const y1 = FLOOR + (COL_H * Math.min(d + 1, h * 5)) / 5;
+        parts.push({ geo: cyl(x, z, COL_R * (1 - d * 0.03), COL_R * (1 - (d + 1) * 0.03), y0, y1, 8), color: d % 2 ? TONE.marble : TONE.marbleWarm });
+      }
+      if (h >= 1) parts.push({ geo: box(x, z, COL_R + 0.025, COL_R + 0.025, ENT - 0.04, ENT), color: TONE.marbleShade });
+    }
+  }
+  if (roof <= 0) return parts;
+  const g = godColour(god);
+  parts.push({ geo: ringGeo(TH_X, 0, TH_R, ENT, ENT + ARCH, 1, 28), color: TONE.marble });
+  if (roof >= 0.5) {
+    parts.push({ geo: ringGeo(TH_X, 0, TH_R - 0.01, ENT + ARCH, ENT + ARCH + FRIEZE, 1, 28), color: g });
+    parts.push({ geo: ringGeo(TH_X, 0, TH_R + 0.04, EAVES - CORNICE, EAVES, 1, 28), color: TONE.marbleShade });
+  }
+  if (roof >= 0.75) {
+    const R = TH_R + 0.08;
+    const rise = 0.62;
+    parts.push({ geo: new THREE.ConeGeometry(R, rise, 24, 1, true).translate(TH_X, EAVES + rise / 2, 0), color: ROOFS[god] });
+    // Rows of tiles down the cone, and a bronze flower at its top.
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      parts.push({ geo: rodGeo([TH_X + Math.cos(a) * R, EAVES + 0.01, Math.sin(a) * R], [TH_X, EAVES + rise, 0], 0.014, 0.008, 3), color: shade(ROOFS[god], 0.7) });
+    }
+    parts.push({ geo: cyl(TH_X, 0, 0.05, 0.03, EAVES + rise - 0.04, EAVES + rise + 0.08, 6), color: TONE.bronzeLight });
+    parts.push({ geo: ball(TH_X, EAVES + rise + 0.14, 0, 0.06, 0), color: TONE.bronzeLight });
+  } else {
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2;
+      parts.push({ geo: rodGeo([TH_X + Math.cos(a) * TH_R, EAVES, Math.sin(a) * TH_R], [TH_X, EAVES + 0.62, 0], 0.014), color: TONE.pole });
+    }
+  }
+  return parts;
+}
+
+/** The precinct's side court beside the temple (+z side): each god's garden, pool, field or yard, wide enough to read from afar. */
+const GARDEN = { x0: -1.38, x1: 0.28, z0: 1.24, z1: 2.16 };
+function garden(god: GodId, seed: number): Part[] {
+  const { x0, x1, z1 } = GARDEN;
+  // (Clear of a tholos's wider round platform.)
+  const z0 = THOLOS.has(god) ? 1.52 : GARDEN.z0;
+  const mx = (x0 + x1) / 2;
+  const mz = (z0 + z1) / 2;
+  const G = godColour(god);
+  const parts: Part[] = [];
+  const bed = (color: string, y = 0.03): void => {
+    parts.push({ geo: slab(x0 - 0.04, z0 - 0.04, x1 + 0.04, z1 + 0.04, 0, y - 0.01), color: TONE.marbleShade });
+    parts.push({ geo: slab(x0, z0, x1, z1, 0, y), color });
+  };
+  const r = (k: number, j: number): number => hash2(k, j, seed);
+  switch (god) {
+    case 'zeus':
+      // His oak, as at Dodona, on a gravel terrace.
+      bed(PAL.pavingDark);
+      parts.push({ geo: cyl(mx, mz, 0.07, 0.05, 0, 0.5, 6), color: PAL.trunk });
+      parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.46, 1), 0.12, seed).scale(1.3, 0.8, 0.9).translate(mx, 0.78, mz), color: '#3f6a32' });
+      parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.3, 0), 0.12, seed + 1).translate(mx + 0.35, 0.9, mz - 0.1), color: '#4f7c3a' });
+      break;
+    case 'hera':
+      // A bed of her irises and lilies.
+      bed('#6a5236');
+      for (let k = 0; k < 30; k++) parts.push({ geo: ball(x0 + 0.08 + r(k, 1) * (x1 - x0 - 0.16), 0.08 + r(k, 3) * 0.04, z0 + 0.08 + r(k, 2) * (z1 - z0 - 0.16), 0.045), color: k % 3 ? G : '#f6f1e2' });
+      break;
+    case 'poseidon':
+      // A pool of sea water, a bronze dolphin leaping in it.
+      parts.push({ geo: slab(x0 - 0.06, z0 - 0.06, x1 + 0.06, z1 + 0.06, 0, 0.09), color: TONE.marble });
+      parts.push({ geo: slab(x0, z0, x1, z1, 0.02, 0.08), color: '#2c86a8' });
+      parts.push({ geo: new THREE.TorusGeometry(0.16, 0.04, 5, 10, Math.PI).translate(mx, 0.08, mz), color: TONE.bronze });
+      break;
+    case 'demeter':
+      // Her own field of wheat, ripe, in rows.
+      bed('#7a5a34');
+      for (let k = 0; k < 6; k++) parts.push({ geo: lumpy(new THREE.BoxGeometry(x1 - x0 - 0.1, 0.16, 0.1, 4, 1, 1), 0.08, seed + k).translate(mx, 0.11, z0 + 0.1 + (k * (z1 - z0 - 0.2)) / 5), color: k % 2 ? PAL.sheaf : '#d4a838' });
+      break;
+    case 'athena':
+      // Her olives on pale gravel.
+      bed(PAL.pavingDark);
+      parts.push(...tree(x0 + 0.38, mz - 0.05, 'olive', seed + 11), ...tree(x1 - 0.38, mz + 0.08, 'olive', seed + 12));
+      break;
+    case 'apollo':
+      // His laurel grove.
+      bed('#6a5236');
+      for (const [fx, fz] of [[0.2, 0.3], [0.55, 0.7], [0.85, 0.3]]) parts.push(...tree(x0 + fx * (x1 - x0), z0 + fz * (z1 - z0), 'laurel', seed + fx * 10));
+      break;
+    case 'artemis':
+      // A piece of the wild left in her court: cypresses and undergrowth.
+      bed('#4f6a34');
+      for (const [fx, fz] of [[0.15, 0.4], [0.5, 0.75], [0.85, 0.35]]) parts.push(...tree(x0 + fx * (x1 - x0), z0 + fz * (z1 - z0), 'cypress', seed + fx * 10));
+      for (let k = 0; k < 5; k++) parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.13, 0), 0.15, seed + k).translate(x0 + r(k, 1) * (x1 - x0), 0.08, z0 + r(k, 2) * (z1 - z0)), color: PAL.pine });
+      break;
+    case 'ares':
+      // A yard of arms: shields in his red on racks, spears stood up.
+      bed('#8a6a4a');
+      for (let k = 0; k < 4; k++) {
+        const x = x0 + 0.22 + k * ((x1 - x0 - 0.44) / 3);
+        parts.push({ geo: rodGeo([x - 0.15, 0.3, mz], [x + 0.15, 0.3, mz], 0.015, 0.015, 4), color: TONE.poleDark });
+        parts.push({ geo: new THREE.CylinderGeometry(0.15, 0.15, 0.03, 12).rotateX(Math.PI / 2).translate(x, 0.24, mz + 0.03), color: k % 2 ? G : TONE.bronze });
+        parts.push({ geo: rodGeo([x, 0, mz - 0.3], [x + 0.05, 0.85, mz - 0.32], 0.01, 0.008, 4), color: TONE.poleDark });
+      }
+      break;
+    case 'aphrodite':
+      // Her garden of roses and myrtle.
+      bed('#6a5236');
+      for (let k = 0; k < 6; k++) {
+        const x = x0 + 0.15 + r(k, 1) * (x1 - x0 - 0.3);
+        const z = z0 + 0.15 + r(k, 2) * (z1 - z0 - 0.3);
+        parts.push({ geo: lumpy(new THREE.IcosahedronGeometry(0.15, 0), 0.12, seed + k).scale(1, 0.8, 1).translate(x, 0.12, z), color: PAL.pine });
+        for (let j = 0; j < 4; j++) parts.push({ geo: ball(x + (r(k, j + 3) - 0.5) * 0.24, 0.2, z + (r(k, j + 7) - 0.5) * 0.24, 0.035), color: j % 2 ? G : '#c8405e' });
+      }
+      break;
+    case 'hephaestus': {
+      // His forge: a sooty floor, a great brick hearth glowing, its chimney smoking.
+      bed('#3a3430');
+      const fx = x0 + 0.42;
+      parts.push({ geo: box(fx, mz, 0.3, 0.3, 0, 0.36), color: '#8b5a3c' });
+      parts.push({ geo: box(fx + 0.18, mz, 0.13, 0.18, 0.08, 0.3), color: PAL.ember });
+      parts.push({ geo: box(fx - 0.08, mz, 0.12, 0.12, 0.36, 1.25), color: '#7a4e34' });
+      for (let k = 0; k < 4; k++) parts.push({ geo: ball(fx - 0.08 + k * 0.06, 1.35 + k * 0.17, mz - k * 0.04, 0.09 + k * 0.03), color: k ? '#a9a39a' : '#7d7871' });
+      parts.push({ geo: box(x1 - 0.35, mz, 0.1, 0.1, 0, 0.18), color: TONE.poleDark }, { geo: box(x1 - 0.35, mz, 0.16, 0.06, 0.18, 0.26), color: '#55504b' });
+      break;
+    }
+    case 'hermes':
+      // A row of herms along a running track.
+      bed(PAL.pavingDark);
+      for (let k = 0; k < 4; k++) {
+        const x = x0 + 0.18 + k * ((x1 - x0 - 0.36) / 3);
+        parts.push({ geo: box(x, mz, 0.06, 0.06, 0, 0.5), color: TONE.marble }, { geo: ball(x, 0.57, mz, 0.06), color: TONE.marble }, { geo: slab(x - 0.01, mz - 0.1, x + 0.01, mz + 0.1, 0.52, 0.56), color: G });
+      }
+      break;
+    case 'dionysus':
+      // His vines in rows on their stakes, heavy with grapes.
+      bed('#7a5a34');
+      for (let k = 0; k < 3; k++) {
+        const z = z0 + 0.18 + k * ((z1 - z0 - 0.36) / 2);
+        parts.push({ geo: lumpy(new THREE.BoxGeometry(x1 - x0 - 0.12, 0.26, 0.14, 5, 1, 1), 0.1, seed + k).translate(mx, 0.3, z), color: k % 2 ? PAL.vineLeaf : PAL.vineLeafDark });
+        for (let j = 0; j < 6; j++) parts.push({ geo: ball(x0 + 0.12 + j * ((x1 - x0 - 0.24) / 5), 0.18, z + 0.08, 0.04), color: j % 2 ? PAL.grapeRipe : G });
+      }
+      break;
+  }
   return parts;
 }
 
@@ -274,8 +471,10 @@ function banner(x: number, z: number, colour: string, furled: boolean): Part[] {
   const parts: Part[] = [{ geo: cyl(x, z, 0.018, 0.014, 0, 1.15, 5), color: TONE.poleDark }];
   if (furled) parts.push({ geo: cyl(x, z, 0.035, 0.035, 0.75, 1.1, 5), color: shade(colour, 0.6) });
   else {
-    parts.push({ geo: slab(x - 0.006, z, x + 0.006, z + 0.3, 0.72, 1.1), color: colour });
-    parts.push({ geo: slab(x - 0.008, z + 0.02, x + 0.008, z + 0.28, 0.76, 0.8), color: TONE.bronzeLight });
+    const side = z < 0 ? -1 : 1;
+    const [za, zb] = side > 0 ? [z, z + 0.38] : [z - 0.38, z];
+    parts.push({ geo: slab(x - 0.006, za, x + 0.006, zb, 0.62, 1.12), color: colour });
+    parts.push({ geo: slab(x - 0.008, za + 0.02, x + 0.008, zb - 0.02, 0.66, 0.7), color: TONE.bronzeLight });
   }
   parts.push({ geo: ball(x, 1.17, z, 0.03), color: TONE.bronzeLight });
   return parts;
@@ -651,11 +850,12 @@ export function sanctuaryModel(k: Look, seed: number): THREE.BufferGeometry {
   parts.push(...pad(2.48, 2.48, Math.min(PAD_MOST, k.depth), stage >= 1, seed));
   // Marked out: stakes and cords round the temple and the court.
   if (stage === 0 && f === 0) {
-    parts.push(...stakesAt(TX0, -THZ, TX1, THZ));
+    if (THOLOS.has(god)) parts.push(...stakesRound(TH_X, TH_R + 0.3));
+    else parts.push(...stakesAt(TX0, -THZ, TX1, THZ));
     parts.push(...stakesAt(-WALL_OUT + 0.05, -WALL_OUT + 0.05, WALL_OUT - 0.05, WALL_OUT - 0.05));
   }
   // The foundations: the platform, and the court's footings.
-  parts.push(...platform(stage >= 1 ? 1 : f));
+  parts.push(...(THOLOS.has(god) ? roundPlatform(stage >= 1 ? 1 : f) : platform(stage >= 1 ? 1 : f)));
   const wall = stage >= 2 ? (done ? 1 : Math.min(1, 0.3 + f * 1.4)) : stage === 1 ? 0.25 : f > 0.4 ? 0.25 * Math.min(1, (f - 0.4) / 0.5) : 0;
   parts.push(...court(wall, stage >= 2, seed));
   // The temple: columns rising, then the roof.
@@ -664,7 +864,8 @@ export function sanctuaryModel(k: Look, seed: number): THREE.BufferGeometry {
     const roof = stage >= 2 ? 1 : f <= 0.6 ? 0 : Math.min(1, (f - 0.6) / 0.4);
     parts.push(...temple(h, roof, god, seed).map((p) => p));
     if (!done && stage === 1 && f > 0) {
-      parts.push(...scaffold((TX1 - TX0) / 2 + 0.04, THZ + 0.04, FLOOR, roof > 0 ? EAVES : FLOOR + COL_H * h, seed + 1).map((p) => ({ ...p, geo: p.geo.translate((TX0 + TX1) / 2, 0, 0) })));
+      const [shx, shz] = THOLOS.has(god) ? [TH_R + 0.08, TH_R + 0.08] : [(TX1 - TX0) / 2 + 0.04, THZ + 0.04];
+      parts.push(...scaffold(shx, shz, FLOOR, roof > 0 ? EAVES : FLOOR + COL_H * h, seed + 1).map((p) => ({ ...p, geo: p.geo.translate((TX0 + TX1) / 2, 0, 0) })));
       parts.push(...crane(0.95, 1.45, Math.PI * 0.75, Math.min(RIDGE + 0.5, FLOOR + COL_H * h + 0.6), TONE.marble));
     }
   }
@@ -684,8 +885,9 @@ export function sanctuaryModel(k: Look, seed: number): THREE.BufferGeometry {
   }
   if (done) {
     parts.push(...extra(god, seed));
+    parts.push(...garden(god, seed + 9));
     parts.push(...tree(-1.75, -1.85, 'cypress', seed + 5));
-    parts.push(...tree(-1.75, 1.85, 'cypress', seed + 6));
+    parts.push(...tree(-1.85, 1.95, 'cypress', seed + 6));
     parts.push(...tree(-0.75, -1.95, k.god === 'athena' ? 'olive' : 'cypress', seed + 7));
     const G = godColour(god);
     for (const z of [-GATE - 0.22, GATE + 0.22]) parts.push(...banner(2.18, z, G, k.dim));
@@ -718,6 +920,19 @@ function stakesAt(x0: number, z0: number, x1: number, z1: number): Part[] {
     const [ax, az] = pts[i];
     const [bx, bz] = pts[(i + 1) % pts.length];
     parts.push({ geo: rodGeo([ax, 0.17, az], [bx, 0.17, bz], 0.007, 0.007, 3), color: TONE.cord });
+  }
+  return parts;
+}
+
+/** Stakes and an ochre cord round a circle (the tholos's) about (x, 0). */
+function stakesRound(x: number, r: number): Part[] {
+  const parts: Part[] = [];
+  const n = 12;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    const b = ((k + 1) / n) * Math.PI * 2;
+    parts.push({ geo: box(x + Math.cos(a) * r, Math.sin(a) * r, 0.02, 0.02, 0, 0.22), color: TONE.stake });
+    parts.push({ geo: rodGeo([x + Math.cos(a) * r, 0.17, Math.sin(a) * r], [x + Math.cos(b) * r, 0.17, Math.sin(b) * r], 0.007, 0.007, 3), color: TONE.cord });
   }
   return parts;
 }

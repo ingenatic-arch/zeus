@@ -99,7 +99,7 @@ function moodHtml(s: SimState, god: GodId): string {
   const list = reasons.length
     ? `<ul class="sn-why">${reasons.map((r) => `<li class="${r.worth >= 0 ? 'up' : 'down'}"><b>${signed(r.worth)}</b> ${esc(r.why)}${r.fading ? ' <small>(fading)</small>' : ''}</li>`).join('')}</ul>`
     : `<p class="sn-none">${esc(g.name)} remembers nothing of your city yet.</p>`;
-  return ksec(`${g.name} is ${moodWord(mood)}`, `<div class="sn-mood">${kbar({ value: mood + 100, max: 200, tone: mood >= 0 ? 'good' : 'danger', tick: 0.5 })}<span class="num">${signed(mood)}</span></div>${list}`, { cls: 'sn' });
+  return ksec(`${g.name} is ${moodWord(mood)}`, `<div class="sn-mood">${kbar({ value: mood + 100, max: 200, tone: mood > 0 ? 'good' : mood < 0 ? 'danger' : 'stock', tick: 0.5 })}<span class="num">${signed(mood)}</span></div>${list}`, { cls: 'sn' });
 }
 
 /** The sanctuary's sections (see the notes at the top). */
