@@ -107,6 +107,11 @@ import type { BuildKind } from '../sim/commands';
 import { AGORA_COST, DAIRY_COST, LODGE_COST, PLOT_COST, TAX_OFFICE_COST } from '../sim/build';
 import { FOUND_WHEAT } from '../sim/colonies';
 import { REFUSE } from '../sim/stores';
+// Slice 55
+import { lairSpot, sendMonster, STIR, type Beast } from '../sim/monsters';
+import { MONSTER_IDS, type MonsterId } from '../sim/pantheon';
+import { centreOf } from '../sim/buildings';
+import { walkable } from '../sim/wild';
 
 /**
  * How far the food demos have got: a town of cottages; one field ripe for
@@ -3633,6 +3638,12 @@ const SCENES: Record<string, Demo> = {
   // (see orderTown); a founded large wooded land, the heaviest kind, for the budgets.
   order: { view: 'order', setup: orderTown, overlay: 'missing' },
   bigwoods: { view: 'land', setup: kindTown('woods', 256, 'acorn') },
+  // Slice 55: monsters at the gates. #richtown's town with the Cyclops walking the last of the way to his den on the shore
+  // below the trading post, Poseidon's warning in the scroll; #companies' town with the Boar out wrecking the sheep pasture
+  // and the hoplites marching to it, their banner in hand; all seven before their lairs on #town's open ground, still.
+  monster: { view: 'monster', setup: monsterTown, overlay: 'missing', unread: 2 * TICKS_PER_MONTH },
+  monsterraid: { view: 'monsterraid', setup: monsterRaidTown, overlay: 'missing', side: { tab: 'army' }, select: hoplitesBanner, unread: 3 * TICKS_PER_DAY },
+  bestiary: { view: 'bestiary', speed: 'paused', setup: bestiaryTown, overlay: 'missing' },
 };
 
 export const DEMOS: Record<string, Demo> = Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.setup ? { ...d, setup: calm(d.setup) } : d]));
@@ -4397,3 +4408,144 @@ const ORDER_TRIES = 4;
 const ORDER_KEEP = 300;
 /** #order's law (on the court's panel). */
 const ORDER_LAW: ReadonlyArray<[string, string]> = [['theft', 'prison'], ['vandal', 'prison'], ['arson', 'execution'], ['smuggling', 'fine']];
+
+// Slice 55
+/**
+ * Monsters at the gates (slice 55). Each demo's monster is sent as its god
+ * would send it (sendMonster), with its god's reason; the rest is staged.
+ *
+ * #monster: #richtown's town, the Cyclops sent by Poseidon, seen on the shore
+ * and walking in from the west edge; it opens as he has the last few tiles
+ * to his den below the trading post, so he settles in within seconds.
+ *
+ * #monsterraid: #companies' town, the Boar sent by Artemis and settled in its
+ * marsh; the hoplites are sent (their banner, as a player would) to the field
+ * the Boar goes for first, the one nearest its lair, and when they are part
+ * of the way its raid is due (announced the day before, as always); it opens
+ * as the Boar is at the field, wrecking, and the hoplites a few tiles off.
+ *
+ * #bestiary: #town, all seven sent and set down before lairs of their kind
+ * side by side on the open ground below the town (staged: real lairs are
+ * miles apart), facing the camera, paused. They would raid in a month.
+ */
+const MONSTER_WHY: Record<MonsterId, string> = {
+  hydra: 'no marriage in your city is made before her altar',
+  medusa: 'your city gives no thought to wisdom',
+  cyclops: 'your ships sail his sea and give him nothing',
+  minotaur: 'your city has forgotten the king of the gods',
+  chimera: 'your city keeps no soldiers in his honour',
+  talos: 'your forges burn without a gift to him',
+  boar: 'your hunters take her deer and give her no share',
+};
+/** How far (tiles) the Cyclops still has to walk when #monster opens. */
+const MONSTER_LEFT = 7;
+/** How far (tiles) #monsterraid's hoplites hold from the field, out of the Boar's way, and how far off they are when it opens. */
+const MONSTERRAID_HOLD = 14;
+const MONSTERRAID_OPEN = 9;
+/** The longest any staging waits. */
+const MONSTER_GUARD = 3 * TICKS_PER_MONTH;
+/** #bestiary's row: its first lair's tile, and the step to the next (a diagonal, across the classic view), the lairs' mouths to the camera (south-west), the seven turned a little to their left (+z) to show their shapes. */
+const BESTIARY = { x: 66, z: 49, step: 3, mouth: (3 * Math.PI) / 4, face: Math.PI / 2 };
+
+function monsterTown(sim: Sim): void {
+  town(TOWN_TICKS, SAFE, true)(sim);
+  const s = sim.state;
+  const m = sendMonster(s, 'cyclops', MONSTER_WHY.cyclops);
+  if (!m) return;
+  const spot = lairSpot(s, m);
+  const end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && (m.state === 'coming' || (m.state === 'settling' && dhypot(m.x - spot.x, m.z - spot.z) > MONSTER_LEFT))) sim.step();
+}
+
+/** What the Boar goes for first: the field nearest its lair (its own rule, sim/monsters.ts). */
+function boarField(s: SimState, m: Beast): Building | undefined {
+  const n = BAY.size;
+  const lx = (m.lair % n) + 0.5;
+  const lz = Math.floor(m.lair / n) + 0.5;
+  const d = (b: Building): number => dhypot(centreOf(b)[0] - lx, centreOf(b)[1] - lz);
+  return s.buildings.filter((b) => ['farm', 'grove', 'vineyard', 'pasture', 'horsefarm', 'dairy'].includes(b.kind)).sort((a, b) => d(a) - d(b) || a.id - b.id)[0];
+}
+
+function monsterRaidTown(sim: Sim): void {
+  COMPANIES(sim);
+  const s = sim.state;
+  const n = BAY.size;
+  const m = sendMonster(s, 'boar', MONSTER_WHY.boar);
+  if (!m) return;
+  let end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && m.state !== 'lair') sim.step();
+  const field = boarField(s, m);
+  const hop = s.army.companies.find((c) => c.kind === 'hoplite');
+  const barracks = s.buildings.find((b) => b.kind === 'barracks');
+  if (!field || !hop || !barracks) return;
+  const [fx, fz] = centreOf(field);
+  const [bx, bz] = centreOf(barracks);
+  const send = (tile: number): void => {
+    sim.enqueue({ type: 'banner', company: hop.id, tile });
+    sim.flush();
+  };
+  /** The walkable tile nearest a point (within a few tiles), or -1. */
+  const near = (x: number, z: number): number => {
+    let best = -1;
+    let bd = Infinity;
+    for (let dz = -4; dz <= 4; dz++)
+      for (let dx = -4; dx <= 4; dx++) {
+        const t = (Math.floor(z) + dz) * n + Math.floor(x) + dx;
+        const d = dhypot((t % n) + 0.5 - x, Math.floor(t / n) + 0.5 - z);
+        if (walkable(sim.map, s, t) && d < bd) [best, bd] = [t, d];
+      }
+    return best;
+  };
+  // The hoplites first to a place on the way from the barracks, out of the Boar's way, and held there.
+  const k = MONSTERRAID_HOLD / Math.max(1, dhypot(bx - fx, bz - fz));
+  const hold = near(fx + (bx - fx) * k, fz + (bz - fz) * k);
+  if (hold < 0) return;
+  send(hold);
+  end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && hop.order !== 'hold') sim.step();
+  // Its raid due (announced the day before, as every raid is); at the field, the hoplites sent to it from their side.
+  m.next = s.tick + STIR + 1;
+  end = s.tick + MONSTER_GUARD;
+  while (s.tick < end && !(m.state === 'raiding' && m.wait > 0)) sim.step();
+  // (Beside the Boar where it stands at the field, on the hoplites' side: open ground the men can get at it from.)
+  let cx = 0;
+  let cz = 0;
+  let k2 = 0;
+  for (const x of s.army.soldiers) if (x.company === hop.id) [cx, cz, k2] = [cx + x.x, cz + x.z, k2 + 1];
+  const away = Math.max(1e-6, dhypot(cx / k2 - m.x, cz / k2 - m.z));
+  const beside = near(m.x + ((cx / k2 - m.x) / away) * 2, m.z + ((cz / k2 - m.z) / away) * 2);
+  if (beside < 0) return;
+  send(beside);
+  const men = (): number => {
+    let best = Infinity;
+    for (const x of s.army.soldiers) if (x.company === hop.id) best = Math.min(best, dhypot(x.x - fx, x.z - fz));
+    return best;
+  };
+  end = s.tick + TICKS_PER_DAY * 3;
+  while (s.tick < end && men() > MONSTERRAID_OPEN) sim.step();
+}
+
+function bestiaryTown(sim: Sim): void {
+  town(TOWN_TICKS)(sim);
+  const s = sim.state;
+  const n = BAY.size;
+  const mouth = BESTIARY.mouth;
+  MONSTER_IDS.forEach((kind, i) => {
+    const m = sendMonster(s, kind, MONSTER_WHY[kind]);
+    if (!m) return;
+    const x = BESTIARY.x + i * BESTIARY.step;
+    const z = BESTIARY.z + i * BESTIARY.step;
+    m.lair = z * n + x;
+    m.mouth = mouth;
+    m.state = 'lair';
+    m.settled = s.tick;
+    m.x = x + 0.5;
+    m.z = z + 0.5;
+    m.face = BESTIARY.face;
+    m.path = [];
+    m.next = s.tick + TICKS_PER_MONTH;
+  });
+  // (Their sightings, staged, are not news.)
+  s.messages.log = s.messages.log.filter((g) => g.kind !== 'monster');
+  s.rev++;
+}

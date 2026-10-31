@@ -2,6 +2,77 @@
 
 Notes to Oliver, newest first.
 
+## Slice 55 — Monsters at the gates (31 Oct)
+
+The seven monsters are real now: a god can send one, it is seen first, walks in and makes its lair in a cave, a marsh or a rocky den near your town, and every few weeks comes out for its own kind of target, wrecking, burning and killing, while your soldiers can wound it and drive it back but never kill it. Nothing in the game sends one by itself yet (the gods' curses that will are slice 57), so you meet them in three new demos. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **Nothing in an older town.** No monster comes unless one is sent, and every earlier demo opens exactly as before (same people, money, homes and levels; checked against the starting build).
+- **Saves carry a record of monsters.** Older saves load with an empty one.
+
+### What's new
+- **Seven monsters, each sent by its god:** the Hydra (Hera) and the Calydonian Boar (Artemis) in a marsh; Medusa (Athena), the Minotaur (Zeus) and the Chimera (Ares) in a cave; the Cyclops (Poseidon) and Talos (Hephaestus) in a rocky den on the shore. Each lair is found on whatever land you have (a cave by steep ground, a marsh by the river or wet ground, a den by the sea, near the quay if there is one), on open ground well away from your buildings, with a fallback when a land has no such ground.
+- **Seen before it comes.** First a warning with no name ("Fishermen saw something vast wade ashore among the rocks…"); four days later it walks in from the edge of your land to its lair, and an alarm names it, its god and the god's reason. Its first raid is three to five weeks later, then every three to six weeks; the day before each, "The Boar is stirring", and as it sets out, "The Boar is out".
+- **Raids.** Each goes for its own: the Boar the fields and herds, the Cyclops the trading post (first while a ship is moored), the shipyard and the homes by the sea, Medusa the busiest street, Talos your walls, towers and armouries, the Hydra the homes by the water, the Minotaur the most crowded homes, the Chimera whatever burns (setting things alight on the way). It walks there across country as raiders do, smashing through a wall in its way, stays five days wrecking what it reaches (the city's own rubble and fire: the watch can put out the Chimera's fires), then walks home. People near it run indoors; those in a home it wrecks die, and their house's story tells it. Medusa wrecks nothing: she turns walkers caught in the street to stone, and the grey figures stand where they were for a season.
+- **Fighting it.** Take a company's banner and click by the monster (the Army tab's usual order). Your men fight it man by man; every blow it lands can kill a man outright. A full company wounds it badly at the cost of several men, and below about two fifths of its health it breaks off and goes back to its lair to heal for a season, with no raids till then. Soldiers never kill it: only a hero can (slice 59).
+- **Called home.** Win its god back to warm and it leaves your land.
+- **The figures.** Each is its own figure, several times a man's height (the Cyclops and Talos tallest), walking, striking, its necks, coils or snakes swaying, limping when badly hurt, with a health bar over it once hurt. Hover a monster or its lair for its name, its god and why, what it is doing, its health, its lair, its last raid and "Only a hero can slay it"; click for its panel.
+
+### What to try
+1. #monster — the Cyclops walking the last stretch of the shore to his den below the trading post; he settles in a few seconds later. Read the two messages, hover him and click him.
+2. #monsterraid — the Boar at the sheep pasture, the hoplites (their banner in hand) marching to it. Watch the fight; it breaks off and limps home. Then try sending the archers too: it turns on archers who shoot it, so they pay for their arrows as the hoplites do.
+3. #bestiary — all seven side by side before their lairs, paused. Zoom in on each.
+4. #bestiary-modern and #bestiary-plain — the other two looks.
+5. #monster, played on for a month or so — his first raid on the quay, announced the day before.
+
+### What I'd like your eye on
+- **The seven figures.** Does each read as itself at the usual zoom, and are the sizes right against the houses and your soldiers? The Chimera and Medusa are the ones I am least sure of.
+- **The lairs.** Do the heap of rock with its dark mouth, the black pool in the reeds and the ring of jagged stones read as a cave, a marsh and a den?
+- **How hard they are.** Against 16 hoplites in my trial fights, the men struck down (about half of them killed, the rest wounded): Medusa 1 or 2 before she broke off, the Chimera 2 or 3, the Minotaur and the Boar 4 or 5, the Cyclops 8, and the Hydra broke the company (half of it struck down, 4 killed) and walked home still above the mark where it breaks off.
+- **The warning.** The day's warning before a raid is about a second at normal speed, and the walk from its lair to its target five to twenty more. Enough to get a company there, or should the warning come two or three days ahead?
+
+### Known rough edges
+- A big monster can stand with its body over a building beside it (the Boar by the farmhouse in `#monsterraid`).
+- When it wrecks a building, the scroll also has the city's usual line for a building that fell, beside the monster's own.
+- Something can be built on a lair's tile; the lair is then reached from the nearest open tile.
+- Medusa only catches walkers with a job (water carriers, priestesses, actors, watchmen, inspectors, physicians).
+- A monster healing inside its lair isn't drawn.
+
+### Measurements
+The starting build (11f9290) and this slice's, measured back to back with a shortened copy of the usual measuring script on this machine: headless, software WebGL, and very busy (load 25 to 45 on 4 cores, the other three lines building and testing beside it, and a restart part way). So every time below is about ten times slower than the last check-in's and mostly measures the machine, not the game; the triangle and draw counts are exact.
+
+| What | Before (11f9290) | After |
+|---|---|---|
+| Tests | 803 in 60 files | 816 in 61 files (one added in review); under load 810 passed and the other 5 were timing checks or ran out of time; each passed when run alone |
+| The game itself | 998 KB gzipped | 1,018 KB gzipped |
+| Prepared towns | 125 files, 4,532 KB gzipped | 128 files, 4,651 KB gzipped |
+| The bare link, ready (page's clock) | 13.9 s | 15.5 s (machine load: the land's bake alone went from 3.2 to 3.7 s) |
+| #town, #richtown, #empire ready | 13.4, 7.7, 7.6 s | 9.3, 7.9, 9.8 s |
+| Triangles and draw calls in every earlier view measured | | identical |
+| #bestiary, all seven and their lairs | (new) | 1.34 M triangles, 144 draw calls (#town's view: 1.49 M and 102) |
+| A frame's work in #monsterraid's fight | (new) | not measurable here: two frames in eight seconds |
+| The smoke | | the full smoke could not finish in two hours on this machine, twice; the bare link, five older demos, both other looks of #bestiary and every new check passed |
+
+- **Every earlier demo opens exactly as before.** I compared all 165 earlier demos' towns from the starting build and from this one: date, people, money, homes and levels, buildings, walkers, soldiers and messages, all the same.
+- **Saves**: they now carry the monsters; older saves load with none, and a save with a monster on the land loads back the same.
+- **The budgets**: nothing is drawn for monsters when there are none. With all seven on screen, #bestiary has about 40 more draw calls than #town's view, from fourteen figures and lairs; on a real machine I'd expect that to be fine, but I couldn't measure frame rate here, so I'd like you to watch #monsterraid's fight for stutter.
+
+### What the review changed
+- **Archers no longer get free shots.** A company of archers holding ground a few steps from a monster's lair could shoot it from beyond its reach, wearing it down without losing a man (16 archers took the Boar from full health to below two thirds in a few weeks, untouched). Now a monster stung by arrows goes for the archers as far as a bow carries, even away from its lair, and they pay for it as hoplites do (the same 16 archers had 9 men struck down by the Boar's charge). Towers still shoot it without loss: see below.
+- **Medusa's words.** At her target the tip and panel said she was "wrecking what she reaches"; she wrecks nothing, so they now say she is turning to stone whoever she catches in the street. Her raid's summary no longer begins "she wrecked nothing" when she turned people to stone.
+- **"He has wrecked", "she has wrecked".** A raid's line in the tip and panel said "it has wrecked" for the Cyclops, the Minotaur, Talos and Medusa too.
+- **A monster's health bar is easier to see.** It was a hairline over its head, lost against a roof behind it; it is now a tile wide or more and thick enough to read at the usual zoom, green, then amber, then red.
+- **The trial fights' numbers** above now say "struck down" (killed or wounded): the counts I gave first were all the men struck down, not the dead.
+- **Checked again after the changes:** every earlier demo still opens exactly as before (all 165 towns compared with the starting build), the bare link and a handful of older demos open with no errors, the new demos' checks pass, and the download, triangles and draw calls are unchanged.
+- Checked and left as they are: a monster that can't get at a soldier gives up on soldiers for a while and goes on (it can't be held in place for ever, and it can't stall a company), the save check that lets a monster stand with no way to walk (nothing else gets through it), and no monster leaking into the raiders' code (their spread, blows, falls and drawing all skip it).
+- **For your eye** (I didn't change them): Medusa is hard to pick out at the usual zoom, a thin pale figure against the grey of her cave; the Chimera reads as a lion with a goat's head, its serpent tail as a green stick. A tower within range of a lair or a raid's path shoots the monster with no cost in men; that may be right (it is what towers are for) or may want a cost (the monster wrecking the tower, say).
+
+### At the merge
+Slice 55 is the first of the phase's slices to join the main line, so nothing needed renumbering: saves are at version 49, and a save from before the monsters (48, or the phase 6 saves before it) loads with no monster on its land. Nothing of the slice changed on the way in.
+- **Every earlier town is as it was.** I played all 165 earlier demos from the main line before and after the merge: the same date, people and money (and the whole city otherwise) as they open and 900 ticks on.
+- **Checked on the merged game:** #monster, #monsterraid and #bestiary (in all three looks) open with no errors and do what is described above, with their own checks passing; #town, #battle, #raid, #raiders, #threat, #walls and #siege still pass their checks. All 816 tests pass (on this busy machine 20 ran out of time in the full run; each of their files passed when run alone).
+- Nothing in the game sends a monster yet: that comes with the gods' wrath in slice 57, so for now you meet them only in the three demos.
+
 ## Slice 52 — A city in order (26 Oct)
 
 The phase's last slice puts everything the phase built into one town, `#order`, on a generated river delta: streets up to villas, a gang in its den, a court and a prison with men inside, physicians out, two colonies, a storehouse with its rules, two years of messages and charts, and plague reported in Athens with her ship on the way. Around it, one number tuned, the panels slice 50 left behind brought onto the kit, a large wooded land measured, and the small leftovers from the phase's reviews closed. You weren't here while it was built: every choice below is mine, from the spec's defaults.

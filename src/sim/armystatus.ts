@@ -16,6 +16,8 @@ import { roadsBeside } from './rounds';
 import { roomFor, roomOf, storeOf } from './stores';
 import type { Building, SimState, Soldier } from './state';
 import { SOLDIER_PAY } from './treasury';
+// Slice 55: a soldier fighting a monster says so.
+import { foeName } from './monsters';
 
 export interface Status {
   title: string;
@@ -124,7 +126,9 @@ export function soldierStatus(s: SimState, x: Soldier): Status {
               : x.state === 'leaving'
                 ? x.home === 0 ? 'Walking off to the edge of your land' : 'Walking home to his old work'
                 : foe
-                  ? `Fighting a raider${raid ? ` of ${raid.city[0].toUpperCase()}${raid.city.slice(1)}` : ''}`
+                  ? foe.raid < 0
+                    ? `Fighting ${foeName(s, foe.raid)}`
+                    : `Fighting a raider${raid ? ` of ${raid.city[0].toUpperCase()}${raid.city.slice(1)}` : ''}`
                   : c
                     ? c.routed
                       ? 'Running back to the barracks with his broken company'

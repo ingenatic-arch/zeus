@@ -32,6 +32,8 @@ import { NEWS_KINDS } from '../sim/crime';
 import { CASE_KINDS, LAW_ROWS, PUNISHMENTS, RATE_KINDS } from '../sim/justice';
 // Phase 7 groundwork.
 import { GOD_IDS } from '../sim/pantheon';
+// Slice 55.
+import { MONSTER_IDS } from '../sim/pantheon';
 
 export const SAVE_FORMAT = 'zeus-remake-save';
 /**
@@ -431,7 +433,35 @@ export function stateProblem(st: unknown): string {
   if (!healthOk(st.health)) return damaged('its record of health and plague is wrong');
   // Phase 7 groundwork.
   if (!godsOk(st.gods)) return damaged('its record of the gods is wrong');
+  // Slice 55.
+  if (!legendsOk(st.legends)) return damaged('its record of monsters is wrong');
   return '';
+}
+
+// Slice 55
+const BEAST_STATES = ['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving'];
+const BEAST_NUMBERS = ['chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
+const LAIRS = ['cave', 'marsh', 'shore'];
+/** Slice 55: the monsters on the land (each of a known kind, sent by one of the twelve, with its way, its lair and its numbers), Medusa's stones, and those slain. */
+function legendsOk(l: unknown): boolean {
+  if (!isObj(l) || !fin(l.next) || !Array.isArray(l.monsters) || !Array.isArray(l.stones) || !Array.isArray(l.slain)) return false;
+  const beast = (m: unknown): boolean =>
+    isObj(m) &&
+    MONSTER_IDS.includes(m.kind as never) &&
+    GOD_IDS.includes(m.god as never) &&
+    BEAST_STATES.includes(m.state as string) &&
+    LAIRS.includes(m.den as string) &&
+    BEAST_NUMBERS.every((k) => fin(m[k])) &&
+    nums(m.path) &&
+    (m.path as number[]).length % 2 === 0 &&
+    ['why', 'aim', 'lastWords'].every((k) => typeof m[k] === 'string') &&
+    typeof m.warned === 'boolean' &&
+    typeof m.broke === 'boolean' &&
+    Array.isArray(m.wrecked) &&
+    (m.wrecked as unknown[]).every((w) => typeof w === 'string');
+  const stone = (x: unknown): boolean => isObj(x) && ['x', 'z', 'face', 'tick'].every((k) => fin(x[k])) && typeof x.kind === 'string';
+  const slain = (x: unknown): boolean => isObj(x) && MONSTER_IDS.includes(x.kind as never) && LAIRS.includes(x.den as string) && fin(x.lair) && fin(x.tick) && typeof x.by === 'string';
+  return (l.monsters as unknown[]).every(beast) && (l.stones as unknown[]).every(stone) && (l.slain as unknown[]).every(slain);
 }
 
 /** Phase 7 groundwork: the gods' switch, when the city was noticed, and each of the twelve's memories. */
