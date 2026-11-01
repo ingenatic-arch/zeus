@@ -11,7 +11,8 @@ import { milestoneOf } from '../src/sim/ambitions';
 import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { demandsOf } from '../src/sim/heroes';
 import { AMBITIONS, MILESTONE_IDS } from '../src/sim/laurels';
-import { GOD_IDS, moodOfGod, moodWord } from '../src/sim/pantheon';
+import { GOD_IDS, honour, moodOfGod, moodWord } from '../src/sim/pantheon';
+import { leftFor } from '../src/sim/monsters';
 import { demoSim } from './prepared';
 
 describe('#olympus (slice 61)', () => {
@@ -59,5 +60,26 @@ describe('#olympus (slice 61)', () => {
     expect(milestoneOf('shrines')!.progress(s).words).toBe('Shrines to 11 of the twelve: none yet to Ares');
     expect(milestoneOf('loving')!.progress(s).words).toMatch(/^2 of 3 gods loving: Demeter and Athena; \w+ nearest, warm/);
     expect(milestoneOf('sanctuaries')!.progress(s).words).toMatch(/^5 of 6 sanctuaries standing: Demeter, Athena, Zeus, Dionysus and Hermes; Apollo’s rising/);
+  }, 600_000);
+
+  it('review of slice 61: Artemis warm leaves the Boar for Atalanta, whose demand it was; with no hall, she calls it home', () => {
+    const sim = demoSim('olympus');
+    const s = sim.state;
+    const boar = s.legends.monsters[0];
+    expect(leftFor(s, boar)).toBe('atalanta');
+    honour(s, 'artemis', 40 - moodOfGod(s, 'artemis'), 'staged', 'for a test', 0);
+    expect(moodWord(moodOfGod(s, 'artemis'))).toBe('warm');
+    sim.run(3 * TICKS_PER_DAY);
+    expect(s.legends.monsters.map((m) => m.kind)).toEqual(['boar']);
+    expect(s.legends.monsters[0].state).not.toBe('leaving');
+    expect(s.legends.heroes[0].state).not.toBe('awaited');
+    // (Without her hall, Artemis calls it home as before.)
+    const other = demoSim('olympus');
+    const o = other.state;
+    o.legends.heroes[0].hall = 0;
+    expect(leftFor(o, o.legends.monsters[0])).toBeUndefined();
+    honour(o, 'artemis', 40 - moodOfGod(o, 'artemis'), 'staged', 'for a test', 0);
+    other.run(2 * TICKS_PER_DAY);
+    expect(o.legends.monsters.every((m) => m.state === 'leaving')).toBe(true);
   }, 600_000);
 });

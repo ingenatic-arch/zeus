@@ -416,7 +416,7 @@ describe('Beloved of the gods (slice 61)', () => {
     const sim = demoSim('slay');
     const s = sim.state;
     const p = milestoneOf('slain')!.progress;
-    expect(p(s)).toEqual({ have: 0, need: 1, words: 'No monster slain yet: The Minotaur holds his cave, and Theseus lives in your city and could slay him' });
+    expect(p(s)).toEqual({ have: 0, need: 1, words: 'No monster slain yet: the Minotaur holds his cave, and Theseus lives in your city and could slay him' });
     const end = s.tick + 3 * TICKS_PER_MONTH;
     while (s.tick < end && !laurelOf(s, 'slain')) sim.run(TICKS_PER_DAY);
     const l = laurelOf(s, 'slain');

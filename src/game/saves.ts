@@ -827,6 +827,8 @@ const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', '
 function raidOk(r: unknown): boolean {
   if (!isObj(r) || !CITY_IDS.includes(r.city as never) || !RAID_PHASES.includes(r.phase as string) || !['land', 'sea'].includes(r.by as string)) return false;
   if (typeof r.way !== 'string' || typeof r.aim !== 'string' || typeof r.end !== 'string' || typeof r.fired !== 'boolean' || typeof r.brokeAt !== 'string') return false;
+  // (Review of slice 61: the god who broke it, when one did; absent in every save from before.)
+  if (r.brokeBy !== undefined && !GOD_IDS.includes(r.brokeBy as never)) return false;
   return RAID_NUMBERS.every((k) => fin(r[k]));
 }
 

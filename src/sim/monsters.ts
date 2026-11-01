@@ -33,7 +33,9 @@
  *   its health never falls below 1, and only `slayMonster` (a hero's, slice 59)
  *   ends it.
  * - **Called home.** Once a day, if its god's mood is warm or better (the mood
- *   API), it leaves the land, with a message.
+ *   API), it leaves the land, with a message; unless (review of slice 61) a
+ *   hero who can slay it has a hall standing, when the god leaves it for them
+ *   (`leftFor`).
  *
  * Everything said goes through `say`. Pure and deterministic: its dice are
  * hashes of the city's seed, the monster's id and what for, never a shared
@@ -53,7 +55,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH } from './clock';
 import { tell } from './folk';
 import { burnable, FIRE_BURNING, ignite, type Fall } from './hazards';
 import { ALARM, NEWS, say, WARNING, type Place } from './messages';
-import { GODS, MONSTERS, moodAtLeast, moodOfGod, type GodId, type Lair, type MonsterId } from './pantheon';
+import { GODS, MONSTERS, moodAtLeast, moodOfGod, type GodId, type HeroId, type Lair, type MonsterId } from './pantheon';
 // Slice 59.
 import { HERO_IDS, HEROES } from './pantheon';
 import { SHELTER } from './raids';
@@ -783,8 +785,10 @@ function stepOne(s: SimState, map: CoastMap, m: Beast, fall: (b: Building, how: 
     if (s.tick >= m.next) enter(s, map, m);
     return;
   }
-  // Called home by its god, warm to the city again.
-  if (s.tick % TICKS_PER_DAY === 0 && m.state !== 'leaving' && moodAtLeast(moodOfGod(s, m.god), 'warm')) {
+  // Called home by its god, warm to the city again. (Review of slice 61: not while a hero who can slay it has a hall standing:
+  // the god leaves it for them. Perseus asks for Athena warm, Atalanta for Artemis warm, and their own monsters were called
+  // home on the day they were answered.)
+  if (s.tick % TICKS_PER_DAY === 0 && m.state !== 'leaving' && moodAtLeast(moodOfGod(s, m.god), 'warm') && !leftFor(s, m)) {
     calledHome(s, map, m);
     return;
   }
@@ -1308,6 +1312,15 @@ function healed(s: SimState, m: Beast): void {
   m.warned = false;
   say(s, { kind: 'monster', u: WARNING, title: `${Cap(shortName(m.kind))} has healed`, words: `${Cap(beastName(m.kind))} has healed ${itsOf(m.kind)} wounds and is out before ${itsOf(m.kind)} ${denNoun(m.den)} again. ${Cap(itOf(m.kind))} will raid again in a few weeks.`, at: { tile: m.lair }, of: 'healed' });
   s.rev++;
+}
+
+/**
+ * Review of slice 61: the hero its god leaves it for, however warm the god
+ * grows: one who can slay it, whose hall stands (awaited, coming or come;
+ * not one leaving). None: the god calls it home once warm, as before.
+ */
+export function leftFor(s: SimState, m: Beast): HeroId | undefined {
+  return s.legends.heroes.find((c) => c.hall > 0 && c.state !== 'leaving' && HEROES[c.hero].slays.includes(m.kind) && !!findBuilding(s, c.hall))?.hero;
 }
 
 /** Its god is warm to the city again and calls it home: it walks off the land by the nearest edge. */

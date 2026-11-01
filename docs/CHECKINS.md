@@ -45,8 +45,8 @@ What breaks, or moves:
 
 ### What to try
 1. #olympus — open the laurel in the top bar: Beloved of the gods is the fourth column, one milestone met. Then press G for Olympus: Hera's card is red with her omen, and the line under the twelve names the next milestone.
-2. #olympus — play at normal speed for a few minutes. Watch Athena's procession, Sparta's band arrive with Ares among it (Athena loves you: call her from the Army tab), and Hera's quarrels land if you do nothing. The town now has fleece, so an offering at Hera's shrine can turn the omen.
-3. #olympus — click Atalanta's hall north of the sanctuaries: she waits on Artemis warm. Send offerings at Artemis' shrine and see whether she comes for the Boar.
+2. #olympus — play at normal speed for a few minutes. Watch Athena's procession, Sparta's band arrive with Ares among it (Athena loves you: call her from the Army tab), and Hera's quarrels land if you do nothing. The town now has fleece, so a festival at Hera's shrine (250 dr and 20 bales of fleece) turns the omen the moment it is announced. One offering isn't enough on its own: it lifts her 4 and she needs 12, and its porter takes about two weeks to walk there.
+3. #olympus — click Atalanta's hall north of the sanctuaries: she waits on Artemis warm. Send offerings at Artemis' shrine, one after another (about seven, three months or so of play). Once Artemis is warm, word goes out and Atalanta sails in a fortnight later. Artemis leaves the Boar for her, so send Atalanta from the Boar's panel or her hall's and watch the fight.
 4. #olympus — click the half-built sanctuary to Apollo: it says what it is waiting for.
 5. #godwar — call on Athena and let the band break: the army's news now says Athena broke them.
 6. #herogod — let Perseus withdraw wounded: he walks home and rests a month.
@@ -101,12 +101,22 @@ Built at `4d2401a` (the starting commit) and at this slice's end. Each was measu
     - With the gods off, it ends at 912. A player sending offerings ends at 762, since the town had no fleece for Hera.
   - **`#olympus` after.** The staged angers fade over two years and the loves over one, and the pasture the Boar wrecked is laid again, so the town has fleece.
     - Left alone, it ends three years on at 965 (1,545 after two years). Three curses land. Hera is merely displeased by day 224, Ares is appeased on his own by day 577, and there is no Hydra or Chimera.
-    - A player sending offerings to angry gods ends at 1,571. The Boar was called home on day 96 and Atalanta came on day 108.
+    - A player sending offerings to angry gods ends at 1,571. The Boar was called home on day 96 and Atalanta came on day 108. (That was before the review. Artemis now leaves the Boar for Atalanta, and in my run with offerings to Artemis she slew it on day 174.)
   - **`#godwar`.**
     - With no god called, Ares fells 26 of the 32 soldiers and sets 4 fires, and the band is still there after 40 days.
     - With Athena called, 4 are felled and 1 fire is set. Athena beats Ares on day 7, and 3 of yours die.
   - No system constant (neglect, fades, curse odds, war strengths) was changed. The changes are `#olympus`'s staging and the four-day rule for a god joining a band.
 - **Older demos and saves.** All 184 earlier demos open at the same tick, people and money as at `4d2401a`, and `#town` opens at 8,400 ticks, 736 people and 751 dr. Four saves load and play a month on: a phase 6 save (v47), the phase 7 groundwork save (v48), and the starting commit's `#slay` and `#godwar` (v55). That is how the `legends` save bug turned up.
+
+### What the review changed
+- **A hero can now slay the monster their own god sent.** Atalanta asks for Artemis warm, and Perseus for Athena warm. But a god who turned warm called their monster home that same day, so the hero came to find nothing to slay. In `#olympus` that made the Boar and the "A monster slain" milestone a dead end, and it broke the spec's own story of Perseus and Medusa. Now, while a hero who can slay a monster has a hall standing, its god leaves the monster for them, however warm the god grows, and it goes on raiding until the hero comes. That changes one of the spec's defaults (a monster stays until a hero slays it or its god turns warm). The monster's panel says so ("Artemis leaves him for Atalanta, whose hall stands"). Without such a hall, a warm god calls the monster home as before. In `#olympus`, with offerings to Artemis, Atalanta came on day 108 and slew the Boar on day 174.
+- **Two things the check-in said were wrong.** One offering can't turn Hera's omen in `#olympus`; a festival to her can. And Atalanta couldn't have slain the Boar before this fix. What to try now says both plainly.
+- **Olympus at 1920 × 1080.** The slice's own fix for 1366 × 768 had pushed Poseidon's and Aphrodite's mood words under their names on a full-size screen too, so their bars sat lower than their neighbours'. Now the name alone decides when the word has to drop. I checked it at both sizes.
+- **`#olympus` opens a little further north.** The town's four warning lines at the top of the screen were hiding the furthest sanctuary. All six, Atalanta's hall and Hera's storm are now clear of them at 1920 × 1080 (at 1366 × 768 the lines still cover Atalanta's hall). The view draws a little less: 2.33 million triangles and 134 draws, against 2.42 million and 143.
+- **Small words.** A hero's demand or wish that starts with a god's name keeps its capital ("will come when your city has Artemis warm", not "artemis warm"). The milestone reads "the Calydonian Boar holds its marsh", not "The Calydonian Boar". An old save opened just after finishing all three ambitions keeps the "All three achieved" line rather than claiming four.
+- **Saves.** A save now checks that a band's breaker is one of the twelve. I also played each of the phase's 20 demos on four months, saving and reloading every month: all saved and loaded back exactly.
+- **Histories.** I compared 23 demos' prepared towns (every phase 7 demo with `#town`, `#order` and `#battle`) with the slice's own. All are identical except `#olympus`, which differs by one letter: the capital A in Atalanta's "Artemis warm".
+- **Checks after the review.** Typecheck clean; 960 of 960 tests pass (two new); the build is clean; the focused smoke (`#order` and the blocks of slices 52 to 61) is ok.
 
 ## Slice 57 — Blessings and wrath (1 Nov)
 

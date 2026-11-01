@@ -434,4 +434,14 @@ describe('slice 61', () => {
     (s.legends.slain[0] as unknown as Record<string, unknown>).mouth = 'east';
     expect(decodeSave(encodeSave(s, 1)).ok).toBe(false);
   });
+
+  it('review of slice 61: a band broken by a god keeps who broke it, and a god nobody knows is refused', () => {
+    const s = demoSim('godwar').state;
+    const r = s.world.raids[0];
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+    r.brokeBy = 'athena';
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(true);
+    (r as unknown as Record<string, unknown>).brokeBy = 'hades';
+    expect(decodeSave(encodeSave(s, 1)).ok).toBe(false);
+  }, 600_000);
 });

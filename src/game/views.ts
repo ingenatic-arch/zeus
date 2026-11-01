@@ -237,9 +237,10 @@ export const VIEWS: Record<string, CameraView> = {
   // Slice 57, #omen: #richtown from over its south side, the storm gathering over the town (tuned by eye); #blessing: #town's
   // fields and Demeter's sanctuary beside them; #wrath: the shore below the trading post, Poseidon standing over the harbour.
   omen: { x: 68, z: 40, yaw: -0.3, dist: 44, tilt: -0.12 },
-  // Slice 61, #olympus: the sacred way north of #order's main street, its six sanctuaries either side, Atalanta's hall at its
-  // head, and the homes below where Hera's storm gathers (tuned by eye).
-  olympus: { x: 29, z: 90, yaw: 0.95, dist: 36, tilt: -0.1 },
   blessing: { x: 48, z: 42, yaw: 2.356, dist: 26, tilt: -0.08 },
   wrath: { x: 71, z: 67, yaw: -0.785, dist: 26, tilt: -0.08 },
+  // Slice 61, #olympus: the sacred way north of #order's main street, its six sanctuaries either side, Atalanta's hall at its
+  // head, and the homes below where Hera's storm gathers (tuned by eye; review of slice 61: moved north, so the town's lines at
+  // the top of the screen no longer hide the furthest sanctuary).
+  olympus: { x: 27, z: 85, yaw: 0.95, dist: 36, tilt: -0.1 },
 };

@@ -179,3 +179,13 @@ The one change was to `#olympus` itself. Its first build staged Hera's and Ares'
 - **Every demo's load:** median 2.5 s to 2.4 s, and 30 to 15 demos over 3 s (the machine's load, not the slice). `#olympus` is ready in 3.3 to 3.4 s, `#order` in 3.5 to 3.8 s.
 - **`#olympus`'s opening view:** 2.42 M triangles and 143 draws.
 - **A frame's work:** `#order` measured 37 ms against 26 ms at first. Remeasured side by side it was 37.2 and 29.5 ms against 45.2 and 34.5 ms, and the simulation alone runs at 3.3 to 3.7 ms a tick in both. It is noise, not a regression.
+
+**Review** (the check-in's "What the review changed" says it to Oliver):
+- `leftFor` in `monsters.ts`: a monster whose slayer has a hall standing (not leaving) is not called home by its warm god. Before, Atalanta's "Artemis warm" and Perseus' "Athena warm" called home the very monster they come to slay, so `#olympus`'s Boar and "A monster slain" were a dead end. The monster panel's "What can be done" says who it is left for. Tested in `tests/olympus.test.ts`.
+- The check-in's What to try corrected: one offering can't turn Hera's omen (+4 of 12, a two-week walk); a festival does.
+- Olympus cards: `.ol-nm` sized by the name alone (`flex: 1 0 auto`, the epithet `width: 0; min-width: 100%`), so the mood word drops only when the name doesn't fit; at 1920 × 1080 Poseidon's and Aphrodite's had dropped.
+- `#olympus`'s view moved north (`x 27, z 85`) so the town lines don't hide the furthest sanctuary; it is also moved to the end of `VIEWS`, out of slice 57's block.
+- `low()` in `heroes.ts` keeps a god's name capitalised in demands and wishes; `monsterWords` writes "the Calydonian Boar" mid-sentence; `ambitionTownLine` keeps the three-ambition words for an old town's grand finish.
+- `raidOk` checks `Raid.brokeBy` (tested in `tests/saves.test.ts`).
+- Checked: every phase 7 demo played four months with a save and reload each month (all exact); 23 demos' prepared towns identical to the slice's own but `#olympus` (one capital letter in a message).
+- After: typecheck clean, `npm test` 70 files and 960 of 960, build clean, focused smoke (`#order`, slices 52 to 61) ok.

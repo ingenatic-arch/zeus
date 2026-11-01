@@ -180,6 +180,8 @@ export const HERO_TALL = 0.53;
 // Words.
 
 const Cap = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+/** A demand or wish within a sentence: its first letter small, unless it begins with a god's name (review of slice 61: "artemis warm"). */
+const low = (t: string): string => (Object.values(GODS).some((g) => t.startsWith(g.name)) ? t : t.charAt(0).toLowerCase() + t.slice(1));
 const fmt = (n: number): string => Math.round(n).toLocaleString('en-GB');
 const nameOf = (h: HeroId): string => HEROES[h].name;
 /** Atalanta is "she"; the rest "he". */
@@ -358,7 +360,7 @@ export function hallRaised(s: SimState, b: Building, h: HeroId): void {
     kind: 'hero',
     u: NEWS,
     title: `${hallName(h)} is raised`,
-    words: `${hallName(h)} stands ready for ${g.name}, ${g.epithet}. ${unmet.length ? `${Cap(heOf(h))} will come when your city has ${unmet.map((d) => d.what.charAt(0).toLowerCase() + d.what.slice(1)).join(' and ')}: ${unmet.map((d) => d.have).join('; ')}.` : `${Cap(heOf(h))} has all ${heOf(h)} asks for: word will go out to ${himOf(h)}.`}`,
+    words: `${hallName(h)} stands ready for ${g.name}, ${g.epithet}. ${unmet.length ? `${Cap(heOf(h))} will come when your city has ${unmet.map((d) => low(d.what)).join(' and ')}: ${unmet.map((d) => d.have).join('; ')}.` : `${Cap(heOf(h))} has all ${heOf(h)} asks for: word will go out to ${himOf(h)}.`}`,
     at: { building: b.id },
     of: 'hall',
   });
@@ -635,7 +637,7 @@ function arrive(s: SimState, map: CoastMap, c: Champion): void {
     kind: 'hero',
     u: ALARM,
     title: `${h.name} has come`,
-    words: `${h.name}, ${h.epithet}, has come to your city ${g.by === 'sea' ? 'by sea: ' + hisOf(c.hero) + ' ship ties up at the trading post' : 'by road'}, and walks to ${hisOf(c.hero)} hall. ${slaysWords(c.hero)} ${Cap(heOf(c.hero))} has one wish of ${hisOf(c.hero)} own: ${wishOf(s, c).words.charAt(0).toLowerCase()}${wishOf(s, c).words.slice(1)}.`,
+    words: `${h.name}, ${h.epithet}, has come to your city ${g.by === 'sea' ? 'by sea: ' + hisOf(c.hero) + ' ship ties up at the trading post' : 'by road'}, and walks to ${hisOf(c.hero)} hall. ${slaysWords(c.hero)} ${Cap(heOf(c.hero))} has one wish of ${hisOf(c.hero)} own: ${low(wishOf(s, c).words)}.`,
     at: { building: hall.id },
     of: 'came',
   });
@@ -1146,7 +1148,7 @@ function wishes(s: SimState, map: CoastMap, c: Champion): boolean {
     return false;
   }
   const h = HEROES[c.hero];
-  const wish = `${w.words.charAt(0).toLowerCase()}${w.words.slice(1)}`;
+  const wish = low(w.words);
   const at = c.hall ? { building: c.hall } : undefined;
   if (gone >= LEAVE) {
     leave(s, map, c, wish);
@@ -1328,7 +1330,7 @@ export function hallStatus(s: SimState, b: Building): { title: string; detail: s
   const lines = [c ? heroDoing(s, c) : 'Awaited'];
   if (!c || !isCome(c)) {
     const left = demandsOf(s, h).filter((d) => !d.met);
-    if (left.length) lines.push(`Still to meet: ${left.map((d) => `${d.what[0].toLowerCase()}${d.what.slice(1)} (${d.have})`).join(', ')}`);
+    if (left.length) lines.push(`Still to meet: ${left.map((d) => `${low(d.what)} (${d.have})`).join(', ')}`);
   } else lines.push(slaysWords(h));
   return { title: hallName(h), detail: lines.join('\n') };
 }

@@ -239,7 +239,8 @@ function monsterWords(s: SimState): string {
   const m = s.legends.monsters[0];
   if (!m) return 'none has come to your land (an angry god sends one)';
   const M = MONSTERS[m.kind];
-  const name = `${M.name[0].toUpperCase()}${M.name.slice(1)}`;
+  // (Review of slice 61: within the sentence, "the Calydonian Boar", not "The".)
+  const name = M.name;
   const slayers = HERO_IDS.filter((h) => HEROES[h].slays.includes(m.kind)).map((h) => HEROES[h].name);
   const here = s.legends.heroes.find((c) => HEROES[c.hero].slays.includes(m.kind) && c.came >= 0 && c.state !== 'awaited');
   const hall = s.legends.heroes.find((c) => HEROES[c.hero].slays.includes(m.kind));
@@ -755,7 +756,12 @@ export const MILESTONE_COUNT = MILESTONES.length;
 export function ambitionTownLine(s: SimState): string {
   const a = s.ambition;
   if (!a.on) return '';
-  if (a.grand && !a.grandQuiet && s.tick - a.grand < LINE_DAYS * TICKS_PER_DAY) return `All four ambitions achieved: ${s.world.name} is master of Greece, its greatest market, its wonder and beloved of the gods. Every ruler sends word, and the city celebrates. Play on as long as you like.`;
+  // (Review of slice 61: a save from before, opened just after its grand finish with three, keeps its old words.)
+  if (a.grand && !a.grandQuiet && s.tick - a.grand < LINE_DAYS * TICKS_PER_DAY) {
+    return achieved(s, 'gods').tick > 0
+      ? `All four ambitions achieved: ${s.world.name} is master of Greece, its greatest market, its wonder and beloved of the gods. Every ruler sends word, and the city celebrates. Play on as long as you like.`
+      : `All three ambitions achieved: ${s.world.name} is master of Greece, its greatest market and its wonder. Every ruler sends word, and the city celebrates. Play on as long as you like.`;
+  }
   let last: Laurel | undefined;
   for (const l of a.reached) if (!l.quiet && (!last || l.tick >= last.tick)) last = l;
   if (!last || s.tick - last.tick >= LINE_DAYS * TICKS_PER_DAY) return '';

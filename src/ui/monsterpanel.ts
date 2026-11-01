@@ -7,8 +7,8 @@
  *
  * It only reads the state.
  */
-import { GODS } from '../sim/pantheon';
-import { beastDoing, beastName, denWords, himOf, itOf, itsOf, monsterOf, outFor, targetWords, type Beast } from '../sim/monsters';
+import { GODS, goddess, HEROES } from '../sim/pantheon';
+import { beastDoing, beastName, denWords, himOf, itOf, itsOf, leftFor, monsterOf, outFor, targetWords, type Beast } from '../sim/monsters';
 import { TICKS_PER_DAY } from '../sim/clock';
 import type { SimState } from '../sim/state';
 import { morph } from './morph';
@@ -24,6 +24,17 @@ const ago = (s: SimState, tick: number): string => {
   const d = Math.floor((s.tick - tick) / TICKS_PER_DAY);
   return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
 };
+
+/**
+ * Winning back its god (review of slice 61): called home, unless a hero who can slay it has a hall standing, when the god
+ * leaves it for them.
+ */
+function favour(s: SimState, m: Beast): string {
+  const god = GODS[m.god].name;
+  const h = leftFor(s, m);
+  if (!h) return `Win back ${god}’s favour and ${itOf(m.kind)} will be called home. Only a hero can slay ${himOf(m.kind)}.`;
+  return `${god} leaves ${himOf(m.kind)} for ${HEROES[h].name}, whose hall stands: however warm ${goddess(m.god) ? 'she' : 'he'} grows, ${itOf(m.kind)} stays for ${HEROES[h].name} to slay. Only a hero can slay ${himOf(m.kind)}.`;
+}
 
 /** The panel's HTML. */
 export function monsterHtml(s: SimState, m: Beast): string {
@@ -46,7 +57,7 @@ export function monsterHtml(s: SimState, m: Beast): string {
   const raids = ksec('Its raids', lines.map((l) => `<p class="k-why">${esc(l)}</p>`).join(''));
   const what = ksec(
     'What can be done',
-    `<p>${esc(`Send a company: take its banner (on the Army tab, or click it), then click beside ${him}. A big company can wound ${him} badly, at the cost of men, and drive ${him} back to ${its} lair to heal for a season.`)}</p><p>${esc(`Win back ${god.name}’s favour and ${it} will be called home. Only a hero can slay ${him}.`)}</p>`,
+    `<p>${esc(`Send a company: take its banner (on the Army tab, or click it), then click beside ${him}. A big company can wound ${him} badly, at the cost of men, and drive ${him} back to ${its} lair to heal for a season.`)}</p><p>${esc(favour(s, m))}</p>`,
   );
   // Slice 59: who can slay it, and Send.
   const slayers = monsterHeroes(s, m);
