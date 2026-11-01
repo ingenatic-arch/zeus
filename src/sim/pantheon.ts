@@ -50,13 +50,14 @@ import type { Building, Memory, SimState } from './state';
 import type { Blessing, Walks } from './epiphany';
 // Slice 60: gods in war (godwar.ts; types only).
 import type { Wars } from './godwar';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 // ---------------------------------------------------------------------------
 // The twelve.
 
 export type GodId = 'zeus' | 'hera' | 'poseidon' | 'demeter' | 'athena' | 'apollo' | 'artemis' | 'ares' | 'aphrodite' | 'hephaestus' | 'hermes' | 'dionysus';
 /** The twelve, in a fixed order (append only). */
-export const GOD_IDS: readonly GodId[] = ['zeus', 'hera', 'poseidon', 'demeter', 'athena', 'apollo', 'artemis', 'ares', 'aphrodite', 'hephaestus', 'hermes', 'dionysus'];
+export const GOD_IDS = allOf<GodId>()(['zeus', 'hera', 'poseidon', 'demeter', 'athena', 'apollo', 'artemis', 'ares', 'aphrodite', 'hephaestus', 'hermes', 'dionysus']);
 
 /** What later slices draw for a god (on cards, statues, banners). */
 export type Emblem = 'thunderbolt' | 'peacock' | 'trident' | 'sheaf' | 'owl' | 'lyre' | 'bow' | 'spear' | 'dove' | 'hammer' | 'caduceus' | 'vine';
@@ -259,7 +260,7 @@ export const GODS: Record<GodId, God> = {
 // Monsters and heroes (slices 55 and 59 make them real).
 
 export type MonsterId = 'hydra' | 'medusa' | 'cyclops' | 'minotaur' | 'chimera' | 'talos' | 'boar';
-export const MONSTER_IDS: readonly MonsterId[] = ['hydra', 'medusa', 'cyclops', 'minotaur', 'chimera', 'talos', 'boar'];
+export const MONSTER_IDS = allOf<MonsterId>()(['hydra', 'medusa', 'cyclops', 'minotaur', 'chimera', 'talos', 'boar']);
 /** Where a monster makes its lair: a cave on a hillside, a marsh, a rocky shore. */
 export type Lair = 'cave' | 'marsh' | 'shore';
 
@@ -285,7 +286,7 @@ export const MONSTERS: Record<MonsterId, Monster> = {
 };
 
 export type HeroId = 'heracles' | 'perseus' | 'theseus' | 'odysseus' | 'bellerophon' | 'jason' | 'atalanta';
-export const HERO_IDS: readonly HeroId[] = ['heracles', 'perseus', 'theseus', 'odysseus', 'bellerophon', 'jason', 'atalanta'];
+export const HERO_IDS = allOf<HeroId>()(['heracles', 'perseus', 'theseus', 'odysseus', 'bellerophon', 'jason', 'atalanta']);
 
 export interface Hero {
   name: string;

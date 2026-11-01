@@ -2953,8 +2953,9 @@ const err39 = errors.length;
   await open('#ambition-paused');
   const a39 = await zeus(() => window.__zeus.ambition());
   const won39 = a39.reached.filter((l) => !l.quiet).map((l) => l.id);
-  if (!(a39.on && a39.looked && a39.panelOpen && a39.chipShown && a39.columns.length === 3)) fail(`#ambition: ${JSON.stringify({ ...a39, columns: '', reached: '' })}`);
-  if (!(a39.columns.every((c) => c.count >= 1 && c.achieved === 0) && won39.includes('vassal') && won39.includes('town'))) fail(`#ambition: the laurels: ${JSON.stringify(a39.columns.map((c) => [c.kind, c.count]))} ${won39}`);
+  if (!(a39.on && a39.looked && a39.panelOpen && a39.chipShown && a39.columns.length === 4)) fail(`#ambition: ${JSON.stringify({ ...a39, columns: '', reached: '' })}`);
+  // (Phase 7 review: four columns since slice 61; the gods watch no demo's history, so Beloved of the gods has none yet.)
+  if (!(a39.columns.every((c) => (c.kind === 'gods' || c.count >= 1) && c.achieved === 0) && won39.includes('vassal') && won39.includes('town'))) fail(`#ambition: the laurels: ${JSON.stringify(a39.columns.map((c) => [c.kind, c.count]))} ${won39}`);
   if (!(a39.nearest && a39.chip.includes(`${Math.round(a39.nearest.share * 100)}%`))) fail(`#ambition: the chip: ${a39.chip} ${JSON.stringify(a39.nearest)}`);
   const p39 = await zeus(() => window.__zeus.ambitionPanel(true));
   if (!/Master of Greece[\s\S]*The great trading city[\s\S]*A city of wonders/.test(p39)) fail(`#ambition: the panel's columns: ${p39.slice(0, 800)}`);
@@ -3007,7 +3008,8 @@ await open('#empire-paused');
     // (Slice 44: the fleet's news is a message now.)
     lines: window.__zeus.heard(),
   }));
-  if (!(a40.prepared && a40.amb.on && a40.amb.columns.every((c) => c.count >= 2 && c.achieved === 0))) fail(`#empire: the laurels: ${JSON.stringify(a40.amb.columns.map((c) => [c.kind, c.count, c.achieved]))}`);
+  // (Phase 7 review: all but the fourth, the gods', which no demo's history earns.)
+  if (!(a40.prepared && a40.amb.on && a40.amb.columns.every((c) => (c.kind === 'gods' || c.count >= 2) && c.achieved === 0))) fail(`#empire: the laurels: ${JSON.stringify(a40.amb.columns.map((c) => [c.kind, c.count, c.achieved]))}`);
   const est40 = a40.homes.filter((h) => h.level >= 7).map((h) => h.level).sort();
   if (!(est40.length === 2 && est40.includes(8))) fail(`#empire: the estates: ${JSON.stringify(est40)}`);
   if (a40.lighthouse.length !== 1) fail(`#empire: the Lighthouse: ${JSON.stringify(a40.lighthouse)}`);
@@ -4112,7 +4114,7 @@ await open('#sanctuaries-paused');
     priest: !!window.__zeus.where('priest'),
   }));
   if (!(a54.sites === 4 && a54.emblem && a54.slots === 2)) fail(`#sanctuaries: ${JSON.stringify({ ...a54, panel: a54.panel.slice(0, 300) })}`);
-  if (!/Sanctuary to Athena[\s\S]*Athena, [\s\S]*God of [\s\S]*Athena is \w+[\s\S]*Its priests[\s\S]*Finished and staffed/.test(a54.panel)) fail(`#sanctuaries: Athena's panel: ${a54.panel.slice(0, 900)}`);
+  if (!/Sanctuary to Athena[\s\S]*Athena, [\s\S]*(?:God|Goddess) of [\s\S]*Athena is \w+[\s\S]*Its priests[\s\S]*Finished and staffed/.test(a54.panel)) fail(`#sanctuaries: Athena's panel: ${a54.panel.slice(0, 900)}`);
   if (!a54.priest) fail('#sanctuaries: no priest walking');
   await page.keyboard.press('Escape');
   await frames(2);
@@ -4405,7 +4407,7 @@ await open('#godwar-paused');
   const g = await zeus(() => window.__zeus.godwar());
   if (!(g.marches.length === 1 && g.marches[0].god === 'ares' && g.marches[0].figure > 0 && g.marches[0].felled >= 1 && g.figures.some((f) => f.god === 'ares' && f.why === 'foe'))) fail(`#godwar: Ares not among the band: ${JSON.stringify(g).slice(0, 800)}`);
   const side = await zeus(() => window.__zeus.sideText());
-  if (!/Call on the gods[\s\S]*Ares is against you[\s\S]*Call on Athena/.test(side)) fail(`#godwar: the Army tab's card: ${side.slice(0, 900)}`);
+  if (!/Call on the gods[\s\S]*Call on Athena[\s\S]*Ares is against you/.test(side)) fail(`#godwar: the Army tab's card: ${side.slice(0, 900)}`);
   // (Review of slice 60: both companies marched out to meet the band, none left drilling at the barracks.)
   const a60 = await zeus(() => window.__zeus.army());
   if (!(a60.companies.length === 2 && a60.companies.every((c) => c.order !== 'drill'))) fail(`#godwar: both companies out: ${JSON.stringify(a60.companies)}`);

@@ -153,8 +153,9 @@ export const DUEL_TICKS = 6 * TICKS_PER_DAY;
 export const DUEL_GAP = 2;
 /** A band with a champion upon it (within this many tiles) breaks once this share of its men have fallen (not half). */
 export const NEAR_BAND = 10;
-/** Slice 61: a god joins a band on the road only with at least this long before it reaches your edge. */
-export const JOIN_LEAST = 4 * TICKS_PER_DAY;
+/** Slice 61: a god joins a band on the road only with at least this long before it reaches your edge. (Phase 7 review: eight
+ * days, not four: four went by in four seconds at normal speed, too short to read the warning and answer it.) */
+export const JOIN_LEAST = 8 * TICKS_PER_DAY;
 export const BREAK_SHARE = 1 / 3;
 /** A band whose nerve has been shaken this many times breaks. */
 export const NERVE_BREAK = 5;

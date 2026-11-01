@@ -5430,5 +5430,12 @@ function olympusTown(sim: Sim): void {
   love();
   honour(s, 'hera', OLYMPUS_HERA - moodOfGod(s, 'hera'), 'staged', OLYMPUS_HERA_WHY, OLYMPUS_FADE);
   honour(s, 'ares', OLYMPUS_ARES - moodOfGod(s, 'ares'), 'staged', OLYMPUS_ARES_WHY, OLYMPUS_FADE);
+  // (Phase 7 review: an armoury by the sacred way, built as the town opens, so Apollo's statue gets its bronze cast and his
+  // sanctuary rises when played on, as the spec has it; without one it waited for ever. Its smiths take some days to come.)
+  const smithy = spotNear(sim, 'armoury', 3, SACRED_WAY.x + 6, Math.round((SACRED_WAY.z0 + SACRED_WAY.z1) / 2), 14);
+  if (smithy >= 0) {
+    income(s, COST.armoury, 'gifts', 'set up for this demo: an armoury for Apollo’s bronze');
+    send({ type: 'build', kind: 'armoury', at: [smithy] });
+  }
   sim.run(1);
 }

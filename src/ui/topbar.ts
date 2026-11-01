@@ -416,9 +416,9 @@ export class TopBar {
 
   /**
    * The laurel chip at the end of the bar: the nearest milestone across the
-   * three ambitions (its name, a small bar and how far along), and in its
-   * tooltip what it wants, how far you are, its ambition and its reward, and
-   * the laurels won. All fifteen won: the count alone. Hidden with the
+   * ambitions (four since slice 61: its name, a small bar and how far along),
+   * and in its tooltip what it wants, how far you are, its ambition and its
+   * reward, and the laurels won. All twenty won: the count alone. Hidden with the
    * ambitions off. `fresh` makes it glow for a few seconds (a laurel just won).
    */
   showLaurel(n: { name: string; share: number; tip: string; won: number; of: number } | null, now: number, fresh = false): void {

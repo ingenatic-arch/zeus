@@ -16,7 +16,7 @@ import { held } from '../sim/foods';
 import { needOf, siteMaterials, siteOf, stagesOf, workOf, type Site } from '../sim/monuments';
 import { comingTo, isBronze, smithsAt } from '../sim/monumentworks';
 import { materialName } from '../sim/monumentstatus';
-import { GODS, moodOfGod, moodWord, reasonsOf, type GodId } from '../sim/pantheon';
+import { goddess, GODS, moodOfGod, moodWord, reasonsOf, type GodId } from '../sim/pantheon';
 import { DIM_AFTER, dimmed, PRIEST_RANGE, STANDING_HONOUR } from '../sim/sanctuaries';
 import type { Building, SimState } from '../sim/state';
 import { sacredWords } from './godchooser';
@@ -113,7 +113,7 @@ export function sanctuarySections(s: SimState, _map: CoastMap, b: Building): str
   const g = GODS[god];
   const out: string[] = [];
   out.push(
-    `<section class="sn-god" style="--god:${godColourCss(god)}"><span class="sn-em">${godEmblem(god)}</span><div><h3>${esc(g.name)}, ${esc(g.epithet)}</h3><p>God of ${esc(g.of)}. Consecrated with ${esc(sacredWords(god))}.</p></div></section>`,
+    `<section class="sn-god" style="--god:${godColourCss(god)}"><span class="sn-em">${godEmblem(god)}</span><div><h3>${esc(g.name)}, ${esc(g.epithet)}</h3><p>${goddess(god) ? 'Goddess' : 'God'} of ${esc(g.of)}. Consecrated with ${esc(sacredWords(god))}.</p></div></section>`,
   );
   if (!x.finished) out.push(stagesHtml(s, x, b));
   out.push(moodHtml(s, god));

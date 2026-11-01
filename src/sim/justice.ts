@@ -63,18 +63,19 @@ import { sendLeavers } from './settlers';
 import { TILE_ROAD, type Building, type SimState, type Story, type Walker } from './state';
 import { income } from './treasury';
 import { centre, PATROL_SPEED, position, setPath } from './walk';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 // ---------------------------------------------------------------------------
 // The law.
 
 /** What the court can sentence the caught to. */
 export type Punishment = 'fine' | 'stocks' | 'prison' | 'labour' | 'exile' | 'execution';
-export const PUNISHMENTS: readonly Punishment[] = ['fine', 'stocks', 'prison', 'labour', 'exile', 'execution'];
+export const PUNISHMENTS = allOf<Punishment>()(['fine', 'stocks', 'prison', 'labour', 'exile', 'execution']);
 /** The law's rows: each kind of crime the watch catches, and a gang's men (whatever they were caught at). */
 export type LawRow = CrimeKind | 'gang';
 /** What one at court or serving was caught at: a kind of crime, or skimming a tax office's takings (the law's row for theft). */
 export type CaseKind = CrimeKind | 'skimming';
-export const CASE_KINDS: readonly CaseKind[] = ['theft', 'pickpocket', 'vandal', 'arson', 'smuggling', 'skimming'];
+export const CASE_KINDS = allOf<CaseKind>()(['theft', 'pickpocket', 'vandal', 'arson', 'smuggling', 'skimming']);
 /** The law's row for a case. */
 export const rowOf = (kind: CaseKind, gang: boolean): LawRow => (gang ? 'gang' : kind === 'skimming' ? 'theft' : kind);
 /** A case's crime, in words: "theft", "skimming the takings". */

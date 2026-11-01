@@ -50,7 +50,7 @@ import { ALARM, NEWS, say, WARNING } from './messages';
 import { himOf, lairFor, sendMonster, type Beast } from './monsters';
 // Merge of slice 57 with slice 59: the heroes who could answer a monster sent by a curse.
 import { isCome, lairReached, slayersOf } from './heroes';
-import { FESTIVAL_HONOUR, festivalOf, goodsWords, OFFERING_HONOUR, offeringOf } from './worship';
+import { FESTIVAL_HONOUR, festivalOf, goodsWords, OFFERING_HONOUR, offeringOf, OMEN_OFFERINGS } from './worship';
 // Review of slice 57: the ships and caravans that come to trade.
 import { tradingPost } from './trade';
 import { caravanYard } from './routes';
@@ -770,7 +770,7 @@ export function turnWords(s: SimState, god: GodId): string {
   const p = promised(s, god);
   const need = -30 - m - p.n;
   const already = p.words ? ` (${cap(p.words)} counted already.)` : '';
-  return `Lift ${him} ${need > 0 ? `${need} or more, ` : ''}back to displeased (−30) and it is turned: an offering of ${goodsWords(G.sacred, offeringOf(G.sacred))} (+${OFFERING_HONOUR}, counted as soon as it sets out), a festival to ${him} (+${FESTIVAL_HONOUR}, counted as soon as it is announced), a shrine dedicated to ${him}, a stage of ${herOf(god)} sanctuary.${already}`;
+  return `Lift ${him} ${need > 0 ? `${need} or more, ` : ''}back to displeased (−30) and it is turned: an offering of ${goodsWords(G.sacred, offeringOf(G.sacred))} (+${OFFERING_HONOUR}, counted as soon as it sets out; up to ${OMEN_OFFERINGS} at once to each shrine while the omens run), a festival to ${him} (+${FESTIVAL_HONOUR}, counted as soon as it is announced), a shrine dedicated to ${him}, a stage of ${herOf(god)} sanctuary.${already}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -904,7 +904,12 @@ function appease(s: SimState, map: CoastMap, o: Omen): void {
   const m = moodOfGod(s, o.god);
   const p = promised(s, o.god);
   const by = wrathful(m) && p.words ? `by ${p.words}` : `(${moodWord(m)} now)`;
-  say(s, { kind: 'wrath', u: NEWS, title: `${G.name} is appeased`, words: `${G.name} is appeased ${by}: the signs fade, and ${c.monster ? `${MONSTERS[c.monster].name} will not come` : `${c.name} will not fall`}.`, at: { tile: Math.floor(o.z) * map.size + Math.floor(o.x) } });
+  // (Phase 7 review: a god lifted past angry with no festival, offering or sanctuary's stage since the omens began, by their
+  // grudges fading or the city's own doings, relents: "appeased" read as if you had done something.)
+  const given = !!p.words || s.gods.memories[o.god].some((x) => x.tick >= o.at && x.amount > 0 && (x.kind === 'festival' || x.kind === 'offering' || x.kind === 'sanctuary-stage'));
+  const title = given ? `${G.name} is appeased` : `${G.name} relents`;
+  const head = given ? `${G.name} is appeased ${by}` : `${G.name} relents (${moodWord(m)} now)`;
+  say(s, { kind: 'wrath', u: NEWS, title, words: `${head}: the signs fade, and ${c.monster ? `${MONSTERS[c.monster].name} will not come` : `${c.name} will not fall`}.`, at: { tile: Math.floor(o.z) * map.size + Math.floor(o.x) } });
 }
 
 /** The day: the curse lands, said with what it destroyed. */

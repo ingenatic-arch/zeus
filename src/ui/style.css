@@ -53,8 +53,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe4ee; }
   width: max-content; max-width: calc(100% - var(--side) - 24px);
 }
 .topbar .row { display: flex; align-items: center; gap: 14px; padding: 4px 4px 2px; }
-.date { display: flex; flex-direction: column; align-items: center; min-width: 168px; }
-.date .month { font-size: 19px; font-variant: small-caps; letter-spacing: 0.05em; line-height: 1.1; }
+.date { display: flex; flex-direction: column; align-items: center; min-width: 168px; flex-shrink: 0; }
+/* (Phase 7 review: never on two lines. With Olympus's button in the bar, a long month, a late ship and the laurel chip at 1600 wide put "BC" under the date, over the season's line; the laurel chip's words give way instead.) */
+.date .month { font-size: 19px; font-variant: small-caps; letter-spacing: 0.05em; line-height: 1.1; white-space: nowrap; }
 .date .days { display: flex; gap: 2px; margin-top: 4px; }
 .date .days i { display: block; width: 4px; height: 4px; border-radius: 2px; background: rgba(122, 92, 60, 0.22); }
 .date .days i.on { background: var(--terracotta); }
@@ -1213,6 +1214,8 @@ body.greece-open #ui .household.greece-panel { max-height: calc(100% - 106px); }
 .laurel-chip:hover { background: #fbf8e6; }
 .laurel-chip .lau svg { width: 17px; height: 17px; display: block; }
 .laurel-chip .txt { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+/* (Phase 7 review: the chip gives way first when the bar is full, its milestone's name cut short; the whole is in its tip.) */
+.laurel-chip { min-width: 0; }
 .laurel-chip .bar { width: 34px; height: 5px; border-radius: 3px; background: rgba(122, 92, 60, 0.18); overflow: hidden; }
 .laurel-chip .bar[hidden] { display: none; }
 .laurel-chip .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8aa23e, #c9a63a); }

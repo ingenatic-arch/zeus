@@ -348,13 +348,14 @@ for (const [hash, views] of [
   ['#godduel-paused-shot', [null]],
   // Merge of slice 60 with slice 59: Perseus holding Ares by the bridge.
   ['#herogod-paused-shot', [null]],
-  // Slice 61: everything at once: six sanctuaries along the sacred way, Athena walking for her festival, the Boar's marsh, Sparta's band with Ares.
-  ['#olympus-paused-shot', [null, 'overview']],
   // Slice 57: Athena's omens over #richtown, Olympus open on her page; Demeter's sanctuary by #town's fields, its panel open;
   // Poseidon standing over the harbour in wrath.
   ['#omen-paused-shot', [null]],
   ['#blessing-paused-shot', [null, 'town']],
   ['#wrath-paused-shot', [null]],
+  // Slice 61: everything at once: six sanctuaries along the sacred way, Athena walking for her festival, the Boar's marsh, Sparta's band with Ares.
+  // (Phase 7 review: last, after the slices before it.)
+  ['#olympus-paused-shot', [null, 'overview']],
 ]) {
   const t = Date.now();
   await page.goto('about:blank');

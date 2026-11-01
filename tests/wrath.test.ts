@@ -16,7 +16,7 @@ import { TICKS_PER_DAY, TICKS_PER_MONTH } from '../src/sim/clock';
 import { migrate } from '../src/sim/migrate';
 import { curseNow, godCrime, godMood, godPace, honour, moodOfGod, type CurseId } from '../src/sim/pantheon';
 import { SIM_STATE_VERSION, type SimState } from '../src/sim/state';
-import { worship } from '../src/sim/worship';
+import { OMEN_OFFERINGS, offerRefusal, worship } from '../src/sim/worship';
 import { beginOmen, CURSES, GOD_CURSES, OMEN_LEAD, omenOf, stepWrath } from '../src/sim/wrath';
 import { demoSim } from './prepared';
 import { TRADE_TICKS } from '../src/sim/routes';
@@ -150,6 +150,39 @@ describe('omens', () => {
     expect(omenOf(s, 'athena')).toBeUndefined();
     expect(s.walkers.some((w) => w.kind === 'offering')).toBe(true);
     expect(said(s, m0).find((m) => m.title === 'Athena is appeased')?.words).toMatch(/by the offering on its way/);
+  });
+
+  it('with omens running a shrine takes several offerings at once, enough to turn a god further from displeased in time (phase 7 review)', () => {
+    const sim = demoSim('omen');
+    const s = sim.state;
+    honour(s, 'athena', -45 - moodOfGod(s, 'athena'), 'staged', 'for the test', 0);
+    const o = omenOf(s, 'athena')!;
+    const shrine = s.buildings.find((b) => b.kind === 'shrine' && b.god === 'athena')!;
+    const m0 = s.messages.next;
+    const going = (): number => s.walkers.filter((w) => w.kind === 'offering' && w.target === shrine.id).length;
+    for (let i = 0; i < OMEN_OFFERINGS + 1; i++) {
+      sim.enqueue({ type: 'offer', id: shrine.id });
+      sim.flush();
+    }
+    expect(going()).toBe(OMEN_OFFERINGS);
+    expect(offerRefusal(s, sim.map, shrine.id)).toMatch(/offerings are already on their way here/);
+    // Sent as the porters reach the shrine, they turn her before the curse's day.
+    while (omenOf(s, 'athena') && s.tick < o.day) {
+      if (!offerRefusal(s, sim.map, shrine.id)) {
+        sim.enqueue({ type: 'offer', id: shrine.id });
+        sim.flush();
+      }
+      sim.step();
+    }
+    expect(omenOf(s, 'athena')).toBeUndefined();
+    expect(said(s, m0).some((m) => m.title === 'Athena is appeased')).toBe(true);
+    // With no omens running, one at a time, as before.
+    sim.run(30 * TICKS_PER_DAY);
+    expect(s.walkers.some((w) => w.kind === 'offering')).toBe(false);
+    sim.enqueue({ type: 'offer', id: shrine.id });
+    sim.enqueue({ type: 'offer', id: shrine.id });
+    sim.flush();
+    expect(going()).toBe(1);
   });
 
   it('a curse never lands before its month is out', () => {

@@ -17,7 +17,11 @@ import { migrate } from '../sim/migrate';
 import { mendMessages } from '../sim/messages';
 // Slice 51.
 import { mendAnnals } from '../sim/annals';
-import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Round, type SimState, type StockKind } from '../sim/state';
+import { BUILDING_KINDS, ROUND_KINDS, SIM_STATE_VERSION, WALKER_KINDS, type Deal, type Expedition, type LedgerKind, type Loan, type Raid, type Round, type SimState, type StockKind } from '../sim/state';
+// Phase 7 review: the lists a save is checked against, tied to their types.
+import { allOf } from '../sim/kinds';
+import type { BeastState } from '../sim/monsters';
+import type { Lair } from '../sim/pantheon';
 // Slice 43.
 import { colonyWorksOk } from '../sim/colonyworks';
 // Slice 47: a colonial empire.
@@ -35,12 +39,12 @@ import { GOD_IDS } from '../sim/pantheon';
 // Slice 55.
 import { MONSTER_IDS } from '../sim/pantheon';
 // Slice 56.
-import { VISIT_WHYS } from '../sim/epiphany';
+import { ALL_WHYS, type WalkState } from '../sim/epiphany';
 // Slice 59.
 import { HERO_IDS } from '../sim/pantheon';
 import { HERO_STATES } from '../sim/heroes';
 // Slice 60.
-import { WAR_WHYS } from '../sim/epiphany';
+import type { StrikeKind } from '../sim/godwar';
 // Slice 57
 import { CURSES } from '../sim/wrath';
 // Slice 61.
@@ -334,29 +338,21 @@ const strs = (v: unknown): boolean => Array.isArray(v) && v.every((x) => typeof 
 const ROUNDS: readonly Round[] = ROUND_KINDS;
 const KINDS: readonly string[] = BUILDING_KINDS;
 const WALKERS: readonly string[] = WALKER_KINDS;
-const LEDGER_KINDS = ['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned', 'rowers', 'seized', 'collected'];
+const LEDGER_KINDS: readonly string[] = allOf<LedgerKind>()(['taxes', 'sales', 'refund', 'wages', 'building', 'fire', 'collapse', 'clearing', 'imports', 'routes', 'gifts', 'given', 'favours', 'tribute', 'peace', 'raid', 'soldiers', 'hirelings', 'recovered', 'borrowed', 'repaid', 'lent', 'repayment', 'returned', 'rowers', 'seized', 'collected',
+  // Slice 30: thefts and fines. Slice 34: tribute from your vassals. Slice 37: founding a colony. Slice 41: repairs to what vandals
+  // smashed, and what crooked tax collectors kept back. Slice 47: your share of your colonies' and free allies' trade. Slice 53:
+  // festivals to the gods. Slice 61: visitors' coin at the places of legend (slice 59's kind, missed here: a town with a monster
+  // slain and visitors paying could not be saved, nor opened from a save). (Phase 7 review: tied to LedgerKind, so a kind
+  // missed is refused when compiled.)
+  'stolen', 'fines', 'vassals', 'colonies', 'repairs', 'skimmed', 'colonytrade', 'worship', 'legends']);
 const STATE_NUMBERS = ['seed', 'tick', 'commandsApplied', 'money', 'population', 'nextId', 'settlerClock', 'rev', 'looks', 'tilesRev', 'arrived', 'left', 'taxRate'];
 const BUILDING_NUMBERS = [
   'id', 'x', 'z', 'level', 'people', 'incoming', 'placed', 'since', 'waterUntil', 'walker', 'clock', 'turn', 'foodUntil', 'religionUntil', 'cultureUntil', 'workers', 'stock', 'growth',
   'taxedAt', 'taxPaid', 'unpaid', 'owed', 'meat', 'cheese', 'meatIn', 'cheeseIn', 'meatUntil', 'cheeseUntil', 'grace', 'stalls',
   'risk', 'wear', 'fire', 'fireAt', 'creakAt',
 ];
-// Slice 30: a home's temptation to crime, and the ledger's thefts and fines.
+// Slice 30: a home's temptation to crime.
 BUILDING_NUMBERS.push('tempt', 'robbedAt');
-LEDGER_KINDS.push('stolen', 'fines');
-// Slice 34: tribute from your vassals.
-LEDGER_KINDS.push('vassals');
-// Slice 37: founding a colony.
-LEDGER_KINDS.push('colonies');
-// Slice 41: repairs to what vandals smashed, and what crooked tax collectors kept back.
-LEDGER_KINDS.push('repairs', 'skimmed');
-// Slice 47: your share of your colonies' and free allies' trade.
-LEDGER_KINDS.push('colonytrade');
-// Slice 53: festivals to the gods.
-LEDGER_KINDS.push('worship');
-// Slice 61: visitors' coin at the places of legend (slice 59's kind, missed here: a town with a monster slain and visitors
-// paying could not be saved, nor opened from a save).
-LEDGER_KINDS.push('legends');
 // Slice 49: a home's health and the physician's last call.
 BUILDING_NUMBERS.push('health', 'physician');
 /** A building's goods: one number per good. */
@@ -465,9 +461,9 @@ export function stateProblem(st: unknown): string {
 }
 
 // Slice 55
-const BEAST_STATES = ['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving'];
+const BEAST_STATES: readonly string[] = allOf<BeastState>()(['coming', 'settling', 'lair', 'raiding', 'returning', 'healing', 'leaving']);
 const BEAST_NUMBERS = ['held', 'tower', 'chase', 'calm', 'shot', 'id', 'came', 'settled', 'lair', 'mouth', 'hp', 'full', 'x', 'z', 'face', 'walked', 'seg', 'along', 'target', 'siege', 'smash', 'wait', 'next', 'raids', 'last', 'killed', 'stoned', 'men', 'dead', 'foe', 'fought', 'swung', 'cool'];
-const LAIRS = ['cave', 'marsh', 'shore'];
+const LAIRS: readonly string[] = allOf<Lair>()(['cave', 'marsh', 'shore']);
 /** Slice 55: the monsters on the land (each of a known kind, sent by one of the twelve, with its way, its lair and its numbers), Medusa's stones, and those slain. */
 function legendsOk(l: unknown): boolean {
   if (!isObj(l) || !fin(l.next) || !Array.isArray(l.monsters) || !Array.isArray(l.stones) || !Array.isArray(l.slain)) return false;
@@ -530,7 +526,7 @@ function godsOk(g: unknown): boolean {
 function godWarOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.next) || !Array.isArray(w.marches) || !Array.isArray(w.champions) || !Array.isArray(w.strikes) || !isObj(w.called) || !Object.entries(w.called).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
   const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
-  const kinds = ['spear', 'bolt', 'wave', 'arrow', 'fire', 'light', 'earth', 'madness', 'nerve', 'clash', 'burn'];
+  const kinds: readonly string[] = allOf<StrikeKind>()(['spear', 'bolt', 'wave', 'arrow', 'fire', 'light', 'earth', 'madness', 'nerve', 'clash', 'burn']);
   // (Merge of slice 60 with slice 59: the hero sent against a marching god, '' none; the heroes it wounded.)
   const hero = (h: unknown): boolean => h === '' || HERO_IDS.includes(h as never);
   return (
@@ -561,7 +557,7 @@ function walksOk(w: unknown): boolean {
   if (!isObj(w) || !fin(w.next) || !Array.isArray(w.figures) || !Array.isArray(w.blessed) || !Array.isArray(w.loving) || !isObj(w.last) || !Object.entries(w.last).every(([g, t]) => GOD_IDS.includes(g as never) && fin(t))) return false;
   const god = (g: unknown): boolean => GOD_IDS.includes(g as never);
   // (Slice 60: and fighting.)
-  const states = ['arriving', 'walking', 'blessing', 'leaving', 'posing', 'fighting'];
+  const states: readonly string[] = allOf<WalkState>()(['arriving', 'walking', 'blessing', 'leaving', 'posing', 'fighting']);
   return (
     (w.loving as unknown[]).every(god) &&
     (w.blessed as unknown[]).every((b) => isObj(b) && fin(b.id) && fin(b.until) && god(b.god)) &&
@@ -571,7 +567,7 @@ function walksOk(w: unknown): boolean {
         god(f.god) &&
         ['id', 'x', 'z', 'px', 'pz', 'heading', 'since', 'at', 'came', 'leaves'].every((k) => fin(f[k])) &&
         states.includes(f.state as string) &&
-        (VISIT_WHYS.includes(f.why as never) || WAR_WHYS.includes(f.why as never) || f.why === 'wrath') && // (Slice 57: a god come in wrath, never sent by the 'visit' command.)
+        ALL_WHYS.includes(f.why as never) && // (Slice 57: or a god come in wrath, never sent by the 'visit' command; phase 7 review: every why, tied to its type.)
         typeof f.words === 'string' &&
         nums(f.blessed) &&
         Array.isArray(f.stops) &&
@@ -788,10 +784,10 @@ function worldOk(w: unknown): boolean {
 
 const GIFT_NUMBERS = ['id', 'good', 'amount', 'got', 'phase', 'at', 'depot', 'start', 'dur', 'a0', 'a1', 'deal', 'loan'];
 const DEAL_NUMBERS = ['id', 'good', 'amount', 'at', 'due', 'gift', 'got', 'ended', 'price', 'done', 'until', 'paid'];
-const DEAL_STATES = ['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided'];
+const DEAL_STATES: readonly string[] = allOf<Deal['state']>()(['open', 'met', 'late', 'refused', 'lapsed', 'broken', 'taken', 'declined', 'kept', 'ended', 'raided']);
 
 const LOAN_NUMBERS = ['id', 'amount', 'rate', 'months', 'owed', 'deal', 'gift', 'at', 'until', 'start', 'due', 'ended', 'step', 'stepAt', 'fell', 'seized', 'extended', 'raid', 'demand', 'sent'];
-const LOAN_STATES = ['asking', 'terms', 'proposed', 'coming', 'offering', 'sending', 'returning', 'running', 'overdue', 'repaying', 'grace', 'repaid', 'refused', 'declined', 'lapsed', 'forgiven', 'collected'];
+const LOAN_STATES: readonly string[] = allOf<Loan['state']>()(['asking', 'terms', 'proposed', 'coming', 'offering', 'sending', 'returning', 'running', 'overdue', 'repaying', 'grace', 'repaid', 'refused', 'declined', 'lapsed', 'forgiven', 'collected']);
 const whysOk = (x: unknown): boolean => Array.isArray(x) && x.every((y: unknown) => isObj(y) && typeof y.why === 'string' && fin(y.n));
 
 /** A loan either way: its city, side, state, numbers and the reasons for its terms. */
@@ -802,7 +798,7 @@ function loanOk(l: unknown): boolean {
 }
 
 const EXPEDITION_NUMBERS = ['id', 'loan', 'edge', 'start', 'dur', 'a0', 'a1', 'at', 'ours', 'theirs', 'odds', 'fallen', 'coin', 'good', 'goods', 'value', 'ended'];
-const EXPEDITION_PHASES = ['mustering', 'marching', 'fighting', 'homeward', 'back', 'done'];
+const EXPEDITION_PHASES: readonly string[] = allOf<Expedition['phase']>()(['mustering', 'marching', 'fighting', 'homeward', 'back', 'done']);
 
 /** An expedition of your companies: its city, kind, phase, way, numbers, companies and men, and its report. */
 function expeditionOk(x: unknown): boolean {
@@ -821,7 +817,7 @@ function warOk(x: unknown): boolean {
 }
 
 const RAID_NUMBERS = ['id', 'deal', 'men', 'start', 'dur', 'a0', 'a1', 'coin', 'alt', 'altAmount', 'edge', 'target', 'ware', 'took', 'ended', 'siege', 'breaches', 'shore', 'ships', 'sunk', 'landed', 'drowned', 'loan'];
-const RAID_PHASES = ['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done'];
+const RAID_PHASES: readonly string[] = allOf<Raid['phase']>()(['threat', 'gathering', 'marching', 'raiding', 'homeward', 'turned', 'done']);
 
 /** A threat and its war band: its city, phase, way and numbers. */
 function raidOk(r: unknown): boolean {

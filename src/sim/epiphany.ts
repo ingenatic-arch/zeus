@@ -46,6 +46,7 @@ import { nextSeasonAt, SEASON_NAMES, seasonAt, TICKS_PER_SEASON } from './season
 import type { Building, BuildingKind, SimState } from './state';
 // Merge of slices 54 and 56: a god's own sanctuary, the first place they visit.
 import { sanctuaryDone, sanctuaryOf } from './sanctuaries';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 // ---------------------------------------------------------------------------
 // The state (in `gods.walks`: see pantheon.ts).
@@ -57,9 +58,13 @@ export type VisitWhy = 'loving' | 'festival' | 'sanctuary' | 'pose' | 'champion'
   // Slice 57: come to give their blessing (blessings.ts), or in wrath to deliver a curse (wrath.ts makes those figures itself).
   | 'blessing'
   | 'wrath';
-export const VISIT_WHYS: readonly VisitWhy[] = ['loving', 'festival', 'sanctuary', 'pose', 'blessing'];
+const VISITS = ['loving', 'festival', 'sanctuary', 'pose', 'blessing'] as const;
+export const VISIT_WHYS: readonly VisitWhy[] = VISITS;
 /** Slice 60: a god at war in your city (godwar.ts moves them): your champion, called; or a rival city's patron, come with its band. */
-export const WAR_WHYS: readonly VisitWhy[] = ['champion', 'foe'];
+const WARS = ['champion', 'foe'] as const;
+export const WAR_WHYS: readonly VisitWhy[] = WARS;
+/** (Phase 7 review: between them, with 'wrath', every why a save may hold, checked when compiled.) */
+export const ALL_WHYS = allOf<VisitWhy>()([...VISITS, ...WARS, 'wrath']);
 export const atWar = (f: Pick<GodFigure, 'why'>): boolean => f.why === 'champion' || f.why === 'foe';
 /** Slice 60: a god at war comes and goes quicker than a visit (a day, not three): the battle won't wait. */
 export const WAR_ARRIVE = TICKS_PER_DAY;

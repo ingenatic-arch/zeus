@@ -66,13 +66,14 @@ import { TILE_EMPTY, TILE_ROAD } from './state';
 import { HERO_HOLDS } from './pantheon';
 import type { GodMarch } from './godwar';
 import type { GodFigure } from './epiphany';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 // ---------------------------------------------------------------------------
 // The state (in the line's `legends`).
 
 /** Where a hero is in their life with the city (see the notes at the top). */
 export type HeroState = 'awaited' | 'sent' | 'arriving' | 'home' | 'strolling' | 'hunting' | 'waiting' | 'fighting' | 'returning' | 'mustering' | 'abroad' | 'sailing' | 'leaving';
-export const HERO_STATES: readonly HeroState[] = ['awaited', 'sent', 'arriving', 'home', 'strolling', 'hunting', 'waiting', 'fighting', 'returning', 'mustering', 'abroad', 'sailing', 'leaving'];
+export const HERO_STATES = allOf<HeroState>()(['awaited', 'sent', 'arriving', 'home', 'strolling', 'hunting', 'waiting', 'fighting', 'returning', 'mustering', 'abroad', 'sailing', 'leaving']);
 
 /** A hero whose hall stands: awaited, or come. */
 export interface Champion {

@@ -37,6 +37,8 @@ export function godWarCard(s: SimState): string {
   if (!s.gods.on || !warAbout(s)) return '';
   const w = s.gods.war;
   const out: string[] = [];
+  // (Phase 7 review: with a god ready to call, the button below says the rest: at 1366 × 768 the advice put it under the fold.)
+  const canCall = callable(s).some((c) => !c.why);
   // The gods against you.
   for (const m of w.marches) {
     const r = s.world.raids.find((x) => x.id === m.raid);
@@ -52,7 +54,7 @@ export function godWarCard(s: SimState): string {
     // (Merge of slice 60: fought already, by your god or a hero: say so, not what to do.)
     const held = f ? foeHeld(s, f) : '';
     out.push(
-      `<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} is against you.</b> ${esc(where)}. ${esc(angerWords(s, m.god))}. ${held ? `${esc(held)}.` : `Your soldiers can’t hurt ${him}: hold out until the band breaks${f ? '' : `, calm ${him} before they come`}, or call on a god who loves you.`}</p></div>`,
+      `<div class="gw-row foe"><span class="gw-em">${emblemIcon(m.god)}</span><p><b>${esc(GODS[m.god].name)} is against you.</b> ${esc(where)}. ${esc(angerWords(s, m.god))}. ${held ? `${esc(held)}.` : canCall ? `Your soldiers can’t hurt ${him}.` : `Your soldiers can’t hurt ${him}: hold out until the band breaks${f ? '' : `, calm ${him} before they come`}, or call on a god who loves you.`}</p></div>`,
     );
   }
   // The gods fighting for you.
@@ -94,7 +96,10 @@ export function godWarCard(s: SimState): string {
     .filter((c) => !lovingNoSanctuary.includes(c) && !busy(c.god))
     .map((c) => `<span class="gw-dim" data-tip="${esc(`${c.why}${/only .* towards you/.test(c.why) ? '' : ` (${moodWord(moodOfGod(s, c.god))})`}`)}" aria-label="${esc(`${GODS[c.god].name}: ${c.why}`)}">${emblemIcon(c.god)}</span>`);
   if (dim.length) answer.push(`<div class="gw-rest"><small>Won’t come:</small>${dim.join('')}</div>`);
-  out.push(answer.join(''));
+  // (Phase 7 review: a god ready to call, first, under the card's name: below the gods against you, at 1366 × 768 the
+  // button sat under the fold of the Army tab.)
+  if (ready.length) out.unshift(answer.join(''));
+  else out.push(answer.join(''));
   return kcard(`${kh('Call on the gods', { icon: emblemIcon(ready[0]?.god ?? 'zeus') })}${out.join('')}`, 'k-godwar');
 }
 

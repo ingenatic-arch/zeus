@@ -25,6 +25,7 @@ import type { GodId, Gods } from './pantheon';
 import type { HeroId } from './pantheon';
 // Slice 55: the monsters on your land (monsters.ts).
 import type { Legends } from './monsters';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 /** Bump when the shape of SimState changes, so old saves fail clearly. */
 // (Slice 47: a colonial empire, renumbered 44 at its merge.)
@@ -97,7 +98,7 @@ export type BuildingKind =
   // Slice 59: a hero's hall (heroes.ts), with its hero.
   | 'herohall';
 /** Every kind of building, in the order saves have always listed them. */
-export const BUILDING_KINDS: readonly BuildingKind[] = ['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary', 'herohall'];
+export const BUILDING_KINDS = allOf<BuildingKind>()(['home', 'fountain', 'farm', 'granary', 'agora', 'shrine', 'theatre', 'taxoffice', 'lodge', 'dairy', 'grove', 'press', 'storehouse', 'pasture', 'vineyard', 'winery', 'watchpost', 'architect', 'rubble', 'trading', 'yard', 'mine', 'armoury', 'barracks', 'tower', 'shipyard', 'quarry', 'loggers', 'masons', 'lighthouse', 'colossus', 'stadium', 'horsefarm', 'court', 'prison', 'infirmary', 'asklepieion', 'sanctuary', 'herohall']);
 
 /** The services walkers carry along the streets, each with its own record: water, bread, the priestess's blessings, oil, plays, fleece and wine. */
 export type Service = 'water' | 'food' | 'religion' | 'oil' | 'culture' | 'fleece' | 'wine';
@@ -107,7 +108,7 @@ export type Round = Service | 'tax' | 'fire' | 'wear'
   // Slice 49: the physicians' (health.ts).
   | 'health';
 /** Every round, in a fixed order (what a save holds a record for). */
-export const ROUND_KINDS: readonly Round[] = ['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax', 'fire', 'wear', 'health'];
+export const ROUND_KINDS = allOf<Round>()(['water', 'food', 'religion', 'oil', 'culture', 'fleece', 'wine', 'tax', 'fire', 'wear', 'health']);
 
 /**
  * A building on a square footprint (2 x 2 for homes, fountains, shrines, tax offices,
@@ -256,7 +257,7 @@ export type WalkerKind = 'settler' | 'leaver' | 'water' | 'cart' | 'porter' | 'f
   | 'procession'
   | 'offering';
 /** Every kind of walker, in the order saves have always listed them. */
-export const WALKER_KINDS: readonly WalkerKind[] = ['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest', 'procession', 'offering'];
+export const WALKER_KINDS = allOf<WalkerKind>()(['settler', 'leaver', 'water', 'cart', 'porter', 'food', 'oil', 'priestess', 'actor', 'tax', 'hunter', 'fleece', 'wine', 'watchman', 'inspector', 'docker', 'caravan', 'raider', 'thief', 'quarryman', 'logger', 'sledge', 'builder', 'oxcart', 'visitor', 'colonist', 'shipper', 'pickpocket', 'vandal', 'arsonist', 'smuggler', 'convict', 'physician', 'bearer', 'priest', 'procession', 'offering']);
 
 /** Someone living in a home. */
 export interface Person {

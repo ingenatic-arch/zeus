@@ -23,6 +23,8 @@ import { TICKS_PER_MONTH } from '../sim/clock';
 import { demandsOf, worthWords, hallRefusal, heroDoing, heroOf, isCome, LEAVE, LEGEND_COIN, placeName, RESTLESS, sailRefusal, sendRefusal, slayersOf, slaysWords, unmetFor, wishOf, type Champion } from '../sim/heroes';
 // Merge of slice 60: a hero sent against an enemy god.
 import { faceRefusal, godsAgainst } from '../sim/heroes';
+// Phase 7 review: a resting hero's order to ride, said as waiting on the healing.
+import { resting } from '../sim/heroes';
 import { GODS } from '../sim/pantheon';
 import { PLACES } from '../map/greece';
 import { beastName, type Beast } from '../sim/monsters';
@@ -106,7 +108,7 @@ export function hallSections(s: SimState, map: CoastMap, b: Building): string {
   out.push(
     ksec(
       'Ride with your armies',
-      `${ktoggle({ on: c.ride || away, act: 'hero', data: { do: 'ride', on: c.ride ? 0 : 1 }, html: esc(away ? `Away with your expedition` : c.ride ? `Rides with the next expedition` : `Stays home`), why: away ? `${g.name} is away with your expedition` : c.state === 'leaving' ? `${g.name} is leaving` : '', tip: `${g.name} rides with your next expedition and fights beside your men, worth ${worthWords(h)} on ${his(h)} own` })}`,
+      `${ktoggle({ on: c.ride || away, act: 'hero', data: { do: 'ride', on: c.ride ? 0 : 1 }, html: esc(away ? `Away with your expedition` : c.ride ? (resting(s, c) ? `Rides with an expedition once healed` : `Rides with the next expedition`) : `Stays home`), why: away ? `${g.name} is away with your expedition` : c.state === 'leaving' ? `${g.name} is leaving` : '', tip: `${g.name} rides with your next expedition and fights beside your men, worth ${worthWords(h)} on ${his(h)} own` })}`,
     ),
   );
   if (h === 'odysseus') {

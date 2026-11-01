@@ -118,6 +118,9 @@ describe('gods in war (slice 60)', () => {
     const m = marchOf(s, r.id)!;
     expect(m.god).toBe('ares');
     expect(m.figure).toBe(0);
+    // (Phase 7 review: said at least JOIN_LEAST before the band reaches your edge, time to read it and answer.)
+    expect(r.phase).toBe('marching');
+    expect(r.start + r.dur - m.since).toBeGreaterThanOrEqual(JOIN_LEAST);
     // Said as an alarm, naming the god and why, and on the band's chip.
     const said = s.messages.log.filter((x) => x.kind === 'godwar');
     expect(said[0].u).toBe(2);

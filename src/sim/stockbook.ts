@@ -16,6 +16,7 @@ import { mapOf } from '../map/lands';
 import { districtAt } from '../map/districts';
 import { TICKS_PER_MONTH } from './clock';
 import type { Building, SimState, StockBook, StockKind, StockLine, StockMonth } from './state';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 /** The month (since the founding) a tick falls in (as the ledger counts them). */
 const monthOf = (tick: number): number => Math.floor(tick / TICKS_PER_MONTH);
@@ -24,7 +25,7 @@ const monthOf = (tick: number): number => Math.floor(tick / TICKS_PER_MONTH);
 export const BOOK_MONTHS = 12;
 
 /** The kinds of line, in the order the book's months keep their totals. */
-export const STOCK_KINDS: readonly StockKind[] = ['made', 'used', 'sold', 'bought', 'lost'];
+export const STOCK_KINDS = allOf<StockKind>()(['made', 'used', 'sold', 'bought', 'lost']);
 
 /** An empty book for the month of `tick`. */
 export function freshBook(tick: number): StockBook {

@@ -295,6 +295,8 @@ export function shrineWords(map: CoastMap, b: Building, s?: SimState): string {
       }
     }
   }
+  // (Phase 7 review: not twice, where the district is named for the landmark: "the shrine by the olive grove, by the olive grove".)
+  if (w && near && w.endsWith(near)) near = '';
   return `${w ? `the shrine ${w}` : 'the shrine'}${near ? `${w ? ',' : ''} by ${near}` : ''}`;
 }
 
@@ -530,6 +532,21 @@ export function moveProcession(s: SimState, map: CoastMap, w: Walker): boolean {
 
 /** The offering on its way to a shrine (or a sanctuary), if any. */
 export const offeringTo = (s: SimState, id: number): Walker | undefined => s.walkers.find((w) => w.kind === 'offering' && w.target === id);
+/** Phase 7 review: every offering on its way to a shrine or sanctuary. */
+export const offeringsTo = (s: SimState, id: number): Walker[] => s.walkers.filter((w) => w.kind === 'offering' && w.target === id);
+/**
+ * Phase 7 review: while a god's omens run, a shrine or sanctuary of theirs may have this many offerings on their way at
+ * once (otherwise one). One at a time, a porter's walk of a fortnight or more from the store let a shrine add only a
+ * point or two of honour a fortnight, so an offering could turn a curse only from a god a hair's breadth from displeased;
+ * the spec has it the way to turn a curse at the last moment. Each counts the moment it is sent (wrath's `promised`).
+ */
+export const OMEN_OFFERINGS = 3;
+/** " An offering of 2 jars of oil is on its way here." (or how many are), or '' (phase 7 review: they may be several). */
+export function offeringsWords(s: SimState, id: number): string {
+  const offs = offeringsTo(s, id);
+  if (!offs.length) return '';
+  return offs.length === 1 ? ` An offering of ${goodsWords(offs[0].food, offs[0].load)} is on its way here.` : ` ${offs.length} offerings of ${goodsWords(offs[0].food, offs[0].load)} are on their way here.`;
+}
 
 /** The nearest place by road from a shrine that holds its god's sacred good, and the way there (from the shrine's side). */
 function nearestSacred(s: SimState, size: number, b: Building, w: Ware): { g: Building; way: number[] } | null {
@@ -556,7 +573,9 @@ export function offerRefusal(s: SimState, map: CoastMap, id: number): string {
   if (!s.gods.on) return 'The gods are not watching yet';
   if (!b.god) return 'Dedicate the shrine to a god first: an offering is for one of the twelve';
   const G = GODS[b.god];
-  if (offeringTo(s, b.id)) return 'An offering is already on its way here';
+  const going = offeringsTo(s, b.id).length;
+  const most = s.gods.wrath.omens.some((o) => o.god === b.god) ? OMEN_OFFERINGS : 1;
+  if (going >= most) return going === 1 ? 'An offering is already on its way here' : `${going} offerings are already on their way here: as many as the priests can send at once`;
   const n = offeringOf(G.sacred);
   const have = sacredStock(s, G.sacred);
   if (have < n) return `${G.name}’s offering is ${goodsWords(G.sacred, n)}, and the stores hold ${have ? goodsWords(G.sacred, have).replace(/ of .*$/, '') : 'none'}`;

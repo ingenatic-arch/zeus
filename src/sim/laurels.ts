@@ -11,6 +11,7 @@
  */
 import { TICKS_PER_YEAR } from './clock';
 import type { SimState } from './state';
+import { allOf } from './kinds'; // (Phase 7 review: lists a save is checked against, tied to their types.)
 
 /** A milestone reached: which, when, and whether it was already met when the town was opened (no fanfare, no reward); what its reward came to, in words. */
 export interface Laurel {
@@ -45,7 +46,7 @@ export const freshAmbition = (on = false): Ambition => ({ on, looked: false, rea
 
 // (Slice 61: Beloved of the gods appended.)
 export type AmbitionKind = 'greece' | 'trade' | 'wonders' | 'gods';
-export const AMBITIONS: readonly AmbitionKind[] = ['greece', 'trade', 'wonders', 'gods'];
+export const AMBITIONS = allOf<AmbitionKind>()(['greece', 'trade', 'wonders', 'gods']);
 /** Each ambition's name within a sentence: "Master of Greece", "the great trading city", "a city of wonders", "beloved of the gods". */
 export const AMBITION_IN: Record<AmbitionKind, string> = { greece: 'Master of Greece', trade: 'the great trading city', wonders: 'a city of wonders', gods: 'beloved of the gods' };
 /** Each ambition's five milestones, easy to grand, by id (ambitions.ts defines them, in this order). */
