@@ -108,4 +108,74 @@ At `4d2401a`, on a quiet machine (load under 1 on 4 cores as it began).
 
 ## As built
 
-*(Filled in as the slice is built.)*
+Built in six commits after the plan (`af35f96`): the ambition (`4893962`); `#olympus` (`6c51e61`); the findings, the tuning's one change and the look pass (`bfcb64e`); a save bug from slice 59 (`6a1700c`); a quoting fix in the smoke's new block (`d396a61`); the checks, this note and the check-in.
+
+**The ambition** is as designed above, with one addition: a ruler's grand words and the town line name the gods. Olympus's and the overview's line reads "Beloved of the gods: 1 of 5 laurels. Next, a shrine to every god (shrines to 11 of the twelve: none yet to Ares)." The Ambitions panel's four columns fit at 1920 × 1080; at 1366 × 768 they fit side by side and the panel scrolls (two rows, under a container query, only below 940 px).
+
+**`#olympus`, as built, differs from the design in two places:**
+- **Hera is the angry god, not Poseidon.** Her curse here (quarrels) is a gentle one, and her fleece comes from a pasture. The Boar wrecks that pasture during the year, so the setup lays it again.
+- **Atalanta's hall, not Heracles'.** Heracles' demands (2,000 people and a full granary) came and went with the harvest. Atalanta's two (Artemis warm, three hunting lodges) leave exactly one unmet once a third lodge is built, and she is the Boar's own slayer.
+
+Otherwise it opens as promised:
+- 1,910 people;
+- shrines to eleven gods;
+- five sanctuaries finished and Apollo's at stage 3 of 3. That stage waits for an armoury to cast its bronze, and its panel says so;
+- Demeter (+64) and Athena (+79) loving, Hermes nearest (+55);
+- Hera −42 with her omen 16.9 days off;
+- Ares −72 marching with Sparta's band, 7.8 days from your edge;
+- the Boar in its marsh;
+- Athena walking for her festival;
+- 499 messages over a year;
+- the ambitions: Greece 1 of 5, trade 1, wonders 2, gods 1.
+
+The setup takes about 30 s and is prepared at build time. Its staged moods fade (angers over two years, loves over one), because of the tuning pass below.
+
+**The tuning pass** (scratch scripts, gods on, deals answered carefully). The figures are in the check-in's Measurements. **No system constant changed.** None was plainly off:
+- shrines, festivals, offerings and sanctuaries warm a god at the rates slice 57 set;
+- neglect stops at displeased;
+- an angry god's omen comes about every seven months;
+- quarrels cost 3% of the people;
+- the monsters cost what slice 55 set;
+- Ares with no god called fells 26 of 32, which is recorded for Oliver.
+
+The one change was to `#olympus` itself. Its first build staged Hera's and Ares' anger to never fade, and the Boar had left it no fleece. A city that answered every omen still lost 60% of its people in three years, and one that answered nothing lost 70%. Fading staged moods and a pasture laid again make it recoverable: 1,571 people three years on for a player who sends offerings.
+
+**The findings:**
+
+| Finding | Done |
+|---|---|
+| Plinth floats, faces the map's centre | Fixed. `Slain.mouth` (optional) keeps the lair's mouth; the stele is seated on the lowest ground under its step |
+| Fête dancers on the road | Fixed. The ring goes on open ground beside the hall (gate, sides or back), else in its courtyard |
+| Heroes' height | For Oliver |
+| God beside a band on the map small | Fixed. Drawn 0.95 of the band's scale, not 0.62 |
+| God angered late warned just before rising | Fixed. A god joins only with 4 or more days left on the road (`JOIN_LEAST`); later it stays home, without a message (a rough edge) |
+| Ares with no god called | Measured (26 of 32 felled, 4 fires); for Oliver |
+| Piety memory never lapses when off | Recorded: the gods can't be switched off in play |
+| 1280 × 720 Olympus label | Looked at: crowded against Thebes', below the 1366 target; recorded |
+| Ship or caravan lost to a curse not drawn | Recorded |
+| "Your soldiers broke" for a god's victory | Fixed. `Raid.brokeBy` (optional) and the news names the god |
+| Wounded hero never rests | Fixed. `Champion.rest` (optional): a month from reaching the hall, said on the panel and in refusals |
+| `#herogod`'s Perseus small | For Oliver |
+| Curses soon after opening | Checked every demo with the gods on for 20 days: only `#wrath` (by design, opens paused, 4 days) and `#olympus` (warned, 17 days) land one |
+| 4f8dc29's `#godduel` note | Nothing to fix |
+
+**Two more things found and fixed:**
+- **The save bug.** Slice 59's `legends` ledger kind was missing from the kinds a save accepts, so a town with visitors paying at a place of legend could not be saved. Found by loading the starting commit's `#slay` and playing it a month.
+- **The look pass.** On Olympus at 1366 × 768, long names ran into their mood words.
+
+**Histories:** all 184 earlier demos open at the same tick, people and money as at `4d2401a`.
+
+**Checks at the end:**
+- **Typecheck:** clean.
+- **Tests:** `npm test`, 70 files, 958 of 958 pass (12 min 55 s).
+- **Build:** clean, 2 min 43 s with every demo prepared.
+- **Focused smoke:** `#town`, `#order` and the blocks of slices 53 to 61, all ok.
+- **Old saves:** v47, v48 and two v55 saves load to v56, play a month and save again.
+
+**Measure** (loosened and shortened, headless software WebGL, `4d2401a` against the end):
+- **The game itself:** 1,124 KB to 1,128 KB gzipped.
+- **Prepared towns:** 144 files and 5,342 KB, to 145 files and 5,438 KB gzipped.
+- **`#town`:** identical triangles and draws. Its save grows from 194,989 to 195,033 characters.
+- **Every demo's load:** median 2.5 s to 2.4 s, and 30 to 15 demos over 3 s (the machine's load, not the slice). `#olympus` is ready in 3.3 to 3.4 s, `#order` in 3.5 to 3.8 s.
+- **`#olympus`'s opening view:** 2.42 M triangles and 143 draws.
+- **A frame's work:** `#order` measured 37 ms against 26 ms at first. Remeasured side by side it was 37.2 and 29.5 ms against 45.2 and 34.5 ms, and the simulation alone runs at 3.3 to 3.7 ms a tick in both. It is noise, not a regression.

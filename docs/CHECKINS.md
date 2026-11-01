@@ -2,6 +2,112 @@
 
 Notes to Oliver, newest first.
 
+## Slice 61 — Beloved of the gods (1 Nov)
+
+The phase's last slice. Being loved by the gods is now an ambition of its own, the fourth, chased alongside Master of Greece, the great trading city and a city of wonders from the founding. There is also one town with the whole phase in it at once, `#olympus`. Around those two, I played `#olympus` and `#town` forward for years with the gods on to find any figures that were plainly off, measured the heaviest scene against the budgets, looked at the phase's panels at both screen sizes, and closed what I could of the findings carried over from slices 55 to 60. You weren't here while it was built: every choice below is mine, from the spec's defaults.
+
+What breaks, or moves:
+- **State version 56.** Saves from before load and play on. On its first look, a town that has only ever known three ambitions looks at the fourth quietly: whatever it already meets is recorded with no reward and no fanfare, and it is told once ("A fourth ambition: Beloved of the gods", with how many of the five it already has). I loaded a phase 6 save (version 47), the phase 7 groundwork save (48) and two of the starting commit's towns (55), played each a month and saved it again.
+- **A real bug from slice 59, fixed.** A town where visitors pay at a place of legend could not be saved: that ledger line's kind had never been added to the kinds a save accepts. Any game that had slain a monster would have failed to save. I found it by loading the starting commit's `#slay` and playing it on.
+- **"All four achieved" is now the grand finish**, and a town that had finished all three before keeps its finish.
+- **A few behaviours from the findings changed (listed under What's new).** No older demo's history moves: every demo opens at the same date, people and money as at the starting commit (184 of 184 compared). `#town` still opens at 8400 ticks, 736 people and 751 dr.
+
+### What's new
+- **The fourth ambition, Beloved of the gods**: "Shrines to all twelve, great sanctuaries, and gods who love you". It has five milestones, from easiest to its crown:
+  - **A shrine to every god.** A gift of 300 dr.
+  - **A first sanctuary**, finished. Settlers drawn by fame for three months.
+  - **Loved on Olympus**: three gods loving at once. Every ruler 5 warmer.
+  - **A monster slain** by a hero. A gift of 1,000 dr.
+  - **Six sanctuaries** standing, the ambition's crown in place of a great monument. Every ruler 10 warmer.
+
+  Each milestone says what is missing: "Shrines to 11 of the twelve: none yet to Ares"; "2 of 3 gods loving: Demeter and Athena; Hermes nearest, warm (+55 of +60)"; "No monster slain yet: the Calydonian Boar holds its marsh, and Atalanta's hall stands, waiting on her demands"; "5 of 6 sanctuaries standing: …; Apollo's rising, 66% built, stage 3 of 3".
+- **Four ambitions everywhere there were three.** The Ambitions panel has four columns (at 1366 × 768 it scrolls). The top bar's laurel offers the nearest of all twenty milestones. The help lists four. Olympus and the overview's Gods page have a line under the gods with this ambition's laurels and its next milestone, and a link to the Ambitions panel.
+- **`#olympus`**, everything in one town. It is `#order`'s river delta (about 1,900 people) given a year with the gods watching, played as a player honouring them would. It has:
+  - shrines to eleven gods, none to Ares;
+  - six sanctuaries along a sacred way north of the main street, five finished and Apollo's rising;
+  - festivals and offerings;
+  - the Calydonian Boar in its marsh;
+  - a third hunting lodge, and Atalanta's hall waiting on one demand (Artemis warm);
+  - Sparta's band on the road with Ares furious and marching with it;
+  - Hera angry, her omen of quarrels running;
+  - Demeter and Athena loving, and Athena walking for her festival as it opens;
+  - a year of messages.
+
+  Moods the year didn't reach on its own are staged and say "(set up for this demo)", and they fade (the angers over two years, the loves over one).
+- **From the findings:**
+  - A slain monster's lair keeps the way its mouth faced. The place of legend stands before that mouth, seated on the lowest ground under its step.
+  - The fête's dancers ring on open ground beside the hall, never on the road.
+  - The god beside a band on the map of Greece is half as big again.
+  - A god angered when the band is less than four days from your edge now stays home. A god only marches with time left to answer the warning.
+  - A band broken by your god is reported as theirs: "Athena broke Sparta's raiders by the bridge, your soldiers beside her: …".
+  - A hero who withdraws wounded from a god walks home and rests a month in their hall. They are sent on no deeds or walks until healed, and the panel and the refusals say so.
+  - On Olympus at 1366 × 768, a long god's name no longer runs into its mood word.
+
+### What to try
+1. #olympus — open the laurel in the top bar: Beloved of the gods is the fourth column, one milestone met. Then press G for Olympus: Hera's card is red with her omen, and the line under the twelve names the next milestone.
+2. #olympus — play at normal speed for a few minutes. Watch Athena's procession, Sparta's band arrive with Ares among it (Athena loves you: call her from the Army tab), and Hera's quarrels land if you do nothing. The town now has fleece, so an offering at Hera's shrine can turn the omen.
+3. #olympus — click Atalanta's hall north of the sanctuaries: she waits on Artemis warm. Send offerings at Artemis' shrine and see whether she comes for the Boar.
+4. #olympus — click the half-built sanctuary to Apollo: it says what it is waiting for.
+5. #godwar — call on Athena and let the band break: the army's news now says Athena broke them.
+6. #herogod — let Perseus withdraw wounded: he walks home and rests a month.
+
+### What I'd like your eye on
+- **Does the fourth ambition feel like another kind of diplomacy?** Play `#olympus` for a few years and judge whether winning the gods round feels like winning rulers round.
+- **How hard an angry god left alone hits.** Played on with nobody answering, `#olympus` lost two thirds of its people in three years before I made its staged angers fade. With them fading it ends three years on at 965 (passive) or 1,571 (a player who sends offerings to angry gods); with the gods off entirely it ends at 912. Measurements below has the figures. Is that the pressure you want?
+- **Ares with no god called** still fells 26 of `#godwar`'s 32 soldiers and sets four fires. I left it as it was: is it too much?
+- **Heroes' height** (half again a man's), and **Perseus at Ares' feet in `#herogod`**: still as slice 59 and 60 left them.
+- **The god beside a band on the map of Greece**, now half as big again: big enough?
+- **`#olympus`'s view**: the six sanctuaries, Atalanta's hall at the head of the way and Hera's storm over the homes below, from one angle.
+
+### Known rough edges
+- At 1280 × 720 (below the 1366 × 768 we aim at) Olympus on the map of Greece sits just under the top bar, and its label is crowded against Thebes'.
+- A ship or caravan lost to a curse is never drawn sinking or robbed; you read about each loss.
+- The gods can't be switched off in play, so the old finding that piety memories never lapse while they are off can't arise in a game. Recorded, not changed.
+- Apollo's rising sanctuary in `#olympus` waits for an armoury to cast its bronze: its panel says so, and the town has none, so it won't finish until you build one.
+- A god who stays home because the band was too near says nothing. You only see that no warning came.
+- In my 1366 × 768 shots I couldn't tell for sure that the stele at a place of legend faces the cave mouth. Please look.
+- I ran no test of a band coming before its god's march warning has been read. The four-day rule is the only guard.
+- Two demos land a curse within 20 days of opening: `#wrath` on day 5, which is its point (it opens paused on the omen), and `#olympus` on day 17, with Hera's omen showing from the first moment. The other demos with omens running (`#greecegods`, `#godwar`, `#godduel`, `#herogod`) give at least a month's warning.
+
+### Measurements
+Built at `4d2401a` (the starting commit) and at this slice's end. Each was measured with the same loosened, shortened `measure.mjs` on this machine: headless, software WebGL, on a shared machine. So every time below is several times what your laptop will see, and the frame figures move by a third from run to run.
+
+| What | Before (`4d2401a`) | After |
+|---|---|---|
+| Tests | (not rerun) | 70 files, 958 of 958 pass (12 min 55 s) |
+| Typecheck, build | | clean; the build takes 2 min 43 s with every demo prepared |
+| The game itself | 1,124 KB gzipped | 1,128 KB gzipped |
+| Prepared towns | 144 files, 5,342 KB gzipped (largest 82 KB) | 145 files, 5,438 KB gzipped (largest 93 KB, `#olympus`) |
+| The bare link, ready (page's clock) | 3.2 s and 2.7 s (two runs) | 3.0 s |
+| `#town` | ready 2.6 s; 1,488,490 triangles, 102 draws; a save of 194,989 characters | ready 2.3 s; identical triangles and draws; a save of 195,033 characters (+44, the fourth ambition's record) |
+| `#olympus`, paused, opening view | (did not exist) | ready 3.3 s; 2,416,989 triangles, 143 draws; 1,910 people, 207 walkers, one god drawn |
+| Every demo's load | 186 demos: median 2.5 s, 30 over 3 s (slowest `#delta` 4.5 s) | 187 demos: median 2.4 s, 15 over 3 s (slowest `#delta` 3.8 s; `#olympus` 3.4 s, `#order` 3.5 s) |
+| A frame's work before drawing, at normal speed | `#town` 14.6 / 19.5 / 19.0 ms; `#order` 26.3 / 30.0 / 24.0 / 45.2 / 34.5 ms; `#godwar` 3.6 to 4.8 ms | `#town` 18.0 / 18.6 ms; `#order` 36.9 / 37.2 / 37.2 / 29.5 ms; `#godwar` 3.6 to 5.0 ms; `#olympus` 53.3 / 40.5 ms |
+| The simulation alone, `#order`, 600 ticks in Node | 3.35 to 3.48 ms a tick (three runs) | 3.30 to 3.70 ms a tick (three runs) |
+| Focused smoke | | ok: `#town`, `#order` and the blocks of slices 53 to 61 |
+
+- **The budgets.** Most demos are ready in under 3 s here, and they were ready sooner on this run than at the starting commit, because the machine was less loaded. Some are still over 3 s on this machine: `#order` and `#olympus` (the 1,900-person delta) and a dozen older demos. Under software rendering on a loaded machine, that says little about your laptop's first load. `#olympus` has the heaviest opening view of any demo: 2.4 million triangles and 143 draws, against `#order`'s 2.5 million and 150.
+- **`#order`'s frame figure.** At first it looked about 10 ms worse than at the starting commit. I measured both builds again, side by side and twice each: the starting commit gave 45.2 and 34.5 ms, this slice 37.2 and 29.5 ms. Paused, it was 4.7 to 5.0 ms against 3.5 to 3.9 ms. The simulation alone runs at the same speed in both. The difference was the noise of a few frames under software rendering, not the slice.
+- **The tuning, before and after.** These are the figures from playing the towns forward for years.
+  - **`#town` with the gods on, nobody honouring them, four years.** Neglect begins on day 390. By month 24 every god is displeased (−14 to −20), and none goes further. No omens. The town grows from 736 to 1,285 people.
+  - **Winning a god round in `#town`.**
+    - A shrine alone: pleased on day 9.
+    - A shrine, a festival and monthly offerings: warm by day 49 (+31 to +34), never loving.
+    - A sanctuary: +46 at once, +34 after a year, +20 after two.
+    - Loving (+60) takes a sanctuary and steady honour, which is what the milestone asks.
+  - **`#olympus` before, with the staged angers never fading.**
+    - Left alone, it fell from 1,910 to 551 people in three years.
+    - Hera cursed about every 210 days. Her quarrels cost 64, 45, 40 and 27 people, and she called the Hydra on day 197. Ares burnt the barracks twice and called the Chimera.
+    - With the gods off, it ends at 912. A player sending offerings ends at 762, since the town had no fleece for Hera.
+  - **`#olympus` after.** The staged angers fade over two years and the loves over one, and the pasture the Boar wrecked is laid again, so the town has fleece.
+    - Left alone, it ends three years on at 965 (1,545 after two years). Three curses land. Hera is merely displeased by day 224, Ares is appeased on his own by day 577, and there is no Hydra or Chimera.
+    - A player sending offerings to angry gods ends at 1,571. The Boar was called home on day 96 and Atalanta came on day 108.
+  - **`#godwar`.**
+    - With no god called, Ares fells 26 of the 32 soldiers and sets 4 fires, and the band is still there after 40 days.
+    - With Athena called, 4 are felled and 1 fire is set. Athena beats Ares on day 7, and 3 of yours die.
+  - No system constant (neglect, fades, curse odds, war strengths) was changed. The changes are `#olympus`'s staging and the four-day rule for a god joining a band.
+- **Older demos and saves.** All 184 earlier demos open at the same tick, people and money as at `4d2401a`, and `#town` opens at 8,400 ticks, 736 people and 751 dr. Four saves load and play a month on: a phase 6 save (v47), the phase 7 groundwork save (v48), and the starting commit's `#slay` and `#godwar` (v55). That is how the `legends` save bug turned up.
+
 ## Slice 57 — Blessings and wrath (1 Nov)
 
 The gods now act. A god who is warm or better gives their blessing when you ask it at their finished sanctuary, once a year, and walks into the city to give it; a loving god sometimes gives one unasked. An angry god curses the city, but never without warning: a month of omens first, with the curse, the day and the reasons named, and anything that lifts the god back past angry turns it. The curses do real damage through what the city already has (fires, rubble, plague, monsters, people leaving, thieves, the fields' yield). You weren't here while it was built: every choice below is mine, from the spec and the brief.
