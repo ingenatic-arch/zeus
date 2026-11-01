@@ -118,6 +118,71 @@ Built at `4d2401a` (the starting commit) and at this slice's end. Each was measu
 - **Histories.** I compared 23 demos' prepared towns (every phase 7 demo with `#town`, `#order` and `#battle`) with the slice's own. All are identical except `#olympus`, which differs by one letter: the capital A in Atalanta's "Artemis warm".
 - **Checks after the review.** Typecheck clean; 960 of 960 tests pass (two new); the build is clean; the focused smoke (`#order` and the blocks of slices 52 to 61) is ok.
 
+### What the phase review changed
+I reviewed the whole phase, groundwork and slices 53 to 61 together. I played a new game from the bare link, building with the mouse until the gods noticed the town, then played it on for six to eight years in four ways: neglecting the gods, honouring all twelve, going to war with Athens, and a second war with Athena angry. I also opened every phase 7 demo, played `#olympus` on for years, loaded old saves, looked at the panels at three screen sizes and in all three looks, and measured against phase 6. What changed:
+
+- **An offering can turn a curse at the last moment again.** Your decision was that an offering can still turn a curse. But a shrine could only have one offering on its way at a time, and a porter's walk takes a fortnight or more. So an offering only turned a god who was a point or two from displeased. Now, while a god's omens run, each of their shrines and their sanctuary can have up to three offerings on their way at once (otherwise still one). Each counts as soon as its porter sets out. In `#olympus`, three offerings of fleece at Hera's shrine now turn her omen the moment they leave; one wasn't enough. In `#omen` with Athena made angrier (−45), three at once, then more as the porters arrive, turn her with days to spare. The omen's "To turn it" line says up to three can go at once.
+- **A god marches with a band only with eight days or more of road left, not four.** Four days pass in four seconds at normal speed, too quick to read the warning and answer it. If the god is angered later than that, they stay home. A test now checks that the warning always comes at least eight days before the band reaches your edge.
+- **`#olympus`'s sanctuary to Apollo now finishes when played on.** It waited for an armoury to cast its bronze and the town had none, so it never finished. An armoury now goes up beside the sacred way as the town opens (a gift for the demo). In my run Apollo's sanctuary was finished 114 days in. The town still opens on the same date with the same people and coin.
+- **The Army tab's "Call on the gods" card puts the god you can call first.** At 1366 × 768 in `#godwar`, the long line about Ares pushed the Call on Athena button below the bottom of the screen. Now the button comes first, under the card's name. When a god can be called, the line about the god against you is shorter.
+- **The date in the top bar stays on one line.** At 1600 × 900, with a late ship and the laurel in the bar, "November, 743 BC" broke onto two lines and covered the season under it. The Olympus button had made the bar that much fuller. Now the laurel's milestone name is cut short when the bar is full. Its tip still has the whole name.
+- **Words.**
+  - A god whose omens stop when you gave nothing (their anger faded, or the city pleased them some other way) now "relents". Before, they were "appeased", as if you had done something.
+  - The goddesses are goddesses on Olympus's picker and shrine panel and on a sanctuary's panel: "goddess of wisdom", not "god of wisdom".
+  - The offering's news names a shrine's landmark once ("the shrine by the olive grove", not "by the olive grove, by the olive grove").
+  - A wounded hero ordered to ride reads "Rides with an expedition once healed", not "Rides with the next expedition".
+- **Saves.** Slice 59 forgot to add one new kind of coin to the list a save checks against, so a game with a monster slain couldn't be saved (slice 61 fixed that one). Every list a save is checked against (buildings, walkers, coin, gods, monsters, heroes, bands, loans and more) is now tied to its kinds. A kind left out is caught when the game is built, before any save can fail.
+- **Small tidying.** `#olympus` is now last in the measuring script's list, and an out-of-date note about fifteen laurels now says twenty.
+
+What I checked:
+- **The long game from the bare link.**
+  - I laid roads, a bridge, plots, a farm and a granary with the mouse, then grew the town the way `#richtown` is built, to about 900 people.
+  - **Neglected for six years:** every god drifted to displeased (−12 to −19) and stayed there. No omen came, and the town grew to 1,366.
+  - **Honoured:** shrines to all twelve won the first milestone in two months (Athens sent 300 dr). Rivals noticed: "your shrine to Artemis, her rival". Festivals brought their god into the streets almost every time. Demeter's sanctuary took about two and a half years from marking out to finished, the first months waiting for marble. Its milestone came the day it was finished. I asked for Demeter's and Athena's blessings each year and both gave them. With a sanctuary, a shrine and monthly offerings, a god settled at +49 to +58, just short of loving (+60). After six years the town had 1,337 people (the neglected one had 1,366).
+  - **War on Athens:** a war with no cause and plunder made Athena angry. Her omen named her, her reasons and Medusa a month ahead. Her anger faded on its own 15 days later, and that is where "relents" came from.
+  - **A second war, with Athena still angry:** as Athens' patron she marched with its men. Your army was beaten and seven men were killed. Her olive curse then landed on its day, and the groves bore nothing for a year.
+  - In eight years of these runs no monster, hero or god in battle came on its own. I saw those in the demos.
+- **Every prepared demo** (185) opens exactly as before this review. After 900 more ticks each is identical too (everything but the messages' wording), except `#olympus`, whose new armoury is the one change.
+- **Old saves.** I loaded each version this phase made, from towns built at each slice's starting commit (versions 49 to 55: `#monster`, `#monsterraid`, `#epiphany`, `#sanctuaries`, `#gods`, `#procession`, `#hero`, `#slay`, `#greecegods`, `#godwar`, `#herogod`, `#omen` and `#wrath`), plus a phase 6 `#town` (47) and the groundwork save (48). Each loaded as version 56, played a month, saved again, and played back identically. `#town` opens at 8,400 ticks, 736 people and 751 dr in a fresh start.
+- **Screens.** I looked at Olympus (all twelve and a god's page), the overview's Gods page, the help card and the Army tab at 1366 × 768, 1600 × 900 and 1920 × 1080. I also looked at `#olympus`, `#godduel` and `#bestiary` in the modern and plain looks.
+
+**The budgets, phase 6's end against phase 7's.** I measured three builds side by side with the same shortened measuring script: phase 6's last commit, this phase's last slice, and after this review. This machine was shared and heavily loaded most of the night (load 8 to 18), so times move a lot from run to run, and a frame's work could not be measured fairly at all (phase 6's own `#town` gave anything from 31 to 103 ms a frame tonight, against about 5 ms at phase 6's own measuring). The last run was at a quieter moment (load about 4).
+
+| What | Phase 6's end | Phase 7, after the review |
+|---|---|---|
+| The game itself | 998 KB gzipped | 1,128 KB gzipped (+13%) |
+| Prepared towns | 125 files, 4,520 KB gzipped (largest 82 KB) | 145 files, 5,438 KB gzipped (largest 93 KB, `#olympus`) |
+| The bare link, ready (page's clock) | 4.9 s (loaded machine); 1.3 s at phase 6's own measuring | 2.5 s (quieter moment) |
+| `#town` | 1,488,490 triangles, 102 draws; a save of 194,396 characters | identical triangles and draws; a save of 195,033 characters (the gods' and the fourth ambition's records) |
+| `#empire` | 1,946,231 triangles, 156 draws; a save of 306,509 characters | identical; a save of 307,156 characters |
+| `#order` | 2,523,059 triangles, 150 draws | identical |
+| `#olympus` (new), opening view | | ready 3.2 s; 2.34 million triangles, 134 draws; a save of 504,909 characters |
+| Phase 7's other demos, opening view | | `#twelve` 1.94 million triangles and 129 draws; `#bestiary` 1.34 million and 147; `#godwar` 1.71 million and 107; `#godduel` 1.70 million and 111; `#sanctuaries` 1.50 million and 94; all ready in 2.1 to 2.4 s |
+| The map of Greece | 314,970 triangles, 57 draws | 316,170 triangles, 59 draws (Olympus and the patrons' marks) |
+| The simulation alone, 600 ticks in Node, best of three | `#town` 0.51 ms a tick, `#empire` 1.04, `#order` 1.07 | `#town` 0.59, `#empire` 1.09, `#order` 1.19; `#olympus` 1.87, `#godwar` 0.85, `#sanctuaries` 0.68 |
+| Every demo's load | 167 demos: median 1.67 s, none over 3 s (phase 6's own quiet measuring) | 187 demos at the quieter moment: median 2.25 s; 7 over 3 s (`#delta` 3.7 s, `#landlarge` 3.6 s, `#goods` 3.5 s, `#order` 3.5 s, `#olympus` 3.4 s, `#bigwoods` 3.4 s, `#slay` 3.3 s) |
+| Tests | 960 of 960 at this phase's last slice | 961 of 961 pass (one new). Five failed the first time on the loaded machine by running out of time, and all passed run again on their own |
+| Smoke | | Every block ran across three runs, and all pass. Two older checks (slices 39 and 40) still expected three ambitions, which slice 61 never ran into because it ran only a short smoke; I fixed them. `#jailbreak`'s popup click failed once while the machine was overloaded and passed on its own (it failed the same way on phase 6's build at that moment) |
+
+- **What grew.** The phase added about 13% to the game's download and 0.9 MB of prepared towns (20 more demos). A frame in `#town` draws exactly what it did. The simulation's work each tick in the older towns grew by about 5 to 15% with the gods watching. `#olympus` is the heaviest town here to simulate, and its save is half a million characters, against `#empire`'s 307,000. That still fits a browser's storage comfortably.
+- **A frame in `#olympus`.** Its work before drawing was 76 to 83 ms a frame here, against 31 ms for `#order`, the same town without the gods' year. Slice 61 saw the same gap (53 and 40 ms). I didn't find the cause: it is on the list below.
+- **First load.** On this machine and at this load, I can't say whether the bare link and the demos are under 3 seconds on your laptop. At the quieter moment the bare link was ready in 2.5 s and `#olympus` in 3.2 s.
+
+To try first:
+1. #omen — send an offering three times from Athena's page on Olympus: three porters go at once while her omens run.
+2. #olympus — at Hera's shrine, send three offerings of fleece: her omen is turned at once. Then click Apollo's sanctuary and play on: the armoury by the sacred way casts its bronze.
+3. #godwar at 1366 × 768 — open the Army tab: Call on Athena is at the top of the card.
+
+Recorded for later, not changed:
+- A god who stays home because the band was too near still says nothing.
+- A ship or caravan lost to a curse is never drawn, only told.
+- At 1366 × 768 `#olympus`'s four warning lines cover Atalanta's hall, and at 1280 × 720 Olympus's label crowds Thebes' on the map of Greece.
+- A festival at a shrine with no road out is held with no procession, and only the message says so.
+- A demo's "Two years" mood chart on Olympus starts nearly empty, because the gods were off in its history.
+- A god with a sanctuary, a shrine and monthly offerings stops just short of loving, so "three gods loving" needs festivals or blessings on top. I left the numbers alone.
+- `#olympus`'s frame takes about two and a half times `#order`'s work on this machine. It needs a profile on a quiet machine.
+- On the published page the browser asks for an icon the page doesn't name, and gets a not-found. It's harmless.
+
 ## Slice 57 — Blessings and wrath (1 Nov)
 
 The gods now act. A god who is warm or better gives their blessing when you ask it at their finished sanctuary, once a year, and walks into the city to give it; a loving god sometimes gives one unasked. An angry god curses the city, but never without warning: a month of omens first, with the curse, the day and the reasons named, and anything that lifts the god back past angry turns it. The curses do real damage through what the city already has (fires, rubble, plague, monsters, people leaving, thieves, the fields' yield). You weren't here while it was built: every choice below is mine, from the spec and the brief.
