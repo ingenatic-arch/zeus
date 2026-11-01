@@ -183,6 +183,51 @@ Recorded for later, not changed:
 - `#olympus`'s frame takes about two and a half times `#order`'s work on this machine. It needs a profile on a quiet machine.
 - On the published page the browser asks for an icon the page doesn't name, and gets a not-found. It's harmless.
 
+### The phase, all told
+
+Phase 7, "Beloved of the gods", in nine slices and a groundwork, shaped by your six answers: all twelve Olympians; gods in the streets towering about three storeys and glowing; your army can drive a monster off but only a hero slays it; sanctuaries as big staged works, as many as you like; wrath that does real damage but is always warned a month ahead and can be turned; and gods in war on both sides, in your streets. Like phase 6 it was built on four lines side by side (Olympus, Temples, Legends and Epiphany) and joined to the main line one by one, so the check-ins sit in the order they were joined. Here's what you can do now that you couldn't at the end of phase 6:
+- **Groundwork, the twelve.** Every god has a name, an epithet, a colour and emblem, what they love and hate, a rival, a sacred good, a monster and a mood with its reasons. Shrines can be dedicated to one god. The gods start watching once the city reaches 300 people.
+- **Slice 53, the twelve and their tempers.** Dedicate shrines, hold festivals with a procession through the streets, send offerings of a god's sacred good, and watch each god read your city for what they love and hate, mind when you honour their rival, and slide if you never honour them. Olympus (G) shows all twelve and why. Try `#gods` and `#procession`.
+- **Slice 54, sanctuaries rise.** Raise a great sanctuary to any god in three stages, with ox carts bringing marble and timber and masons at work, the god taking notice as it rises. Try `#sanctuaries` and `#twelve`.
+- **Slice 55, monsters at the gates.** The seven monsters are seen first, make a lair in a cave, marsh or den near the town, and come out every few weeks for their own kind of target. Your soldiers can wound one and drive it back, never kill it. Try `#monster` and `#bestiary`.
+- **Slice 56, the gods walk your streets.** A god who comes to love you arrives with their own flourish, towering and glowing, walks to the places they love and blesses each for a season. Try `#epiphany`.
+- **Slice 57, blessings and wrath.** Ask a warm god's blessing at their sanctuary once a year and watch them walk in to give it. An angry god sends a month of omens naming the curse, the day and the reasons, and then real damage (fire, rubble, plague, a monster, families leaving, a blight) unless you turn it. Try `#blessing`, `#omen` and `#wrath`.
+- **Slice 58, the gods of Greece.** Greece's cities have patron gods, and the twelve remember your wars, plunder, tribute, promises and festival gifts abroad. A loving god blesses your expeditions and an angry patron stands with their city. Mount Olympus stands on the map of Greece. Try `#greecegods`.
+- **Slice 59, heroes answer.** Raise a hero's hall, meet what the hero asks, and they come to live in your city and slay the monster you send them against in a long fight before its lair. Try `#hero` and `#slay`.
+- **Slice 60, gods in war.** A rival's angry patron marches with their band and strikes your soldiers; a god who loves you, with a finished sanctuary, answers your call and fights for you, and a hero can hold an enemy god at bay. Try `#godwar`, `#godduel` and `#herogod`.
+- **Slice 61, Beloved of the gods.** The fourth ambition, chased alongside the other three, with five milestones from a shrine to every god to six sanctuaries standing. `#olympus` has the whole phase at once: six sanctuaries, two gods loving, Hera angry with an omen running, Ares marching with Sparta, the Boar in its lair and Atalanta's hall waiting. The phase review made offerings able to turn an omen in time (up to three on the way at once while omens run), gave you a longer warning before a god joins a band, and fixed a save that could fail. Try `#olympus`.
+
+**Recorded for later**
+- From the spec: the underworld and Hades; oracles such as Delphi to ask the gods' plans; heroes' quests to far places on the map of Greece; minor gods and nymphs.
+- From phase 6, still waiting: a city built from nothing stays broke and flat for years; crime and sickness barely press a well-run town; harsh law has no standing cost; the large wooded coast is the heaviest view; the new-game preview holds the game while it's drawn; ships anchoring past shallow shelves; war fleets never prey on a free ally's coin ships; idle workers in `#order`; the map of Greece's fading labels and overlapping triremes; the militia's pale banner.
+- From the way:
+  - a god who stays home because the band was already too near says nothing;
+  - a ship or caravan lost to a curse is told, never drawn;
+  - at 1366 × 768 `#olympus`'s warning lines cover Atalanta's hall, and at 1280 × 720 Olympus's label on the map of Greece crowds Thebes';
+  - a festival at a shrine with no road out has no procession;
+  - a demo's two-year mood chart on Olympus starts nearly empty, because the gods weren't watching in its history;
+  - `#olympus`'s frame takes about two and a half times `#order`'s work on this machine, cause not yet found;
+  - the published page asks for an icon it doesn't name (harmless).
+
+**Budgets that moved** (phase 6's end against now, on this machine with software graphics and a loaded machine, so times are rough)
+- **Download:** the game's own files went from 998 KB to 1,128 KB compressed; the prepared towns from 4.5 MB to 5.4 MB, but each demo fetches only its own (the largest 93 KB, `#olympus`).
+- **Load:** the bare link was ready in 2.5 s at a quieter moment. The median demo took 2.25 s; seven took over 3 s on this loaded machine (`#delta`, `#landlarge`, `#goods`, `#order`, `#olympus`, `#bigwoods`, `#slay`, all between 3.3 and 3.7 s). Please tell me if any feel slow on your laptop.
+- **Drawing:** `#town`, `#empire` and `#order` draw exactly what they did. `#olympus` draws 2.34 million triangles in 134 draws.
+- **Frame work:** `#olympus` is the one to watch: about 2.5 times `#order`'s work before drawing on this machine.
+- **Time per tick:** `#town` 0.51 to 0.59 ms, `#empire` 1.04 to 1.09 ms, `#order` 1.07 to 1.19 ms; `#olympus` 1.87 ms.
+- **Saves:** `#town` 194 KB to 195 KB; `#empire` 307 KB; `#olympus` 505 KB.
+- **Tests:** 783 at the start of the phase, now 961. Saves from phase 6 and from every step of this phase still load.
+
+**Questions for you**
+- Do the gods feel like another kind of diplomacy? Play `#olympus` for a few years and tell me.
+- Is neglect too mild? Six years of ignoring the gods left them all displeased, with no omens and no monsters, and the town grew.
+- Is loving too hard? A god with a shrine, a sanctuary and monthly offerings stops just short of loving, so three loving gods at once takes festivals or blessings on top.
+- Turning an omen: up to three offerings at once while omens run, or should festivals stay the main way?
+- Are the gods too strong in war? With no god called, Ares fells 26 of your 32 soldiers in `#godwar`.
+- A monster stays for a hero whose hall stands, even when its god has turned warm. Keep that, or change the heroes' demands instead?
+- For your eye: are heroes tall enough (Perseus at Ares' feet in `#herogod`), and is the god beside a band on the map of Greece easy to see?
+- What should the next phase be?
+
 ## Slice 57 — Blessings and wrath (1 Nov)
 
 The gods now act. A god who is warm or better gives their blessing when you ask it at their finished sanctuary, once a year, and walks into the city to give it; a loving god sometimes gives one unasked. An angry god curses the city, but never without warning: a month of omens first, with the curse, the day and the reasons named, and anything that lifts the god back past angry turns it. The curses do real damage through what the city already has (fires, rubble, plague, monsters, people leaving, thieves, the fields' yield). You weren't here while it was built: every choice below is mine, from the spec and the brief.
